@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "universal_config",
+  "version": "${version}",
+  "name": "Universal Config",
+  "description": "Share Minecraft keybind and mod configuration profiles across instances with backups and compatibility warnings.",
+  "authors": [
+    "Codex"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/universal_config/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.example.universalconfig.fabric.UniversalConfigMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": ">=1.20.1",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}
