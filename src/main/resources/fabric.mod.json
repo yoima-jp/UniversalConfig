@@ -12,6 +12,9 @@
   "icon": "assets/universal_config/icon.png",
   "environment": "client",
   "entrypoints": {
+    "preLaunch": [
+      "com.example.universalconfig.fabric.UniversalConfigPreLaunch"
+    ],
     "client": [
       "com.example.universalconfig.fabric.UniversalConfigMod"
     ]

@@ -1,7 +1,6 @@
 package com.example.universalconfig.fabric;
 
 import com.example.universalconfig.core.FileOperationLogger;
-import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.UniversalConfigException;
 import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.UniversalConfigSettings;
@@ -23,7 +22,7 @@ public final class UniversalConfigMod implements ClientModInitializer {
     public static final String MOD_ID = "universal_config";
 
     private KeyBinding openKey;
-    private boolean pendingImportChecked;
+    private boolean pendingImportLogged;
 
     @Override
     public void onInitializeClient() {
@@ -44,7 +43,7 @@ public final class UniversalConfigMod implements ClientModInitializer {
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (screen instanceof TitleScreen) {
-                applyPendingImportOnce(client);
+                logPendingImportStateOnce(client);
                 Screens.getButtons(screen).add(ButtonWidget.builder(
                         Text.literal("Universal Config"),
                         button -> client.setScreen(new ProfileListScreen(screen))
@@ -57,28 +56,17 @@ public final class UniversalConfigMod implements ClientModInitializer {
         return MinecraftClient.getInstance();
     }
 
-    private void applyPendingImportOnce(MinecraftClient client) {
-        if (pendingImportChecked) {
+    private void logPendingImportStateOnce(MinecraftClient client) {
+        if (pendingImportLogged) {
             return;
         }
-        pendingImportChecked = true;
+        pendingImportLogged = true;
         try {
             UniversalConfigSettings settings = UniversalConfigPaths.loadOrCreateSettings(client.runDirectory.toPath());
-            ProfileService service = new ProfileService(settings);
-            if (service.readPendingImport(client.runDirectory.toPath()) == null) {
-                FileOperationLogger.info("APPLY_PENDING_IMPORT", client.runDirectory.toPath(), "no pending import");
-                return;
-            }
-            ProfileService.ApplyResult result = service.applyPendingImport(
-                    client.runDirectory.toPath(),
-                    FabricEnvironmentDetector.detect(client.runDirectory.toPath())
-            );
-            client.options.load();
-            KeyBinding.updateKeysByCode();
-            client.options.write();
-            FileOperationLogger.info("APPLY_PENDING_IMPORT", client.runDirectory.toPath(), "complete backup=" + result.backupPath());
+            FileOperationLogger.info("TITLE_SCREEN_READY", client.runDirectory.toPath(),
+                    "settingsRoot=" + settings.rootDirectory());
         } catch (UniversalConfigException | RuntimeException ex) {
-            FileOperationLogger.failure("APPLY_PENDING_IMPORT", client.runDirectory.toPath(), "failed", ex);
+            FileOperationLogger.failure("TITLE_SCREEN_READY", client.runDirectory.toPath(), "failed", ex);
         }
     }
 }

@@ -49,7 +49,7 @@ build/libs/
 2. Open Minecraft and use the `Universal Config` button on the title menu.
 3. Use the profile list screen to create, inspect, schedule, duplicate, delete, or export profiles.
 4. Review warnings, then choose the next-start import reservation button.
-5. Restart Minecraft. Universal Config applies the reserved profile during startup and creates a backup first.
+5. Restart Minecraft. Universal Config applies the reserved profile during Fabric pre-launch, before Minecraft reads `options.txt` and common config files, and creates a backup first.
 6. Use the backup screen to restore prior settings if needed.
 
 Scheduled imports are stored in the current instance at:
