@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ProfileManifest {
-    public String format = "universal-config-profile";
-    public int formatVersion = 1;
+    public String format = UniversalConfigFormat.PROFILE_FORMAT;
+    public int formatVersion = UniversalConfigFormat.FORMAT_VERSION;
     public String id;
     public String name;
     public String description;

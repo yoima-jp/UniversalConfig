@@ -76,13 +76,21 @@ Universal Config intentionally does not include these folders:
 
 Profiles are for configuration sharing, not complete instance cloning.
 
+## Development Layout
+
+- Persistent paths and profile archive entry names are defined in `UniversalConfigFormat`.
+- Minecraft option allowlists and config file restrictions are defined in `MinecraftConfigPolicy`.
+- Filesystem path construction is defined in `UniversalConfigPaths`.
+
+When adding a supported option or changing a file name, update the corresponding definition first and add a focused test. Do not duplicate these values in adapters or screens.
+
 ## Verification
 
 ```powershell
 gradle check
 ```
 
-The current tests cover ZIP Slip rejection and keybind-only extraction from `options.txt`.
+The current tests cover ZIP Slip rejection, keybind and client-option extraction, and the shared format/policy definitions.
 
 ## Logs
 

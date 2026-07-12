@@ -26,9 +26,10 @@ public final class FileOperationLogger {
             return;
         }
         configuredRoot = root;
-        Path logsRoot = root.resolve("logs");
-        launchLogFile = logsRoot.resolve("launches").resolve("universal-config-" + LAUNCH_ID + ".log");
-        latestLogFile = logsRoot.resolve("latest.log");
+        Path logsRoot = root.resolve(UniversalConfigFormat.LOGS_DIRECTORY_NAME);
+        launchLogFile = logsRoot.resolve(UniversalConfigFormat.LAUNCH_LOGS_DIRECTORY_NAME)
+                .resolve(UniversalConfigFormat.LAUNCH_LOG_FILE_PREFIX + LAUNCH_ID + ".log");
+        latestLogFile = logsRoot.resolve(UniversalConfigFormat.LATEST_LOG_FILE_NAME);
         try {
             Files.createDirectories(launchLogFile.getParent());
             Files.createDirectories(latestLogFile.getParent());

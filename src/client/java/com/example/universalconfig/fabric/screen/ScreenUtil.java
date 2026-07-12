@@ -72,9 +72,9 @@ final class ScreenUtil {
             client.options.load();
             KeyBinding.updateKeysByCode();
             client.options.write();
-            FileOperationLogger.info("RELOAD_CLIENT_OPTIONS", instancePath().resolve("options.txt"), "load/updateKeysByCode/write");
+            FileOperationLogger.info("RELOAD_CLIENT_OPTIONS", UniversalConfigPaths.optionsFile(instancePath()), "load/updateKeysByCode/write");
         } catch (RuntimeException ex) {
-            FileOperationLogger.failure("RELOAD_CLIENT_OPTIONS", instancePath().resolve("options.txt"), "failed", ex);
+            FileOperationLogger.failure("RELOAD_CLIENT_OPTIONS", UniversalConfigPaths.optionsFile(instancePath()), "failed", ex);
             throw new UniversalConfigException("Minecraftの設定再読み込みに失敗しました。再起動前に設定が戻る可能性があります。", ex);
         }
     }

@@ -12,7 +12,7 @@ public final class Checksums {
     public static ChecksumDocument create(Map<String, byte[]> entries) throws UniversalConfigException {
         ChecksumDocument document = new ChecksumDocument();
         for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
-            if (!"checksums.json".equals(entry.getKey())) {
+            if (!UniversalConfigFormat.CHECKSUMS_ENTRY.equals(entry.getKey())) {
                 document.files.put(entry.getKey(), sha256(entry.getValue()));
             }
         }

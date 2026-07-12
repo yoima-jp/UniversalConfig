@@ -15,7 +15,7 @@ class GenericAdapterTest {
 
     @Test
     void extractsOnlyKeybindLinesFromOptions() throws Exception {
-        Path options = tempDir.resolve("options.txt");
+        Path options = tempDir.resolve(UniversalConfigFormat.OPTIONS_FILE_NAME);
         Files.writeString(options, String.join("\n",
                 "lang:ja_jp",
                 "key_key.forward:key.keyboard.w",
@@ -33,7 +33,7 @@ class GenericAdapterTest {
 
     @Test
     void extractsSafeClientOptionsFragments() throws Exception {
-        Path options = tempDir.resolve("options.txt");
+        Path options = tempDir.resolve(UniversalConfigFormat.OPTIONS_FILE_NAME);
         Files.writeString(options, String.join("\n",
                 "lang:ja_jp",
                 "soundCategory_master:0.25",

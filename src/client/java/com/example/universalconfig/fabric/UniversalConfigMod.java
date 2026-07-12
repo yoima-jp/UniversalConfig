@@ -2,6 +2,7 @@ package com.example.universalconfig.fabric;
 
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.core.UniversalConfigException;
+import com.example.universalconfig.core.UniversalConfigFormat;
 import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.UniversalConfigSettings;
 import com.example.universalconfig.fabric.screen.ProfileListScreen;
@@ -19,7 +20,7 @@ import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 public final class UniversalConfigMod implements ClientModInitializer {
-    public static final String MOD_ID = "universal_config";
+    public static final String MOD_ID = UniversalConfigFormat.MOD_ID;
 
     private KeyBinding openKey;
     private boolean pendingImportLogged;

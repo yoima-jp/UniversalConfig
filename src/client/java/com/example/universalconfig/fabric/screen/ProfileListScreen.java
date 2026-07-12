@@ -3,6 +3,7 @@ package com.example.universalconfig.fabric.screen;
 import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.ProfileSummary;
 import com.example.universalconfig.core.UniversalConfigException;
+import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.core.PendingImport;
 import net.minecraft.client.gui.DrawContext;
@@ -112,7 +113,7 @@ public final class ProfileListScreen extends Screen {
 
     private void export(Path path) {
         try {
-            Path exported = ScreenUtil.service().exportProfile(path, ScreenUtil.instancePath().resolve("universal-config-exports"));
+            Path exported = ScreenUtil.service().exportProfile(path, UniversalConfigPaths.exportDirectory(ScreenUtil.instancePath()));
             status = Text.literal("エクスポート: " + exported);
         } catch (UniversalConfigException ex) {
             status = ScreenUtil.errorText(ex);

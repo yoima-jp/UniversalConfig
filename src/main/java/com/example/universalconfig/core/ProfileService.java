@@ -33,10 +33,10 @@ public final class ProfileService {
         }
         try (var stream = Files.list(profiles)) {
             List<ProfileSummary> summaries = new ArrayList<>();
-            for (Path profile : stream.filter(path -> path.getFileName().toString().endsWith(".ucp")).toList()) {
+            for (Path profile : stream.filter(path -> path.getFileName().toString().endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION)).toList()) {
                 try (ZipArchiveReader reader = new ZipArchiveReader(profile)) {
-                    if (reader.exists("manifest.json")) {
-                        summaries.add(new ProfileSummary(profile, JsonDocuments.read(reader, "manifest.json", ProfileManifest.class)));
+                    if (reader.exists(UniversalConfigFormat.MANIFEST_ENTRY)) {
+                        summaries.add(new ProfileSummary(profile, JsonDocuments.read(reader, UniversalConfigFormat.MANIFEST_ENTRY, ProfileManifest.class)));
                     }
                 } catch (IOException | UniversalConfigException ignored) {
                     // Broken profiles are intentionally skipped here; loading surfaces detailed errors.
@@ -60,10 +60,10 @@ public final class ProfileService {
         }
         try (var stream = Files.list(backups)) {
             List<BackupSummary> summaries = new ArrayList<>();
-            for (Path backup : stream.filter(path -> path.getFileName().toString().endsWith(".ucbackup")).toList()) {
+            for (Path backup : stream.filter(path -> path.getFileName().toString().endsWith(UniversalConfigFormat.BACKUP_FILE_EXTENSION)).toList()) {
                 try (ZipArchiveReader reader = new ZipArchiveReader(backup)) {
-                    BackupManifest manifest = reader.exists("backup-manifest.json")
-                            ? JsonDocuments.read(reader, "backup-manifest.json", BackupManifest.class)
+                    BackupManifest manifest = reader.exists(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY)
+                            ? JsonDocuments.read(reader, UniversalConfigFormat.BACKUP_MANIFEST_ENTRY, BackupManifest.class)
                             : new BackupManifest();
                     summaries.add(new BackupSummary(backup, manifest, reader.entries()));
                 } catch (IOException | UniversalConfigException ignored) {
@@ -100,11 +100,11 @@ public final class ProfileService {
         Path destination = uniqueProfilePath(manifest.id);
         FileOperationLogger.info("CREATE_PROFILE", destination, "name=" + manifest.name);
         try (ProfileArchiveWriter.InMemory writer = new ProfileArchiveWriter.InMemory()) {
-            writer.addString("manifest.json", JsonDocuments.toJson(manifest));
+            writer.addString(UniversalConfigFormat.MANIFEST_ENTRY, JsonDocuments.toJson(manifest));
             adapterRegistry.adapterFor(instancePath).exportProfile(instancePath, writer, options, environment);
-            writer.addString("README.txt", "Universal Config profile. Apply only after reviewing warnings and creating a backup.\n");
+            writer.addString(UniversalConfigFormat.PROFILE_README_ENTRY, "Universal Config profile. Apply only after reviewing warnings and creating a backup.\n");
             ChecksumDocument checksums = Checksums.create(writer.pendingEntries());
-            writer.addString("checksums.json", JsonDocuments.toJson(checksums));
+            writer.addString(UniversalConfigFormat.CHECKSUMS_ENTRY, JsonDocuments.toJson(checksums));
             ZipArchiveWriter.write(destination, writer.pendingEntries());
             FileOperationLogger.info("CREATE_PROFILE", destination, "complete entries=" + writer.pendingEntries().size());
             return destination;
@@ -165,8 +165,8 @@ public final class ProfileService {
         }
         PendingImport pending = JsonDocuments.read(pendingPath, PendingImport.class);
         if (pending == null
-                || !"universal-config-pending-import".equals(pending.format)
-                || pending.formatVersion != 1
+                || !UniversalConfigFormat.PENDING_IMPORT_FORMAT.equals(pending.format)
+                || pending.formatVersion != UniversalConfigFormat.FORMAT_VERSION
                 || pending.profilePath == null
                 || pending.profilePath.isBlank()) {
             throw new UniversalConfigException("Invalid pending import file: " + pendingPath);
@@ -207,8 +207,8 @@ public final class ProfileService {
     public void restore(Path instancePath, Path backupPath) throws UniversalConfigException {
         FileOperationLogger.info("RESTORE_BACKUP", backupPath, "start instance=" + instancePath.toAbsolutePath().normalize());
         try (ZipArchiveReader reader = new ZipArchiveReader(backupPath)) {
-            if (!reader.exists("backup-manifest.json")) {
-                throw new UniversalConfigException("backup-manifest.json is missing.");
+            if (!reader.exists(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY)) {
+                throw new UniversalConfigException(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY + " is missing.");
             }
             adapterRegistry.adapterFor(instancePath).restore(instancePath, reader);
             FileOperationLogger.info("RESTORE_BACKUP", backupPath, "complete");
@@ -219,14 +219,14 @@ public final class ProfileService {
     }
 
     public Path pendingImportPath(Path instancePath) {
-        return instancePath.resolve("config").resolve("universal_config_pending_import.json");
+        return UniversalConfigPaths.pendingImportFile(instancePath);
     }
 
     public ProfileManifest readManifest(Path profilePath) throws UniversalConfigException {
         FileOperationLogger.info("READ_MANIFEST", profilePath, "start");
         try (ZipArchiveReader reader = new ZipArchiveReader(profilePath)) {
             requireProfile(reader);
-            return JsonDocuments.read(reader, "manifest.json", ProfileManifest.class);
+            return JsonDocuments.read(reader, UniversalConfigFormat.MANIFEST_ENTRY, ProfileManifest.class);
         } catch (IOException ex) {
             FileOperationLogger.failure("READ_MANIFEST", profilePath, "failed", ex);
             throw new UniversalConfigException("Failed to read profile manifest.", ex);
@@ -236,7 +236,8 @@ public final class ProfileService {
     public void deleteProfile(Path profilePath) throws UniversalConfigException {
         Path profilesRoot = UniversalConfigPaths.profilesDirectory(settings).toAbsolutePath().normalize();
         Path normalized = profilePath.toAbsolutePath().normalize();
-        if (!normalized.startsWith(profilesRoot) || !normalized.getFileName().toString().endsWith(".ucp")) {
+        if (!normalized.startsWith(profilesRoot)
+                || !normalized.getFileName().toString().endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION)) {
             throw new UniversalConfigException("Refusing to delete file outside profiles directory: " + profilePath);
         }
         try {
@@ -276,11 +277,13 @@ public final class ProfileService {
     }
 
     private void requireProfile(ProfileArchiveReader reader) throws UniversalConfigException {
-        if (!reader.exists("manifest.json")) {
-            throw new UniversalConfigException("manifest.json is missing.");
+        if (!reader.exists(UniversalConfigFormat.MANIFEST_ENTRY)) {
+            throw new UniversalConfigException(UniversalConfigFormat.MANIFEST_ENTRY + " is missing.");
         }
-        ProfileManifest manifest = JsonDocuments.read(reader, "manifest.json", ProfileManifest.class);
-        if (manifest == null || !"universal-config-profile".equals(manifest.format) || manifest.formatVersion != 1) {
+        ProfileManifest manifest = JsonDocuments.read(reader, UniversalConfigFormat.MANIFEST_ENTRY, ProfileManifest.class);
+        if (manifest == null
+                || !UniversalConfigFormat.PROFILE_FORMAT.equals(manifest.format)
+                || manifest.formatVersion != UniversalConfigFormat.FORMAT_VERSION) {
             throw new UniversalConfigException("Unsupported Universal Config profile format.");
         }
     }
@@ -294,10 +297,10 @@ public final class ProfileService {
             FileOperationLogger.failure("CREATE_DIRECTORY", directory, "profiles directory", ex);
             throw new UniversalConfigException("Failed to create profiles directory.", ex);
         }
-        Path candidate = directory.resolve(slug + ".ucp");
+        Path candidate = directory.resolve(slug + UniversalConfigFormat.PROFILE_FILE_EXTENSION);
         int counter = 2;
         while (Files.exists(candidate)) {
-            candidate = directory.resolve(slug + "-" + counter + ".ucp");
+            candidate = directory.resolve(slug + "-" + counter + UniversalConfigFormat.PROFILE_FILE_EXTENSION);
             counter++;
         }
         return candidate;

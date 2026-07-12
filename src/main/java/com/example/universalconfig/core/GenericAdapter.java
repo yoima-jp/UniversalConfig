@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -19,57 +20,25 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public final class GenericAdapter implements ProfileAdapter {
-    private static final Set<String> DENIED_TOP_LEVEL = Set.of(
-            "mods", "saves", "logs", "crash-reports", "resourcepacks", "shaderpacks", "screenshots"
-    );
-    private static final Set<String> CLIENT_OPTION_KEYS = Set.of(
-            "lang",
-            "gamma",
-            "fov",
-            "guiScale",
-            "soundDevice",
-            "autoJump",
-            "operatorItemsTab",
-            "touchscreen",
-            "fullscreen",
-            "bobView",
-            "darkMojangStudiosBackground",
-            "hideLightningFlashes",
-            "hideSplashTexts",
-            "panoramaScrollSpeed",
-            "pauseOnLostFocus",
-            "enableVsync",
-            "entityShadows",
-            "forceUnicodeFont",
-            "discrete_mouse_scroll",
-            "mouseSensitivity",
-            "invertYMouse",
-            "rawMouseInput",
-            "reducedDebugInfo",
-            "showSubtitles",
-            "directionalAudio",
-            "narrator",
-            "tutorialStep"
-    );
-
     @Override
     public boolean detect(Path instancePath) {
-        return Files.exists(instancePath.resolve("options.txt")) || Files.isDirectory(instancePath.resolve("config"));
+        return Files.exists(optionsPath(instancePath)) || Files.isDirectory(configPath(instancePath));
     }
 
     @Override
     public void exportProfile(Path instancePath, ProfileArchiveWriter writer, ProfileCreateOptions options, MinecraftEnvironment environment)
-            throws UniversalConfigException {
+        throws UniversalConfigException {
+        Path optionsPath = optionsPath(instancePath);
         if (options.includeKeybinds) {
-            KeybindsDocument keybinds = extractKeybinds(instancePath.resolve("options.txt"));
-            writerAddJson(writer, "profile/keybinds.json", keybinds);
-            FileOperationLogger.info("EXPORT_KEYBINDS", instancePath.resolve("options.txt"), "bindings=" + keybinds.bindings.size());
+            KeybindsDocument keybinds = extractKeybinds(optionsPath);
+            writerAddJson(writer, UniversalConfigFormat.PROFILE_KEYBINDS_ENTRY, keybinds);
+            FileOperationLogger.info("EXPORT_KEYBINDS", optionsPath, "bindings=" + keybinds.bindings.size());
         }
 
         if (options.includeClientOptions) {
-            OptionsFragmentsDocument fragments = extractOptionsFragments(instancePath.resolve("options.txt"));
-            writerAddJson(writer, "profile/options-fragments.json", fragments);
-            FileOperationLogger.info("EXPORT_OPTIONS_FRAGMENTS", instancePath.resolve("options.txt"), "options=" + fragments.options.size());
+            OptionsFragmentsDocument fragments = extractOptionsFragments(optionsPath);
+            writerAddJson(writer, UniversalConfigFormat.PROFILE_OPTIONS_ENTRY, fragments);
+            FileOperationLogger.info("EXPORT_OPTIONS_FRAGMENTS", optionsPath, "options=" + fragments.options.size());
         }
 
         if (options.includeModConfigs) {
@@ -78,7 +47,7 @@ public final class GenericAdapter implements ProfileAdapter {
                 try {
                     byte[] bytes = Files.readAllBytes(source);
                     FileOperationLogger.info("READ_CONFIG", source, "bytes=" + bytes.length);
-                    writer.addBytes("profile/config-files/" + relative.replace('\\', '/'), bytes);
+                    writer.addBytes(UniversalConfigFormat.profileConfigEntry(relative), bytes);
                     FileOperationLogger.info("EXPORT_CONFIG", source, relative);
                 } catch (IOException ex) {
                     FileOperationLogger.failure("EXPORT_CONFIG", source, relative, ex);
@@ -90,24 +59,25 @@ public final class GenericAdapter implements ProfileAdapter {
 
     @Override
     public void importProfile(Path instancePath, ProfileArchiveReader reader, ProfileDiff diff) throws UniversalConfigException {
-        if (reader.exists("profile/keybinds.json")) {
-            KeybindsDocument keybinds = JsonDocuments.read(reader, "profile/keybinds.json", KeybindsDocument.class);
-            applyKeybinds(instancePath.resolve("options.txt"), keybinds, diff);
+        Path optionsPath = optionsPath(instancePath);
+        if (reader.exists(UniversalConfigFormat.PROFILE_KEYBINDS_ENTRY)) {
+            KeybindsDocument keybinds = JsonDocuments.read(reader, UniversalConfigFormat.PROFILE_KEYBINDS_ENTRY, KeybindsDocument.class);
+            applyKeybinds(optionsPath, keybinds, diff);
         }
 
-        if (reader.exists("profile/options-fragments.json")) {
-            OptionsFragmentsDocument fragments = JsonDocuments.read(reader, "profile/options-fragments.json", OptionsFragmentsDocument.class);
-            applyOptionsFragments(instancePath.resolve("options.txt"), fragments, diff);
+        if (reader.exists(UniversalConfigFormat.PROFILE_OPTIONS_ENTRY)) {
+            OptionsFragmentsDocument fragments = JsonDocuments.read(reader, UniversalConfigFormat.PROFILE_OPTIONS_ENTRY, OptionsFragmentsDocument.class);
+            applyOptionsFragments(optionsPath, fragments, diff);
         }
 
         for (String entry : reader.entries()) {
-            if (!entry.startsWith("profile/config-files/")) {
+            if (!UniversalConfigFormat.isProfileConfigEntry(entry)) {
                 continue;
             }
-            String relative = entry.substring("profile/config-files/".length());
+            String relative = UniversalConfigFormat.profileConfigRelativePath(entry);
             if (isUniversalConfigInternalPath(relative)) {
-                diff.skippedItems.add("config/" + relative + " (Universal Config internal file)");
-                FileOperationLogger.info("SKIP_INTERNAL_CONFIG", instancePath.resolve("config").resolve(relative), entry);
+                diff.skippedItems.add(configDisplayPath(relative) + " (Universal Config internal file)");
+                FileOperationLogger.info("SKIP_INTERNAL_CONFIG", configPath(instancePath).resolve(relative), entry);
                 continue;
             }
             Path target = safeConfigPath(instancePath, relative);
@@ -121,7 +91,7 @@ public final class GenericAdapter implements ProfileAdapter {
                 }
             }
             try (InputStream input = reader.open(entry)) {
-                Files.copy(input, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
                 FileOperationLogger.info("APPLY_CONFIG", target, entry);
             } catch (IOException ex) {
                 FileOperationLogger.failure("APPLY_CONFIG", target, entry, ex);
@@ -133,13 +103,13 @@ public final class GenericAdapter implements ProfileAdapter {
     @Override
     public ProfileDiff diff(Path instancePath, ProfileArchiveReader reader, MinecraftEnvironment environment) throws UniversalConfigException {
         ProfileDiff diff = new ProfileDiff();
-        ProfileManifest manifest = JsonDocuments.read(reader, "manifest.json", ProfileManifest.class);
+        ProfileManifest manifest = JsonDocuments.read(reader, UniversalConfigFormat.MANIFEST_ENTRY, ProfileManifest.class);
         addCompatibilityWarnings(diff, manifest, environment);
         verifyChecksums(reader, diff);
 
-        if (reader.exists("profile/keybinds.json")) {
-            KeybindsDocument keybinds = JsonDocuments.read(reader, "profile/keybinds.json", KeybindsDocument.class);
-            Map<String, String> current = currentKeybindValues(instancePath.resolve("options.txt"));
+        if (reader.exists(UniversalConfigFormat.PROFILE_KEYBINDS_ENTRY)) {
+            KeybindsDocument keybinds = JsonDocuments.read(reader, UniversalConfigFormat.PROFILE_KEYBINDS_ENTRY, KeybindsDocument.class);
+            Map<String, String> current = currentKeybindValues(optionsPath(instancePath));
             boolean modernOptions = usesModernKeybindValues(current);
             for (KeybindsDocument.KeyBindingEntry binding : keybinds.bindings) {
                 String value = binding.valueForCurrentOptions(modernOptions);
@@ -157,9 +127,9 @@ public final class GenericAdapter implements ProfileAdapter {
             }
         }
 
-        if (reader.exists("profile/options-fragments.json")) {
-            OptionsFragmentsDocument fragments = JsonDocuments.read(reader, "profile/options-fragments.json", OptionsFragmentsDocument.class);
-            Map<String, String> currentOptions = currentOptionValues(instancePath.resolve("options.txt"), false);
+        if (reader.exists(UniversalConfigFormat.PROFILE_OPTIONS_ENTRY)) {
+            OptionsFragmentsDocument fragments = JsonDocuments.read(reader, UniversalConfigFormat.PROFILE_OPTIONS_ENTRY, OptionsFragmentsDocument.class);
+            Map<String, String> currentOptions = currentOptionValues(optionsPath(instancePath), false);
             for (OptionsFragmentsDocument.OptionEntry option : fragments.options) {
                 if (!isAllowedClientOptionKey(option.key)) {
                     diff.skippedItems.add(option.key + " (client option is not allowed)");
@@ -175,20 +145,20 @@ public final class GenericAdapter implements ProfileAdapter {
         }
 
         for (String entry : reader.entries()) {
-            if (!entry.startsWith("profile/config-files/")) {
+            if (!UniversalConfigFormat.isProfileConfigEntry(entry)) {
                 continue;
             }
-            String relative = entry.substring("profile/config-files/".length());
+            String relative = UniversalConfigFormat.profileConfigRelativePath(entry);
             if (isUniversalConfigInternalPath(relative)) {
-                diff.skippedItems.add("config/" + relative + " (Universal Config internal file)");
+                diff.skippedItems.add(configDisplayPath(relative) + " (Universal Config internal file)");
                 continue;
             }
             Path target = safeConfigPath(instancePath, relative);
             if (Files.exists(target)) {
-                diff.replacedFiles.add("config/" + relative);
+                diff.replacedFiles.add(configDisplayPath(relative));
                 diff.raiseRisk(RiskLevel.MEDIUM);
             } else {
-                diff.addedFiles.add("config/" + relative);
+                diff.addedFiles.add(configDisplayPath(relative));
             }
         }
 
@@ -207,17 +177,18 @@ public final class GenericAdapter implements ProfileAdapter {
         manifest.loader = environment.loaderId();
 
         String timestamp = manifest.createdAt.replace(":", "").replace("+", "-").replace(".", "-");
-        Path backupPath = UniversalConfigPaths.backupsDirectory(settings).resolve("backup-" + timestamp + ".ucbackup");
+        Path backupPath = UniversalConfigPaths.backupsDirectory(settings)
+                .resolve(UniversalConfigFormat.BACKUP_FILENAME_PREFIX + timestamp + UniversalConfigFormat.BACKUP_FILE_EXTENSION);
         try {
             Files.createDirectories(backupPath.getParent());
             FileOperationLogger.info("CREATE_DIRECTORY", backupPath.getParent(), "backup parent");
             try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(backupPath))) {
-                Path options = instancePath.resolve("options.txt");
+                Path options = optionsPath(instancePath);
                 if (Files.exists(options)) {
-                    addFileToBackup(output, options, "original/options.txt");
-                    manifest.files.add("options.txt");
+                    addFileToBackup(output, options, UniversalConfigFormat.BACKUP_ORIGINAL_DIRECTORY + UniversalConfigFormat.OPTIONS_FILE_NAME);
+                    manifest.files.add(UniversalConfigFormat.OPTIONS_FILE_NAME);
                 }
-                Path config = instancePath.resolve("config");
+                Path config = configPath(instancePath);
                 if (Files.isDirectory(config)) {
                     try (var stream = Files.walk(config)) {
                         for (Path source : stream.filter(Files::isRegularFile).toList()) {
@@ -226,15 +197,15 @@ public final class GenericAdapter implements ProfileAdapter {
                                 FileOperationLogger.info("SKIP_INTERNAL_CONFIG_BACKUP", source, relative);
                                 continue;
                             }
-                            addFileToBackup(output, source, "original/config/" + relative);
-                            manifest.files.add("config/" + relative);
+                            addFileToBackup(output, source, UniversalConfigFormat.backupConfigEntry(relative));
+                            manifest.files.add(configDisplayPath(relative));
                         }
                     }
                 }
-                output.putNextEntry(new ZipEntry("backup-manifest.json"));
+                output.putNextEntry(new ZipEntry(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY));
                 output.write(JsonDocuments.toJson(manifest).getBytes(StandardCharsets.UTF_8));
                 output.closeEntry();
-                FileOperationLogger.info("WRITE_ZIP_ENTRY", backupPath, "backup-manifest.json");
+                FileOperationLogger.info("WRITE_ZIP_ENTRY", backupPath, UniversalConfigFormat.BACKUP_MANIFEST_ENTRY);
             }
             FileOperationLogger.info("CREATE_BACKUP", backupPath, "files=" + manifest.files.size());
             return backupPath;
@@ -247,16 +218,16 @@ public final class GenericAdapter implements ProfileAdapter {
     @Override
     public void restore(Path instancePath, ProfileArchiveReader reader) throws UniversalConfigException {
         for (String entry : reader.entries()) {
-            if (!entry.startsWith("original/")) {
+            if (!UniversalConfigFormat.isBackupOriginalEntry(entry)) {
                 continue;
             }
-            String relative = entry.substring("original/".length());
+            String relative = UniversalConfigFormat.backupOriginalRelativePath(entry);
             Path target = ZipSecurity.safeResolve(instancePath, relative);
             try {
                 Files.createDirectories(target.getParent());
                 FileOperationLogger.info("CREATE_DIRECTORY", target.getParent(), "restore parent");
                 try (InputStream input = reader.open(entry)) {
-                    Files.copy(input, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
                     FileOperationLogger.info("RESTORE_FILE", target, entry);
                 }
             } catch (IOException ex) {
@@ -464,7 +435,7 @@ public final class GenericAdapter implements ProfileAdapter {
     }
 
     private List<String> selectConfigFiles(Path instancePath, ProfileCreateOptions options) throws UniversalConfigException {
-        Path configRoot = instancePath.resolve("config");
+        Path configRoot = configPath(instancePath);
         if (!Files.isDirectory(configRoot)) {
             FileOperationLogger.info("LIST_CONFIG", configRoot, "missing");
             return List.of();
@@ -473,7 +444,7 @@ public final class GenericAdapter implements ProfileAdapter {
             List<String> selected = new ArrayList<>();
             for (String relative : options.configRelativePaths) {
                 if (isUniversalConfigInternalPath(relative)) {
-                    FileOperationLogger.info("SKIP_INTERNAL_CONFIG_EXPORT", instancePath.resolve("config").resolve(relative), relative);
+                    FileOperationLogger.info("SKIP_INTERNAL_CONFIG_EXPORT", configRoot.resolve(relative), relative);
                     continue;
                 }
                 Path path = safeConfigPath(instancePath, relative);
@@ -498,51 +469,38 @@ public final class GenericAdapter implements ProfileAdapter {
     }
 
     private boolean allowedConfigPath(String relative) {
-        String lower = relative.toLowerCase(Locale.ROOT);
-        return lower.endsWith(".cfg")
-                || lower.endsWith(".json")
-                || lower.endsWith(".toml")
-                || lower.endsWith(".yaml")
-                || lower.endsWith(".yml")
-                || lower.endsWith(".properties")
-                || lower.endsWith(".conf")
-                || lower.endsWith(".txt");
+        return MinecraftConfigPolicy.isAllowedConfigFile(relative);
     }
 
     private boolean isAllowedClientOptionKey(String key) {
-        if (key == null || key.isBlank()) {
-            return false;
-        }
-        return CLIENT_OPTION_KEYS.contains(key)
-                || key.startsWith("soundCategory_")
-                || key.startsWith("modelPart_");
+        return MinecraftConfigPolicy.isAllowedClientOption(key);
     }
 
     private boolean isUniversalConfigInternalPath(String relative) {
         String normalized = relative.replace('\\', '/').toLowerCase(Locale.ROOT);
-        return normalized.equals("universal_config_settings.json")
-                || normalized.equals("universal_config_pending_import.json")
-                || normalized.startsWith("universal-config/")
-                || normalized.startsWith("universal_config/");
+        return normalized.equals(UniversalConfigFormat.LOCAL_SETTINGS_FILE_NAME)
+                || normalized.equals(UniversalConfigFormat.PENDING_IMPORT_FILE_NAME)
+                || normalized.startsWith(UniversalConfigFormat.LEGACY_INTERNAL_DIRECTORY_PREFIX)
+                || normalized.startsWith(UniversalConfigFormat.INTERNAL_DIRECTORY_PREFIX);
     }
 
     private Path safeConfigPath(Path instancePath, String relative) throws UniversalConfigException {
         String normalized = relative.replace('\\', '/');
         if (normalized.contains("/")) {
             String top = normalized.substring(0, normalized.indexOf('/')).toLowerCase(Locale.ROOT);
-            if (DENIED_TOP_LEVEL.contains(top)) {
+            if (MinecraftConfigPolicy.isDeniedConfigTopLevel(top)) {
                 throw new UniversalConfigException("Denied config path: " + relative);
             }
         }
-        return ZipSecurity.safeResolve(instancePath.resolve("config"), normalized);
+        return ZipSecurity.safeResolve(configPath(instancePath), normalized);
     }
 
     private void verifyChecksums(ProfileArchiveReader reader, ProfileDiff diff) throws UniversalConfigException {
-        if (!reader.exists("checksums.json")) {
-            diff.checksumWarnings.add("checksums.json is missing.");
+        if (!reader.exists(UniversalConfigFormat.CHECKSUMS_ENTRY)) {
+            diff.checksumWarnings.add(UniversalConfigFormat.CHECKSUMS_ENTRY + " is missing.");
             return;
         }
-        ChecksumDocument checksums = JsonDocuments.read(reader, "checksums.json", ChecksumDocument.class);
+        ChecksumDocument checksums = JsonDocuments.read(reader, UniversalConfigFormat.CHECKSUMS_ENTRY, ChecksumDocument.class);
         for (Map.Entry<String, String> expected : checksums.files.entrySet()) {
             try (InputStream input = reader.open(expected.getKey())) {
                 byte[] bytes = input.readAllBytes();
@@ -641,5 +599,17 @@ public final class GenericAdapter implements ProfileAdapter {
 
     private String displayNameFromKeyId(String id) {
         return id.replace("key_key.", "").replace("key_", "").replace('.', ' ');
+    }
+
+    private Path optionsPath(Path instancePath) {
+        return UniversalConfigPaths.optionsFile(instancePath);
+    }
+
+    private Path configPath(Path instancePath) {
+        return UniversalConfigPaths.configDirectory(instancePath);
+    }
+
+    private String configDisplayPath(String relativePath) {
+        return UniversalConfigFormat.CONFIG_DIRECTORY_NAME + "/" + relativePath.replace('\\', '/');
     }
 }
