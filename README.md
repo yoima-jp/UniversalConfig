@@ -106,3 +106,14 @@ File and profile operations are written to:
 The log includes profile listing, ZIP reads and writes, config exports and imports, pending import scheduling, startup import execution, backups, restores, deletes, exports, and client option reload attempts.
 
 Universal Config internal files such as `config/universal_config_settings.json` and `config/universal_config_pending_import.json` are skipped during profile export, import, and backup.
+
+## Discord通知
+
+GitHubのIssueとPRの作成・再オープン・クローズなどをDiscordへ通知できます。
+
+リポジトリの `Settings → Secrets and variables → Actions` に、次の2つのRepository secretを登録してください。
+
+- `DISCORD_ISSUE_WEBHOOK`: Issue通知用のDiscord Webhook URL
+- `DISCORD_PR_WEBHOOK`: PR通知用のDiscord Webhook URL
+
+Webhook URLはソースコード、Issue、チャットなどへ貼り付けず、漏えいした場合はDiscord側で再生成してください。
