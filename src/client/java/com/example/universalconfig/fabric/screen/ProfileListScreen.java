@@ -41,6 +41,9 @@ public final class ProfileListScreen extends Screen {
     private static final int SCROLLBAR_GAP = 6;
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_GAP = 4;
+    private static final int ACTION_BUTTON_ROWS = 3;
+    private static final int ACTION_BUTTON_GROUP_HEIGHT = ACTION_BUTTON_ROWS * BUTTON_HEIGHT
+            + (ACTION_BUTTON_ROWS - 1) * BUTTON_GAP;
 
     private static final int PANEL_COLOR = 0xB0101010;
     private static final int PANEL_HEADER_COLOR = 0x301F1F1F;
@@ -189,6 +192,13 @@ public final class ProfileListScreen extends Screen {
         return y + PANEL_PADDING;
     }
 
+    private int actionsButtonStartY() {
+        int contentTop = actionsPanelY() + ACTION_HEADER_HEIGHT;
+        int contentHeight = ACTION_PANEL_HEIGHT - ACTION_HEADER_HEIGHT;
+        int verticalInset = Math.max(0, (contentHeight - ACTION_BUTTON_GROUP_HEIGHT) / 2);
+        return contentTop + verticalInset;
+    }
+
     private int maxDetailScroll() {
         return Math.max(0, detailContentEndBaseY() - detailViewportBottom());
     }
@@ -220,7 +230,7 @@ public final class ProfileListScreen extends Screen {
         if (selected != null) {
             Path path = selected.path();
             int x = detailX();
-            int y = actionsPanelY() + ACTION_HEADER_HEIGHT + PANEL_PADDING;
+            int y = actionsButtonStartY();
             int buttonWidth = Math.max(70, (detailWidth() - BUTTON_GAP) / 2);
             int secondaryY = y + BUTTON_HEIGHT + BUTTON_GAP;
             int deleteY = secondaryY + BUTTON_HEIGHT + BUTTON_GAP;
