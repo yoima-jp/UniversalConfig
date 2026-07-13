@@ -3,11 +3,17 @@
   "id": "universal_config",
   "version": "${version}",
   "name": "Universal Config",
-  "description": "Share Minecraft keybind and mod configuration profiles across instances with backups and compatibility warnings.",
+  "description": "Share Minecraft keybinds, client settings, and mod configuration profiles across Minecraft instances.",
   "authors": [
-    "Codex"
+    "yoima-jp",
+    "tofuturu",
+    "tanzana7"
   ],
-  "contact": {},
+  "contact": {
+    "homepage": "https://modrinth.com/project/universal-config",
+    "sources": "https://github.com/tofuturu/UniversalConfig",
+    "modrinth": "universal-config"
+  },
   "license": "MIT",
   "icon": "assets/universal_config/icon.png",
   "environment": "client",

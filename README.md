@@ -1,6 +1,10 @@
 # Universal Config
 
-Universal Config is a Fabric client mod prototype for sharing Minecraft keybinds and mod configuration files across multiple instances through portable profiles.
+Universal Config is a Fabric client mod for sharing Minecraft keybinds and mod configuration files across multiple instances through portable profiles.
+
+Project pages:
+
+- Modrinth: https://modrinth.com/project/universal-config
 
 ## Current Scope
 
