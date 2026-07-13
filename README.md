@@ -37,8 +37,16 @@ The core profile logic is separated from Fabric UI code under `com.example.unive
 
 ## Build
 
+Java 17 or newer is required. Use the committed Gradle Wrapper so every developer and CI use the project-defined Gradle version.
+
 ```powershell
-gradle build
+.\gradlew.bat build
+```
+
+On Linux or macOS:
+
+```bash
+./gradlew build
 ```
 
 The remapped mod jar is generated under:
@@ -91,7 +99,13 @@ When adding a supported option or changing a file name, update the corresponding
 ## Verification
 
 ```powershell
-gradle check
+.\gradlew.bat check
+```
+
+To launch the development client on Windows:
+
+```powershell
+.\gradlew.bat runClient
 ```
 
 The current tests cover ZIP Slip rejection, keybind and client-option extraction, and the shared format/policy definitions.

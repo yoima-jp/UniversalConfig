@@ -1,10 +1,11 @@
 plugins {
-    id "fabric-loom" version "1.10-SNAPSHOT"
+    id "fabric-loom" version "1.10.5"
     id "maven-publish"
 }
 
 version = project.mod_version
 group = project.maven_group
+def resourceVersion = version.toString()
 
 base {
     archivesName = project.archives_base_name
@@ -26,16 +27,17 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-    implementation "com.google.code.gson:gson:2.11.0"
-    include "com.google.code.gson:gson:2.11.0"
-    testImplementation "org.junit.jupiter:junit-jupiter:5.10.3"
+    implementation "com.google.code.gson:gson:${project.gson_version}"
+    include "com.google.code.gson:gson:${project.gson_version}"
+    testImplementation "org.junit.jupiter:junit-jupiter:${project.junit_jupiter_version}"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:${project.junit_platform_version}"
 }
 
 processResources {
-    inputs.property "version", project.version
+    inputs.property "version", resourceVersion
 
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand "version": resourceVersion
     }
 }
 

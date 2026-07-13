@@ -17,6 +17,7 @@ class ZipSecurityTest {
     @Test
     void rejectsAbsoluteEntries() {
         assertThrows(UniversalConfigException.class, () -> ZipSecurity.validateRelativeEntryName("C:\\Windows\\System32\\drivers\\etc\\hosts"));
+        assertThrows(UniversalConfigException.class, () -> ZipSecurity.validateRelativeEntryName("C:relative-path.txt"));
         assertThrows(UniversalConfigException.class, () -> ZipSecurity.validateRelativeEntryName("/etc/passwd"));
     }
 

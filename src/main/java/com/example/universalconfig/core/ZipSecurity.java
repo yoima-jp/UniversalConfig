@@ -11,7 +11,10 @@ public final class ZipSecurity {
             throw new UniversalConfigException("ZIP entry name is empty.");
         }
         String normalizedSlashes = entryName.replace('\\', '/');
-        if (normalizedSlashes.startsWith("/") || normalizedSlashes.contains("../") || normalizedSlashes.equals("..")) {
+        if (normalizedSlashes.startsWith("/")
+                || hasWindowsDrivePrefix(normalizedSlashes)
+                || normalizedSlashes.contains("../")
+                || normalizedSlashes.equals("..")) {
             throw new UniversalConfigException("Unsafe ZIP entry path rejected: " + entryName);
         }
         Path path = Path.of(normalizedSlashes);
@@ -23,6 +26,12 @@ public final class ZipSecurity {
                 throw new UniversalConfigException("Parent traversal ZIP entry rejected: " + entryName);
             }
         }
+    }
+
+    private static boolean hasWindowsDrivePrefix(String entryName) {
+        return entryName.length() >= 2
+                && Character.isLetter(entryName.charAt(0))
+                && entryName.charAt(1) == ':';
     }
 
     public static Path safeResolve(Path destinationRoot, String entryName) throws UniversalConfigException {
