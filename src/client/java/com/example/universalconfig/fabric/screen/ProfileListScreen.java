@@ -59,6 +59,7 @@ public final class ProfileListScreen extends Screen {
     private List<ProfileSummary> profiles = new ArrayList<>();
     private PendingImport pendingImport;
     private Text status = Text.empty();
+    private Text pendingStatus = Text.empty();
     private int selectedProfileIndex;
     private int listScroll;
     private int detailScroll;
@@ -80,14 +81,16 @@ public final class ProfileListScreen extends Screen {
             profiles = service.listProfiles();
             pendingImport = service.readPendingImport(ScreenUtil.instancePath());
             selectedProfileIndex = profiles.isEmpty() ? -1 : Math.min(selectedProfileIndex, profiles.size() - 1);
-            status = pendingImport == null
-                    ? Text.translatable("screen.universal_config.common_folder", ".universal-config")
-                    : Text.translatable("screen.universal_config.pending_import", pendingImport.profilePath);
+            status = Text.translatable("screen.universal_config.common_folder", ".universal-config");
+            pendingStatus = pendingImport == null
+                    ? Text.empty()
+                    : Text.translatable("screen.universal_config.profile_pending_restart");
         } catch (UniversalConfigException ex) {
             profiles = List.of();
             pendingImport = null;
             selectedProfileIndex = -1;
             status = ScreenUtil.errorText(ex);
+            pendingStatus = Text.empty();
         }
     }
 
@@ -382,6 +385,9 @@ public final class ProfileListScreen extends Screen {
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 7, 0xFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer, Text.translatable("screen.universal_config.subtitle"), width / 2, 21, 0xFFBBBBBB);
         drawTrimmed(context, status.getString(), EDGE, 36, width - EDGE * 2, MUTED_TEXT_COLOR);
+        if (!pendingStatus.getString().isEmpty()) {
+            drawTrimmed(context, pendingStatus.getString(), EDGE, 46, width - EDGE * 2, 0xFFFFCC66);
+        }
     }
 
     private void drawPanels(DrawContext context) {

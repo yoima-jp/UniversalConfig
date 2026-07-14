@@ -31,12 +31,11 @@ public final class ProfileConfirmScreen extends Screen {
     @Override
     protected void init() {
         loadDiff();
+        int buttonLeft = width / 2 - 114;
         addDrawableChild(ButtonWidget.builder(Text.literal(scheduleButtonLabel()), button -> schedule())
-                .dimensions(width / 2 - 160, height - 30, 150, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("差分を再読み込み"), button -> loadDiff())
-                .dimensions(width / 2 - 4, height - 30, 120, 20).build());
+                .dimensions(buttonLeft, height - 30, 150, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("戻る"), button -> client.setScreen(parent))
-                .dimensions(width / 2 + 122, height - 30, 70, 20).build());
+                .dimensions(buttonLeft + 158, height - 30, 70, 20).build());
     }
 
     private void loadDiff() {
@@ -89,6 +88,7 @@ public final class ProfileConfirmScreen extends Screen {
             Path pendingPath = ScreenUtil.service().scheduleApplyOnNextStart(ScreenUtil.instancePath(), profilePath, ScreenUtil.environment());
             status = Text.literal("次回起動で読み込みます。予約: " + pendingPath);
             loadDiff();
+            client.setScreen(new ApplyScheduledScreen(parent));
         } catch (UniversalConfigException ex) {
             status = ScreenUtil.errorText(ex);
         }
