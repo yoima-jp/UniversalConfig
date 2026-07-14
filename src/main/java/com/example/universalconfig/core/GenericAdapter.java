@@ -130,9 +130,9 @@ public final class GenericAdapter implements ProfileAdapter {
         if (reader.exists(UniversalConfigFormat.PROFILE_OPTIONS_ENTRY)) {
             OptionsFragmentsDocument fragments = JsonDocuments.read(reader, UniversalConfigFormat.PROFILE_OPTIONS_ENTRY, OptionsFragmentsDocument.class);
             Map<String, String> currentOptions = currentOptionValues(optionsPath(instancePath), false);
-            for (OptionsFragmentsDocument.OptionEntry option : fragments.options) {
-                if (!isAllowedClientOptionKey(option.key)) {
-                    diff.skippedItems.add(option.key + " (client option is not allowed)");
+            for (OptionsFragmentsDocument.OptionEntry option : optionEntries(fragments)) {
+                if (!isValidClientOption(option)) {
+                    diff.skippedItems.add("Malformed client option skipped");
                     continue;
                 }
                 String currentValue = currentOptions.get(option.key);
@@ -276,7 +276,7 @@ public final class GenericAdapter implements ProfileAdapter {
         OptionsFragmentsDocument document = new OptionsFragmentsDocument();
         Map<String, String> options = currentOptionValues(optionsPath, true);
         for (Map.Entry<String, String> entry : options.entrySet()) {
-            if (!isAllowedClientOptionKey(entry.getKey())) {
+            if (!MinecraftConfigPolicy.isValidClientOption(entry.getKey(), entry.getValue())) {
                 continue;
             }
             OptionsFragmentsDocument.OptionEntry option = new OptionsFragmentsDocument.OptionEntry();
@@ -345,12 +345,12 @@ public final class GenericAdapter implements ProfileAdapter {
                     ? Files.readAllLines(optionsPath, StandardCharsets.UTF_8)
                     : new ArrayList<>();
             Map<String, OptionsFragmentsDocument.OptionEntry> requested = new LinkedHashMap<>();
-            for (OptionsFragmentsDocument.OptionEntry option : fragments.options) {
-                if (isAllowedClientOptionKey(option.key)) {
+            for (OptionsFragmentsDocument.OptionEntry option : optionEntries(fragments)) {
+                if (isValidClientOption(option)) {
                     requested.put(option.key, option);
                 } else {
-                    diff.skippedItems.add(option.key + " (client option is not allowed)");
-                    FileOperationLogger.info("SKIP_CLIENT_OPTION", optionsPath, option.key);
+                    diff.skippedItems.add("Malformed client option skipped");
+                    FileOperationLogger.info("SKIP_CLIENT_OPTION", optionsPath, "malformed entry");
                 }
             }
 
@@ -472,8 +472,16 @@ public final class GenericAdapter implements ProfileAdapter {
         return MinecraftConfigPolicy.isAllowedConfigFile(relative);
     }
 
-    private boolean isAllowedClientOptionKey(String key) {
-        return MinecraftConfigPolicy.isAllowedClientOption(key);
+    private List<OptionsFragmentsDocument.OptionEntry> optionEntries(OptionsFragmentsDocument document)
+            throws UniversalConfigException {
+        if (document == null || document.options == null) {
+            throw new UniversalConfigException("Profile client options are invalid.");
+        }
+        return document.options;
+    }
+
+    private boolean isValidClientOption(OptionsFragmentsDocument.OptionEntry option) {
+        return option != null && MinecraftConfigPolicy.isValidClientOption(option.key, option.value);
     }
 
     private boolean isUniversalConfigInternalPath(String relative) {

@@ -35,6 +35,9 @@
   "screen.universal_config.targets_unknown": "No settings information",
   "screen.universal_config.unknown": "Unknown",
   "screen.universal_config.target_keybinds": "Keys",
-  "screen.universal_config.target_client": "Client",
-  "screen.universal_config.target_mods": "Mods"
+  "screen.universal_config.target_client": "Minecraft",
+  "screen.universal_config.target_mods": "Mods",
+  "screen.universal_config.include_toggle": "%s: %s",
+  "screen.universal_config.include_enabled": "Include",
+  "screen.universal_config.include_disabled": "Exclude"
 }

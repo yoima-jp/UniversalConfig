@@ -22,7 +22,7 @@ The core profile logic is separated from Fabric UI code under `com.example.unive
 - Create a profile from the current instance.
 - Store profile metadata in `manifest.json`.
 - Store keybinds from `options.txt` without overwriting the full file.
-- Store safe client option fragments from `options.txt`, including language, sound categories, GUI scale, FOV, gamma, subtitles, narrator, mouse options, and model part toggles.
+- Store every non-keybind setting from `options.txt` without requiring a version-specific allowlist.
 - Store selected `config/` files as profile entries.
 - List shared `.ucp` profiles outside the current Minecraft instance.
 - Show load-time warnings for Minecraft version, loader, loader version, and untested versions.
@@ -74,7 +74,7 @@ The reservation is deleted automatically after a successful startup import. It c
 
 ## Safety Notes
 
-Universal Config does not overwrite the full `options.txt`. It only applies known safe option keys and keybind rows.
+Universal Config does not replace the full `options.txt`. It merges every stored option by key, preserves settings that only exist in the current instance, and handles keybind rows separately for format compatibility. A backup is created before a scheduled profile is applied.
 
 Universal Config intentionally does not include these folders:
 
@@ -91,10 +91,10 @@ Profiles are for configuration sharing, not complete instance cloning.
 ## Development Layout
 
 - Persistent paths and profile archive entry names are defined in `UniversalConfigFormat`.
-- Minecraft option allowlists and config file restrictions are defined in `MinecraftConfigPolicy`.
+- Minecraft option validation and config file restrictions are defined in `MinecraftConfigPolicy`.
 - Filesystem path construction is defined in `UniversalConfigPaths`.
 
-When adding a supported option or changing a file name, update the corresponding definition first and add a focused test. Do not duplicate these values in adapters or screens.
+When changing option validation or a shared file name, update the corresponding definition first and add a focused test. Do not duplicate these values in adapters or screens.
 
 ## Verification
 

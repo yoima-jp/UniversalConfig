@@ -32,17 +32,17 @@ public final class ProfileCreateScreen extends Screen {
         descriptionField.setText("キー設定とMod設定");
         addDrawableChild(descriptionField);
 
-        addDrawableChild(ButtonWidget.builder(toggleText("キーコンフィグ", includeKeybinds), button -> {
+        addDrawableChild(ButtonWidget.builder(toggleText("screen.universal_config.target_keybinds", includeKeybinds), button -> {
             includeKeybinds = !includeKeybinds;
-            button.setMessage(toggleText("キーコンフィグ", includeKeybinds));
+            button.setMessage(toggleText("screen.universal_config.target_keybinds", includeKeybinds));
         }).dimensions(width / 2 - 150, 126, 145, 20).build());
-        addDrawableChild(ButtonWidget.builder(toggleText("言語・音声など", includeClientOptions), button -> {
+        addDrawableChild(ButtonWidget.builder(toggleText("screen.universal_config.target_client", includeClientOptions), button -> {
             includeClientOptions = !includeClientOptions;
-            button.setMessage(toggleText("言語・音声など", includeClientOptions));
+            button.setMessage(toggleText("screen.universal_config.target_client", includeClientOptions));
         }).dimensions(width / 2 + 5, 126, 145, 20).build());
-        addDrawableChild(ButtonWidget.builder(toggleText("Mod設定", includeModConfigs), button -> {
+        addDrawableChild(ButtonWidget.builder(toggleText("screen.universal_config.target_mods", includeModConfigs), button -> {
             includeModConfigs = !includeModConfigs;
-            button.setMessage(toggleText("Mod設定", includeModConfigs));
+            button.setMessage(toggleText("screen.universal_config.target_mods", includeModConfigs));
         }).dimensions(width / 2 - 150, 152, 300, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("保存"), button -> create())
                 .dimensions(width / 2 - 104, height - 32, 100, 20).build());
@@ -50,8 +50,12 @@ public final class ProfileCreateScreen extends Screen {
                 .dimensions(width / 2 + 4, height - 32, 100, 20).build());
     }
 
-    private Text toggleText(String label, boolean enabled) {
-        return Text.literal(label + ": " + (enabled ? "含める" : "含めない"));
+    private Text toggleText(String labelKey, boolean enabled) {
+        return Text.translatable("screen.universal_config.include_toggle",
+                Text.translatable(labelKey),
+                Text.translatable(enabled
+                        ? "screen.universal_config.include_enabled"
+                        : "screen.universal_config.include_disabled"));
     }
 
     private void create() {
@@ -76,8 +80,7 @@ public final class ProfileCreateScreen extends Screen {
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 18, 0xFFFFFF);
         context.drawTextWithShadow(textRenderer, "プロファイル名", width / 2 - 150, 40, 0xDDDDDD);
         context.drawTextWithShadow(textRenderer, "説明", width / 2 - 150, 80, 0xDDDDDD);
-        context.drawTextWithShadow(textRenderer, "対象: キー設定、言語・音声などの安全なoptions行、config/内の設定ファイル", width / 2 - 150, 186, 0xBBBBBB);
-        context.drawTextWithShadow(textRenderer, status, width / 2 - 150, 206, 0xFF7777);
+        context.drawTextWithShadow(textRenderer, status, width / 2 - 150, 186, 0xFF7777);
         super.render(context, mouseX, mouseY, delta);
     }
 }

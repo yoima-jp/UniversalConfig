@@ -35,6 +35,9 @@
   "screen.universal_config.targets_unknown": "設定情報なし",
   "screen.universal_config.unknown": "不明",
   "screen.universal_config.target_keybinds": "キー設定",
-  "screen.universal_config.target_client": "クライアント設定",
-  "screen.universal_config.target_mods": "MOD設定"
+  "screen.universal_config.target_client": "Minecraft設定",
+  "screen.universal_config.target_mods": "MOD設定",
+  "screen.universal_config.include_toggle": "%s: %s",
+  "screen.universal_config.include_enabled": "含める",
+  "screen.universal_config.include_disabled": "含めない"
 }

@@ -7,11 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MinecraftConfigPolicyTest {
     @Test
-    void allowsKnownClientOptionsAndOptionPrefixes() {
-        assertTrue(MinecraftConfigPolicy.isAllowedClientOption("lang"));
-        assertTrue(MinecraftConfigPolicy.isAllowedClientOption("soundCategory_music"));
-        assertTrue(MinecraftConfigPolicy.isAllowedClientOption("modelPart_hat"));
-        assertFalse(MinecraftConfigPolicy.isAllowedClientOption("lastServer"));
+    void acceptsAllWellFormedClientOptionsExceptKeybinds() {
+        assertTrue(MinecraftConfigPolicy.isValidClientOption("lang", "ja_jp"));
+        assertTrue(MinecraftConfigPolicy.isValidClientOption("graphicsMode", "1"));
+        assertTrue(MinecraftConfigPolicy.isValidClientOption("lastServer", "example.invalid:25565"));
+        assertFalse(MinecraftConfigPolicy.isValidClientOption("key_key.forward", "key.keyboard.w"));
+        assertFalse(MinecraftConfigPolicy.isValidClientOption("invalid:key", "value"));
+        assertFalse(MinecraftConfigPolicy.isValidClientOption("invalid\nkey", "value"));
+        assertFalse(MinecraftConfigPolicy.isValidClientOption("lang", "ja_jp\nmalicious:true"));
+        assertFalse(MinecraftConfigPolicy.isValidClientOption(null, "value"));
+        assertFalse(MinecraftConfigPolicy.isValidClientOption("lang", null));
     }
 
     @Test

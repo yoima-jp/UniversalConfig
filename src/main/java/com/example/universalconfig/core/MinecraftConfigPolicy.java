@@ -12,16 +12,6 @@ public final class MinecraftConfigPolicy {
             "mods", "saves", "logs", "crash-reports", "resourcepacks", "shaderpacks", "screenshots"
     );
 
-    private static final Set<String> CLIENT_OPTION_KEYS = Set.of(
-            "lang", "gamma", "fov", "guiScale", "soundDevice", "autoJump",
-            "operatorItemsTab", "touchscreen", "fullscreen", "bobView",
-            "darkMojangStudiosBackground", "hideLightningFlashes", "hideSplashTexts",
-            "panoramaScrollSpeed", "pauseOnLostFocus", "enableVsync", "entityShadows",
-            "forceUnicodeFont", "discrete_mouse_scroll", "mouseSensitivity", "invertYMouse",
-            "rawMouseInput", "reducedDebugInfo", "showSubtitles", "directionalAudio",
-            "narrator", "tutorialStep"
-    );
-
     private static final Set<String> CONFIG_FILE_EXTENSIONS = Set.of(
             ".cfg", ".json", ".toml", ".yaml", ".yml", ".properties", ".conf", ".txt"
     );
@@ -29,13 +19,16 @@ public final class MinecraftConfigPolicy {
     private MinecraftConfigPolicy() {
     }
 
-    public static boolean isAllowedClientOption(String key) {
-        if (key == null || key.isBlank()) {
+    public static boolean isValidClientOption(String key, String value) {
+        if (key == null || key.isBlank() || value == null) {
             return false;
         }
-        return CLIENT_OPTION_KEYS.contains(key)
-                || key.startsWith("soundCategory_")
-                || key.startsWith("modelPart_");
+        // Key bindings have a separate compatibility representation. Accepting key_ here would
+        // bypass its legacy/modern value conversion and the user's keybind inclusion choice.
+        return !key.startsWith("key_")
+                && key.indexOf(':') < 0
+                && !containsControlCharacter(key)
+                && !containsControlCharacter(value);
     }
 
     public static boolean isAllowedConfigFile(String relativePath) {
@@ -49,5 +42,9 @@ public final class MinecraftConfigPolicy {
     public static boolean isDeniedConfigTopLevel(String directoryName) {
         return directoryName != null
                 && DENIED_CONFIG_TOP_LEVEL_DIRECTORIES.contains(directoryName.toLowerCase(Locale.ROOT));
+    }
+
+    private static boolean containsControlCharacter(String value) {
+        return value.chars().anyMatch(Character::isISOControl);
     }
 }
