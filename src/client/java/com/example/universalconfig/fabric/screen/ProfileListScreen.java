@@ -32,7 +32,7 @@ public final class ProfileListScreen extends Screen {
     private static final int PANEL_BOTTOM_GAP = 8;
     private static final int PANEL_HEADER_HEIGHT = 22;
     private static final int PANEL_PADDING = 12;
-    private static final int ACTION_PANEL_HEIGHT = 98;
+    private static final int ACTION_PANEL_HEIGHT = 74;
     private static final int ACTION_HEADER_HEIGHT = 18;
     private static final int SECTION_GAP = 8;
     private static final int CARD_STEP = 72;
@@ -41,7 +41,7 @@ public final class ProfileListScreen extends Screen {
     private static final int SCROLLBAR_GAP = 6;
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_GAP = 4;
-    private static final int ACTION_BUTTON_ROWS = 3;
+    private static final int ACTION_BUTTON_ROWS = 2;
     private static final int ACTION_BUTTON_GROUP_HEIGHT = ACTION_BUTTON_ROWS * BUTTON_HEIGHT
             + (ACTION_BUTTON_ROWS - 1) * BUTTON_GAP;
 
@@ -235,18 +235,14 @@ public final class ProfileListScreen extends Screen {
             int x = detailX();
             int y = actionsButtonStartY();
             int buttonWidth = Math.max(70, (detailWidth() - BUTTON_GAP) / 2);
-            int secondaryY = y + BUTTON_HEIGHT + BUTTON_GAP;
-            int deleteY = secondaryY + BUTTON_HEIGHT + BUTTON_GAP;
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.view"), button -> openConfirm(path))
-                    .dimensions(x, y, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.restore"), button -> openConfirm(path))
-                    .dimensions(x + buttonWidth + BUTTON_GAP, y, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x, y, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
-                    .dimensions(x, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x + buttonWidth + BUTTON_GAP, y, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.export"), button -> export(path))
-                    .dimensions(x + buttonWidth + BUTTON_GAP, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x, y + BUTTON_HEIGHT + BUTTON_GAP, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
-                    .dimensions(x, deleteY, detailWidth(), BUTTON_HEIGHT).build());
+                    .dimensions(x + buttonWidth + BUTTON_GAP, y + BUTTON_HEIGHT + BUTTON_GAP, buttonWidth, BUTTON_HEIGHT).build());
         }
 
         int right = rightPanelLeft() + rightPanelWidth() - PANEL_PADDING;
@@ -312,8 +308,10 @@ public final class ProfileListScreen extends Screen {
             selectedProfileIndex = Math.max(0, selectedProfileIndex - 1);
             reload();
             rebuildButtons();
+            client.setScreen(this);
         } catch (UniversalConfigException ex) {
             status = ScreenUtil.errorText(ex);
+            client.setScreen(this);
         }
     }
 
@@ -553,12 +551,14 @@ public final class ProfileListScreen extends Screen {
         if (manifest.includes.modConfigs) {
             includes.add(translation("screen.universal_config.target_mods"));
         }
-        return includes.isEmpty() ? "なし" : String.join("・", includes);
+        return includes.isEmpty()
+                ? translation("screen.universal_config.targets_none")
+                : String.join(translation("screen.universal_config.targets_separator"), includes);
     }
 
     private String formatDate(String value) {
         if (value == null || value.isBlank()) {
-            return "日時不明";
+            return translation("screen.universal_config.date_unknown");
         }
         try {
             return DISPLAY_DATE.format(Instant.parse(value));

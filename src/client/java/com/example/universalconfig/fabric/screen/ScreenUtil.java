@@ -1,7 +1,5 @@
 package com.example.universalconfig.fabric.screen;
 
-import com.example.universalconfig.core.ProfileDiff;
-import com.example.universalconfig.core.RiskLevel;
 import com.example.universalconfig.core.UniversalConfigException;
 import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.UniversalConfigSettings;
@@ -14,7 +12,6 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.text.Text;
 
 import java.nio.file.Path;
-import java.util.List;
 
 final class ScreenUtil {
     private ScreenUtil() {
@@ -44,26 +41,6 @@ final class ScreenUtil {
             current = current.getCause();
         }
         return Text.literal(current.getMessage() == null ? ex.toString() : current.getMessage());
-    }
-
-    static String applyButtonLabel(ProfileDiff diff) {
-        if (diff.riskLevel == RiskLevel.HIGH) {
-            return "危険を理解して読み込む";
-        }
-        if (diff.riskLevel == RiskLevel.MEDIUM) {
-            return "バックアップして読み込む";
-        }
-        return "読み込む";
-    }
-
-    static void appendSection(List<String> lines, String title, List<String> values) {
-        if (values.isEmpty()) {
-            return;
-        }
-        lines.add(title);
-        for (String value : values) {
-            lines.add("- " + value);
-        }
     }
 
     static void reloadMinecraftOptionsFromDisk() throws UniversalConfigException {
