@@ -41,6 +41,7 @@ public final class ProfileListScreen extends Screen {
     private static final int SCROLLBAR_GAP = 6;
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_GAP = 4;
+    private static final int MIN_ACTION_BUTTON_WIDTH = 70;
     private static final int ACTION_BUTTON_ROWS = 3;
     private static final int ACTION_BUTTON_GROUP_HEIGHT = ACTION_BUTTON_ROWS * BUTTON_HEIGHT
             + (ACTION_BUTTON_ROWS - 1) * BUTTON_GAP;
@@ -103,7 +104,13 @@ public final class ProfileListScreen extends Screen {
 
     private int leftPanelWidth() {
         int available = width - EDGE * 2 - GAP;
-        return Math.max(170, (int) (available * 0.38));
+        int preferred = (int) (available * 0.38);
+        int minimumRightPanelWidth = MIN_ACTION_BUTTON_WIDTH * 2 + BUTTON_GAP + PANEL_PADDING * 2;
+        int maximumLeftPanelWidth = available - minimumRightPanelWidth;
+        if (maximumLeftPanelWidth < 100) {
+            return Math.max(80, maximumLeftPanelWidth);
+        }
+        return Math.max(100, Math.min(preferred, maximumLeftPanelWidth));
     }
 
     private int leftPanelRight() {
@@ -237,7 +244,7 @@ public final class ProfileListScreen extends Screen {
             Path path = selected.path();
             int x = detailX();
             int y = actionsButtonStartY();
-            int buttonWidth = Math.max(70, (detailWidth() - BUTTON_GAP) / 2);
+            int buttonWidth = Math.max(MIN_ACTION_BUTTON_WIDTH, (detailWidth() - BUTTON_GAP) / 2);
             int secondaryY = y + BUTTON_HEIGHT + BUTTON_GAP;
             int deleteY = secondaryY + BUTTON_HEIGHT + BUTTON_GAP;
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.view"), button -> openConfirm(path))
