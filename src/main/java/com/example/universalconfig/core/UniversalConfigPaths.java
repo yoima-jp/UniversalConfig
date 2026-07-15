@@ -8,6 +8,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Locale;
 
@@ -29,12 +30,21 @@ public final class UniversalConfigPaths {
     public static UniversalConfigSettings loadOrCreateSettings(Path minecraftRunDirectory) throws UniversalConfigException {
         Path localSettings = localSettingsFile(minecraftRunDirectory);
         if (Files.exists(localSettings)) {
-            try (Reader reader = Files.newBufferedReader(localSettings, StandardCharsets.UTF_8)) {
-                SettingsDto dto = GSON.fromJson(reader, SettingsDto.class);
+            try {
+                SettingsDto dto;
+                try (Reader reader = Files.newBufferedReader(localSettings, StandardCharsets.UTF_8)) {
+                    dto = GSON.fromJson(reader, SettingsDto.class);
+                }
                 if (dto != null && dto.rootDirectory != null && !dto.rootDirectory.isBlank()) {
                     UniversalConfigSettings settings = new UniversalConfigSettings(Path.of(dto.rootDirectory));
+                    boolean invalidDefaultProfilePath = hasInvalidDefaultProfilePath(dto.defaultProfilePath);
+                    settings.setDefaultProfilePath(parseDefaultProfilePath(dto.defaultProfilePath));
                     ensureDirectories(settings);
                     FileOperationLogger.configure(settings);
+                    if (invalidDefaultProfilePath) {
+                        settings.setDefaultProfilePath(null);
+                        saveSettings(minecraftRunDirectory, settings);
+                    }
                     return settings;
                 }
             } catch (IOException | RuntimeException ex) {
@@ -55,6 +65,9 @@ public final class UniversalConfigPaths {
             Files.createDirectories(localSettings.getParent());
             SettingsDto dto = new SettingsDto();
             dto.rootDirectory = settings.rootDirectory().toAbsolutePath().normalize().toString();
+            dto.defaultProfilePath = settings.defaultProfilePath() == null
+                    ? null
+                    : settings.defaultProfilePath().toAbsolutePath().normalize().toString();
             try (Writer writer = Files.newBufferedWriter(localSettings, StandardCharsets.UTF_8)) {
                 GSON.toJson(dto, writer);
             }
@@ -126,5 +139,29 @@ public final class UniversalConfigPaths {
 
     private static final class SettingsDto {
         String rootDirectory;
+        String defaultProfilePath;
+    }
+
+    private static Path parseDefaultProfilePath(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Path.of(value);
+        } catch (InvalidPathException ex) {
+            return null;
+        }
+    }
+
+    private static boolean hasInvalidDefaultProfilePath(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        try {
+            Path.of(value);
+            return false;
+        } catch (InvalidPathException ex) {
+            return true;
+        }
     }
 }
