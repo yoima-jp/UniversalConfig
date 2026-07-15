@@ -246,22 +246,20 @@ public final class ProfileListScreen extends Screen {
             int y = actionsButtonStartY();
             int buttonWidth = Math.max(MIN_ACTION_BUTTON_WIDTH, (detailWidth() - BUTTON_GAP) / 2);
             int secondaryY = y + BUTTON_HEIGHT + BUTTON_GAP;
-            int deleteY = secondaryY + BUTTON_HEIGHT + BUTTON_GAP;
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.view"), button -> openConfirm(path))
-                    .dimensions(x, y, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.restore"), button -> openConfirm(path))
-                    .dimensions(x + buttonWidth + BUTTON_GAP, y, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x, y, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
-                    .dimensions(x, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x + buttonWidth + BUTTON_GAP, y, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.export"), button -> export(path))
-                    .dimensions(x + buttonWidth + BUTTON_GAP, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
-                    .dimensions(x, deleteY, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x + buttonWidth + BUTTON_GAP, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
+            int defaultY = secondaryY + BUTTON_HEIGHT + BUTTON_GAP;
             Text defaultLabel = Text.translatable(isDefaultProfile(path)
                     ? "screen.universal_config.clear_default"
                     : "screen.universal_config.set_default");
             addDrawableChild(ButtonWidget.builder(defaultLabel, button -> toggleDefault(path))
-                    .dimensions(x + buttonWidth + BUTTON_GAP, deleteY, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x, defaultY, buttonWidth, BUTTON_HEIGHT).build());
         }
 
         int right = rightPanelLeft() + rightPanelWidth() - PANEL_PADDING;
@@ -327,8 +325,10 @@ public final class ProfileListScreen extends Screen {
             selectedProfileIndex = Math.max(0, selectedProfileIndex - 1);
             reload();
             rebuildButtons();
+            client.setScreen(this);
         } catch (UniversalConfigException ex) {
             status = ScreenUtil.errorText(ex);
+            client.setScreen(this);
         }
     }
 
@@ -588,12 +588,14 @@ public final class ProfileListScreen extends Screen {
         if (manifest.includes.modConfigs) {
             includes.add(translation("screen.universal_config.target_mods"));
         }
-        return includes.isEmpty() ? "なし" : String.join("・", includes);
+        return includes.isEmpty()
+                ? translation("screen.universal_config.targets_none")
+                : String.join(translation("screen.universal_config.targets_separator"), includes);
     }
 
     private String formatDate(String value) {
         if (value == null || value.isBlank()) {
-            return "日時不明";
+            return translation("screen.universal_config.date_unknown");
         }
         try {
             return DISPLAY_DATE.format(Instant.parse(value));

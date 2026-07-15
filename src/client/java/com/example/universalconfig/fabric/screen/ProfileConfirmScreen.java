@@ -3,6 +3,7 @@ package com.example.universalconfig.fabric.screen;
 import com.example.universalconfig.core.ProfileDiff;
 import com.example.universalconfig.core.ProfileManifest;
 import com.example.universalconfig.core.ProfileService;
+import com.example.universalconfig.core.RiskLevel;
 import com.example.universalconfig.core.UniversalConfigException;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -18,12 +19,12 @@ public final class ProfileConfirmScreen extends Screen {
     private final Path profilePath;
     private ProfileManifest manifest;
     private ProfileDiff diff;
-    private List<String> lines = List.of();
+    private List<DisplayLine> lines = List.of();
     private Text status = Text.empty();
     private int scroll;
 
     public ProfileConfirmScreen(Screen parent, Path profilePath) {
-        super(Text.literal("読み込み確認"));
+        super(Text.translatable("screen.universal_config.profile_confirm_title"));
         this.parent = parent;
         this.profilePath = profilePath;
     }
@@ -32,9 +33,9 @@ public final class ProfileConfirmScreen extends Screen {
     protected void init() {
         loadDiff();
         int buttonLeft = width / 2 - 114;
-        addDrawableChild(ButtonWidget.builder(Text.literal(scheduleButtonLabel()), button -> schedule())
+        addDrawableChild(ButtonWidget.builder(scheduleButtonLabel(), button -> schedule())
                 .dimensions(buttonLeft, height - 30, 150, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("戻る"), button -> client.setScreen(parent))
+        addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.back"), button -> client.setScreen(parent))
                 .dimensions(buttonLeft + 158, height - 30, 70, 20).build());
     }
 
@@ -51,42 +52,61 @@ public final class ProfileConfirmScreen extends Screen {
         }
     }
 
-    private List<String> buildLines() {
-        List<String> result = new ArrayList<>();
-        result.add("プロファイル: " + manifest.name);
-        result.add("説明: " + manifest.description);
-        result.add("作成元: Minecraft " + manifest.source.minecraftVersion + " / " + manifest.source.loader
-                + " " + manifest.source.loaderVersion);
-        result.add("現在: Minecraft " + ScreenUtil.environment().minecraftVersion() + " / "
-                + ScreenUtil.environment().loaderId() + " " + ScreenUtil.environment().loaderVersion());
-        result.add("対応想定: " + manifest.compatibility.minecraftVersionRange + " / " + manifest.compatibility.mode);
-        result.add("テスト済み: " + manifest.compatibility.testedVersions);
-        result.add("リスク: " + diff.riskLevel);
-        result.add("適用方式: 次回起動時に読み込みます");
-        result.add("安全対策: 次回起動時の適用前に .ucbackup を必ず作成します");
-        result.add("操作後: Minecraftを終了し、もう一度起動してください");
-        result.add("");
-        ScreenUtil.appendSection(result, "警告:", diff.warnings);
-        ScreenUtil.appendSection(result, "Checksum:", diff.checksumWarnings);
-        ScreenUtil.appendSection(result, "変更されるキー設定:", diff.changedKeybinds);
-        ScreenUtil.appendSection(result, "追加されるファイル:", diff.addedFiles);
-        ScreenUtil.appendSection(result, "置き換えられるファイル:", diff.replacedFiles);
-        ScreenUtil.appendSection(result, "スキップ:", diff.skippedItems);
+    private List<DisplayLine> buildLines() {
+        List<DisplayLine> result = new ArrayList<>();
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_profile", manifest.name)));
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_description", manifest.description)));
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_source", manifest.source.minecraftVersion,
+                manifest.source.loader, manifest.source.loaderVersion)));
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_current", ScreenUtil.environment().minecraftVersion(),
+                ScreenUtil.environment().loaderId(), ScreenUtil.environment().loaderVersion())));
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_compatibility",
+                manifest.compatibility.minecraftVersionRange, manifest.compatibility.mode)));
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_tested", manifest.compatibility.testedVersions)));
+        result.add(new DisplayLine(Text.translatable("screen.universal_config.confirm_risk",
+                Text.translatable(riskLevelKey(diff.riskLevel))), false, diff.riskLevel == RiskLevel.HIGH));
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_apply_mode")));
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_safety")));
+        result.add(DisplayLine.normal(Text.translatable("screen.universal_config.confirm_after_action")));
+        result.add(DisplayLine.normal(Text.empty()));
+        appendSection(result, "screen.universal_config.confirm_warnings", diff.warnings, true);
+        appendSection(result, "screen.universal_config.confirm_checksums", diff.checksumWarnings, true);
+        appendSection(result, "screen.universal_config.confirm_changed_keybinds", diff.changedKeybinds, false);
+        appendSection(result, "screen.universal_config.confirm_added_files", diff.addedFiles, false);
+        appendSection(result, "screen.universal_config.confirm_replaced_files", diff.replacedFiles, false);
+        appendSection(result, "screen.universal_config.confirm_skipped", diff.skippedItems, false);
         return result;
     }
 
-    private String scheduleButtonLabel() {
+    private Text scheduleButtonLabel() {
         return switch (diff.riskLevel) {
-            case HIGH -> "危険を理解して予約";
-            case MEDIUM -> "バックアップ読み込み予約";
-            case LOW -> "次回起動で読み込む";
+            case HIGH -> Text.translatable("screen.universal_config.confirm_schedule_high");
+            case MEDIUM -> Text.translatable("screen.universal_config.confirm_schedule_medium");
+            case LOW -> Text.translatable("screen.universal_config.confirm_schedule_low");
         };
+    }
+
+    private String riskLevelKey(RiskLevel riskLevel) {
+        return switch (riskLevel) {
+            case HIGH -> "screen.universal_config.risk_high";
+            case MEDIUM -> "screen.universal_config.risk_medium";
+            case LOW -> "screen.universal_config.risk_low";
+        };
+    }
+
+    private void appendSection(List<DisplayLine> result, String titleKey, List<String> values, boolean warning) {
+        if (values.isEmpty()) {
+            return;
+        }
+        result.add(new DisplayLine(Text.translatable(titleKey), false, warning));
+        for (String value : values) {
+            result.add(new DisplayLine(Text.translatable("screen.universal_config.confirm_list_item", value), true, warning));
+        }
     }
 
     private void schedule() {
         try {
-            Path pendingPath = ScreenUtil.service().scheduleApplyOnNextStart(ScreenUtil.instancePath(), profilePath, ScreenUtil.environment());
-            status = Text.literal("次回起動で読み込みます。予約: " + pendingPath);
+            ScreenUtil.service().scheduleApplyOnNextStart(ScreenUtil.instancePath(), profilePath, ScreenUtil.environment());
             loadDiff();
             client.setScreen(new ApplyScheduledScreen(parent));
         } catch (UniversalConfigException ex) {
@@ -109,13 +129,19 @@ public final class ProfileConfirmScreen extends Screen {
         int y = 44;
         int visible = Math.max(1, (height - 82) / 11);
         for (int i = scroll; i < Math.min(lines.size(), scroll + visible); i++) {
-            int color = lines.get(i).startsWith("-") ? 0xDDDDDD : 0xFFFFFF;
-            if (lines.get(i).contains("警告") || lines.get(i).contains("HIGH")) {
-                color = 0xFF8888;
-            }
-            context.drawTextWithShadow(textRenderer, lines.get(i), 12, y, color);
+            DisplayLine line = lines.get(i);
+            int color = line.warning() ? 0xFF8888 : line.listItem() ? 0xDDDDDD : 0xFFFFFF;
+            context.drawTextWithShadow(textRenderer, line.text(), 12, y, color);
             y += 11;
         }
         super.render(context, mouseX, mouseY, delta);
+    }
+
+    // 色を翻訳後の文字列から推測すると、ユーザー入力やファイル名で誤判定する。
+    // 表示上の役割を保持し、言語や動的な値に依存せず描画する。
+    private record DisplayLine(Text text, boolean listItem, boolean warning) {
+        private static DisplayLine normal(Text text) {
+            return new DisplayLine(text, false, false);
+        }
     }
 }
