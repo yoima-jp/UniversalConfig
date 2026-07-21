@@ -37,6 +37,8 @@ public final class ProfileListScreen extends Screen {
     private static final int SECTION_GAP = 8;
     private static final int CARD_STEP = 72;
     private static final int CARD_HEIGHT = 64;
+    private static final int CARD_TEXT_PADDING = 8;
+    private static final int CARD_MARKER_GAP = 4;
     private static final int SCROLLBAR_WIDTH = 3;
     private static final int SCROLLBAR_GAP = 6;
     private static final int BUTTON_HEIGHT = 20;
@@ -484,13 +486,18 @@ public final class ProfileListScreen extends Screen {
             ProfileSummary summary = profiles.get(firstRow + row);
             ProfileManifest manifest = summary.manifest();
             int y = cardY(row);
-            int textX = cardX() + 8;
-            int textWidth = cardWidth() - 16;
-            String profileName = manifest.name;
+            int textX = cardX() + CARD_TEXT_PADDING;
+            int textWidth = Math.max(0, cardWidth() - CARD_TEXT_PADDING * 2);
+            int nameWidth = textWidth;
             if (isDefaultProfile(summary.path())) {
-                profileName += " " + translation("screen.universal_config.default_marker");
+                String marker = translation("screen.universal_config.default_marker");
+                int markerWidth = textRenderer.getWidth(marker);
+                int markerRenderWidth = Math.min(markerWidth, textWidth);
+                int markerX = textX + textWidth - markerRenderWidth;
+                nameWidth = Math.max(0, markerX - textX - CARD_MARKER_GAP);
+                drawTrimmed(context, marker, markerX, y + 5, markerRenderWidth, SECONDARY_TEXT_COLOR);
             }
-            drawTrimmed(context, profileName, textX, y + 5, textWidth, 0xFFFFFFFF);
+            drawTrimmed(context, manifest.name, textX, y + 5, nameWidth, 0xFFFFFFFF);
             String[] environmentLines = environmentLines(manifest);
             drawTrimmed(context, environmentLines[0], textX, y + 20, textWidth, SECONDARY_TEXT_COLOR);
             drawTrimmed(context, environmentLines[1], textX, y + 35, textWidth, SECONDARY_TEXT_COLOR);
