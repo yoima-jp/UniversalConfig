@@ -24,6 +24,51 @@ public final class ProfileService {
         return settings;
     }
 
+    public Path resolveDefaultProfile(Path instancePath) {
+        Path configured = settings.defaultProfilePath();
+        if (configured == null) {
+            return null;
+        }
+
+        Path normalized = configured.toAbsolutePath().normalize();
+        if (!isValidProfilePath(normalized) || !Files.isRegularFile(normalized)) {
+            FileOperationLogger.info("CLEAR_INVALID_DEFAULT_PROFILE", normalized, "missing or outside profiles directory");
+            settings.setDefaultProfilePath(null);
+            try {
+                UniversalConfigPaths.saveSettings(instancePath, settings);
+            } catch (UniversalConfigException ex) {
+                FileOperationLogger.failure("CLEAR_INVALID_DEFAULT_PROFILE", normalized, "failed to persist clear", ex);
+            }
+            return null;
+        }
+
+        return normalized;
+    }
+
+    public boolean isDefaultProfile(Path profilePath) {
+        Path configured = settings.defaultProfilePath();
+        return configured != null
+                && profilePath != null
+                && configured.toAbsolutePath().normalize().equals(profilePath.toAbsolutePath().normalize());
+    }
+
+    public void setDefaultProfile(Path instancePath, Path profilePath) throws UniversalConfigException {
+        Path normalized = validateProfilePath(profilePath);
+        settings.setDefaultProfilePath(normalized);
+        UniversalConfigPaths.saveSettings(instancePath, settings);
+        FileOperationLogger.info("SET_DEFAULT_PROFILE", normalized, "default profile saved");
+    }
+
+    public void clearDefaultProfile(Path instancePath) throws UniversalConfigException {
+        Path previous = settings.defaultProfilePath();
+        if (previous == null) {
+            return;
+        }
+        settings.setDefaultProfilePath(null);
+        UniversalConfigPaths.saveSettings(instancePath, settings);
+        FileOperationLogger.info("CLEAR_DEFAULT_PROFILE", previous, "default profile cleared");
+    }
+
     public List<ProfileSummary> listProfiles() throws UniversalConfigException {
         Path profiles = UniversalConfigPaths.profilesDirectory(settings);
         FileOperationLogger.info("LIST_PROFILES", profiles, "start");
@@ -249,6 +294,14 @@ public final class ProfileService {
         }
     }
 
+    public void deleteProfile(Path instancePath, Path profilePath) throws UniversalConfigException {
+        boolean wasDefault = isDefaultProfile(profilePath);
+        deleteProfile(profilePath);
+        if (wasDefault) {
+            clearDefaultProfile(instancePath);
+        }
+    }
+
     public Path duplicateProfile(Path profilePath) throws UniversalConfigException {
         ProfileManifest manifest = readManifest(profilePath);
         Path destination = uniqueProfilePath(UniversalConfigPaths.safeFileSlug(manifest.id + "-copy"));
@@ -304,6 +357,26 @@ public final class ProfileService {
             counter++;
         }
         return candidate;
+    }
+
+    private Path validateProfilePath(Path profilePath) throws UniversalConfigException {
+        Path profilesRoot = UniversalConfigPaths.profilesDirectory(settings).toAbsolutePath().normalize();
+        Path normalized = profilePath == null ? null : profilePath.toAbsolutePath().normalize();
+        if (normalized == null
+                || !normalized.startsWith(profilesRoot)
+                || !normalized.getFileName().toString().endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION)
+                || !Files.isRegularFile(normalized)) {
+            throw new UniversalConfigException("The selected profile cannot be used as the default profile.");
+        }
+        return normalized;
+    }
+
+    private boolean isValidProfilePath(Path profilePath) {
+        Path profilesRoot = UniversalConfigPaths.profilesDirectory(settings).toAbsolutePath().normalize();
+        return profilePath != null
+                && profilePath.startsWith(profilesRoot)
+                && profilePath.getFileName() != null
+                && profilePath.getFileName().toString().endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION);
     }
 
     private void validateCreateOptions(ProfileCreateOptions options) throws UniversalConfigException {

@@ -32,16 +32,19 @@ public final class ProfileListScreen extends Screen {
     private static final int PANEL_BOTTOM_GAP = 8;
     private static final int PANEL_HEADER_HEIGHT = 22;
     private static final int PANEL_PADDING = 12;
-    private static final int ACTION_PANEL_HEIGHT = 74;
+    private static final int ACTION_PANEL_HEIGHT = 98;
     private static final int ACTION_HEADER_HEIGHT = 18;
     private static final int SECTION_GAP = 8;
     private static final int CARD_STEP = 72;
     private static final int CARD_HEIGHT = 64;
+    private static final int CARD_TEXT_PADDING = 8;
+    private static final int CARD_MARKER_GAP = 4;
     private static final int SCROLLBAR_WIDTH = 3;
     private static final int SCROLLBAR_GAP = 6;
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_GAP = 4;
-    private static final int ACTION_BUTTON_ROWS = 2;
+    private static final int MIN_ACTION_BUTTON_WIDTH = 70;
+    private static final int ACTION_BUTTON_ROWS = 3;
     private static final int ACTION_BUTTON_GROUP_HEIGHT = ACTION_BUTTON_ROWS * BUTTON_HEIGHT
             + (ACTION_BUTTON_ROWS - 1) * BUTTON_GAP;
 
@@ -58,6 +61,7 @@ public final class ProfileListScreen extends Screen {
     private final Screen parent;
     private List<ProfileSummary> profiles = new ArrayList<>();
     private PendingImport pendingImport;
+    private Path defaultProfilePath;
     private Text status = Text.empty();
     private Text pendingStatus = Text.empty();
     private int selectedProfileIndex;
@@ -80,6 +84,7 @@ public final class ProfileListScreen extends Screen {
             ProfileService service = ScreenUtil.service();
             profiles = service.listProfiles();
             pendingImport = service.readPendingImport(ScreenUtil.instancePath());
+            defaultProfilePath = service.resolveDefaultProfile(ScreenUtil.instancePath());
             selectedProfileIndex = profiles.isEmpty() ? -1 : Math.min(selectedProfileIndex, profiles.size() - 1);
             status = Text.translatable("screen.universal_config.common_folder", ".universal-config");
             pendingStatus = pendingImport == null
@@ -88,6 +93,7 @@ public final class ProfileListScreen extends Screen {
         } catch (UniversalConfigException ex) {
             profiles = List.of();
             pendingImport = null;
+            defaultProfilePath = null;
             selectedProfileIndex = -1;
             status = ScreenUtil.errorText(ex);
             pendingStatus = Text.empty();
@@ -100,7 +106,13 @@ public final class ProfileListScreen extends Screen {
 
     private int leftPanelWidth() {
         int available = width - EDGE * 2 - GAP;
-        return Math.max(170, (int) (available * 0.38));
+        int preferred = (int) (available * 0.38);
+        int minimumRightPanelWidth = MIN_ACTION_BUTTON_WIDTH * 2 + BUTTON_GAP + PANEL_PADDING * 2;
+        int maximumLeftPanelWidth = available - minimumRightPanelWidth;
+        if (maximumLeftPanelWidth < 100) {
+            return Math.max(80, maximumLeftPanelWidth);
+        }
+        return Math.max(100, Math.min(preferred, maximumLeftPanelWidth));
     }
 
     private int leftPanelRight() {
@@ -234,15 +246,22 @@ public final class ProfileListScreen extends Screen {
             Path path = selected.path();
             int x = detailX();
             int y = actionsButtonStartY();
-            int buttonWidth = Math.max(70, (detailWidth() - BUTTON_GAP) / 2);
+            int buttonWidth = Math.max(MIN_ACTION_BUTTON_WIDTH, (detailWidth() - BUTTON_GAP) / 2);
+            int secondaryY = y + BUTTON_HEIGHT + BUTTON_GAP;
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.restore"), button -> openConfirm(path))
                     .dimensions(x, y, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
                     .dimensions(x + buttonWidth + BUTTON_GAP, y, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.export"), button -> export(path))
-                    .dimensions(x, y + BUTTON_HEIGHT + BUTTON_GAP, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
-                    .dimensions(x + buttonWidth + BUTTON_GAP, y + BUTTON_HEIGHT + BUTTON_GAP, buttonWidth, BUTTON_HEIGHT).build());
+                    .dimensions(x + buttonWidth + BUTTON_GAP, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
+            int defaultY = secondaryY + BUTTON_HEIGHT + BUTTON_GAP;
+            Text defaultLabel = Text.translatable(isDefaultProfile(path)
+                    ? "screen.universal_config.clear_default"
+                    : "screen.universal_config.set_default");
+            addDrawableChild(ButtonWidget.builder(defaultLabel, button -> toggleDefault(path))
+                    .dimensions(x, defaultY, buttonWidth, BUTTON_HEIGHT).build());
         }
 
         int right = rightPanelLeft() + rightPanelWidth() - PANEL_PADDING;
@@ -304,7 +323,7 @@ public final class ProfileListScreen extends Screen {
 
     private void delete(Path path) {
         try {
-            ScreenUtil.service().deleteProfile(path);
+            ScreenUtil.service().deleteProfile(ScreenUtil.instancePath(), path);
             selectedProfileIndex = Math.max(0, selectedProfileIndex - 1);
             reload();
             rebuildButtons();
@@ -312,6 +331,21 @@ public final class ProfileListScreen extends Screen {
         } catch (UniversalConfigException ex) {
             status = ScreenUtil.errorText(ex);
             client.setScreen(this);
+        }
+    }
+
+    private void toggleDefault(Path path) {
+        try {
+            ProfileService service = ScreenUtil.service();
+            if (service.isDefaultProfile(path)) {
+                service.clearDefaultProfile(ScreenUtil.instancePath());
+            } else {
+                service.setDefaultProfile(ScreenUtil.instancePath(), path);
+            }
+            reload();
+            rebuildButtons();
+        } catch (UniversalConfigException ex) {
+            status = ScreenUtil.errorText(ex);
         }
     }
 
@@ -449,11 +483,21 @@ public final class ProfileListScreen extends Screen {
         int firstRow = firstVisibleRow();
         int rowCount = Math.min(visibleRowCount(), profiles.size() - firstRow);
         for (int row = 0; row < rowCount; row++) {
-            ProfileManifest manifest = profiles.get(firstRow + row).manifest();
+            ProfileSummary summary = profiles.get(firstRow + row);
+            ProfileManifest manifest = summary.manifest();
             int y = cardY(row);
-            int textX = cardX() + 8;
-            int textWidth = cardWidth() - 16;
-            drawTrimmed(context, manifest.name, textX, y + 5, textWidth, 0xFFFFFFFF);
+            int textX = cardX() + CARD_TEXT_PADDING;
+            int textWidth = Math.max(0, cardWidth() - CARD_TEXT_PADDING * 2);
+            int nameWidth = textWidth;
+            if (isDefaultProfile(summary.path())) {
+                String marker = translation("screen.universal_config.default_marker");
+                int markerWidth = textRenderer.getWidth(marker);
+                int markerRenderWidth = Math.min(markerWidth, textWidth);
+                int markerX = textX + textWidth - markerRenderWidth;
+                nameWidth = Math.max(0, markerX - textX - CARD_MARKER_GAP);
+                drawTrimmed(context, marker, markerX, y + 5, markerRenderWidth, SECONDARY_TEXT_COLOR);
+            }
+            drawTrimmed(context, manifest.name, textX, y + 5, nameWidth, 0xFFFFFFFF);
             String[] environmentLines = environmentLines(manifest);
             drawTrimmed(context, environmentLines[0], textX, y + 20, textWidth, SECONDARY_TEXT_COLOR);
             drawTrimmed(context, environmentLines[1], textX, y + 35, textWidth, SECONDARY_TEXT_COLOR);
@@ -573,6 +617,12 @@ public final class ProfileListScreen extends Screen {
 
     private String safe(String value) {
         return value == null || value.isBlank() ? translation("screen.universal_config.unknown") : value;
+    }
+
+    private boolean isDefaultProfile(Path profilePath) {
+        return defaultProfilePath != null
+                && profilePath != null
+                && defaultProfilePath.equals(profilePath.toAbsolutePath().normalize());
     }
 
     private String translation(String key) {
