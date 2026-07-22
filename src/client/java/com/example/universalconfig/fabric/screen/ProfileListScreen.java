@@ -7,6 +7,7 @@ import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.ProfileSummary;
 import com.example.universalconfig.core.UniversalConfigException;
 import com.example.universalconfig.core.UniversalConfigPaths;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
@@ -22,6 +23,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class ProfileListScreen extends Screen {
     private static final int EDGE = 12;
@@ -47,6 +49,7 @@ public final class ProfileListScreen extends Screen {
     private static final int ACTION_BUTTON_ROWS = 3;
     private static final int ACTION_BUTTON_GROUP_HEIGHT = ACTION_BUTTON_ROWS * BUTTON_HEIGHT
             + (ACTION_BUTTON_ROWS - 1) * BUTTON_GAP;
+    private static final String SAFE_DATE_PATTERN = "yyyy/MM/dd HH:mm";
 
     private static final int PANEL_COLOR = 0xB0101010;
     private static final int PANEL_HEADER_COLOR = 0x301F1F1F;
@@ -55,9 +58,6 @@ public final class ProfileListScreen extends Screen {
     private static final int DIVIDER_COLOR = 0x403F3F3F;
     private static final int MUTED_TEXT_COLOR = 0xFFAAAAAA;
     private static final int SECONDARY_TEXT_COLOR = 0xFFBBBBBB;
-    private static final DateTimeFormatter DISPLAY_DATE = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
-            .withZone(ZoneId.systemDefault());
-
     private final Screen parent;
     private List<ProfileSummary> profiles = new ArrayList<>();
     private PendingImport pendingImport;
@@ -67,6 +67,8 @@ public final class ProfileListScreen extends Screen {
     private int selectedProfileIndex;
     private int listScroll;
     private int detailScroll;
+    private String dateFormatterLanguage;
+    private DateTimeFormatter dateFormatter;
 
     public ProfileListScreen(Screen parent) {
         super(Text.translatable("screen.universal_config.title"));
@@ -605,14 +607,44 @@ public final class ProfileListScreen extends Screen {
             return translation("screen.universal_config.date_unknown");
         }
         try {
-            return DISPLAY_DATE.format(Instant.parse(value));
+            return displayDateFormatter().format(Instant.parse(value));
         } catch (DateTimeParseException ignored) {
             try {
-                return DISPLAY_DATE.format(OffsetDateTime.parse(value));
+                return displayDateFormatter().format(OffsetDateTime.parse(value));
             } catch (DateTimeParseException ignoredAgain) {
                 return value.length() > 16 ? value.substring(0, 16) : value;
             }
         }
+    }
+
+    private DateTimeFormatter displayDateFormatter() {
+        String language = MinecraftClient.getInstance().getLanguageManager().getLanguage();
+        String languageCode = language == null ? "" : language;
+        if (languageCode.equals(dateFormatterLanguage) && dateFormatter != null) {
+            return dateFormatter;
+        }
+
+        Locale locale = localeForLanguage(languageCode);
+        String pattern = translation("screen.universal_config.date_format");
+        try {
+            dateFormatter = DateTimeFormatter.ofPattern(pattern, locale)
+                    .withZone(ZoneId.systemDefault());
+        } catch (IllegalArgumentException ex) {
+            FileOperationLogger.failure("CREATE_DATE_FORMATTER", null,
+                    "invalid date pattern for language " + languageCode + "; using fallback", ex);
+            dateFormatter = DateTimeFormatter.ofPattern(SAFE_DATE_PATTERN, locale)
+                    .withZone(ZoneId.systemDefault());
+        }
+        dateFormatterLanguage = languageCode;
+        return dateFormatter;
+    }
+
+    private Locale localeForLanguage(String languageCode) {
+        if (languageCode.isBlank()) {
+            return Locale.ENGLISH;
+        }
+        Locale locale = Locale.forLanguageTag(languageCode.replace('_', '-'));
+        return locale.getLanguage().isBlank() ? Locale.ENGLISH : locale;
     }
 
     private String safe(String value) {

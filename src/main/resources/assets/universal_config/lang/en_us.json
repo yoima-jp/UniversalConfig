@@ -41,6 +41,7 @@
   "screen.universal_config.profile_scope": "Includes keybindings, client options, and mod configs",
   "screen.universal_config.targets_none": "None",
   "screen.universal_config.targets_separator": ", ",
+  "screen.universal_config.date_format": "yyyy/MM/dd h:mm a",
   "screen.universal_config.date_unknown": "Unknown date",
   "screen.universal_config.save": "Save",
   "screen.universal_config.restore_description": "Restoring applies these settings on the next launch.",

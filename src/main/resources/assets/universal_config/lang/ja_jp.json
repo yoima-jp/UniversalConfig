@@ -41,6 +41,7 @@
   "screen.universal_config.profile_scope": "キー設定、クライアント設定、Mod設定を対象にします",
   "screen.universal_config.targets_none": "なし",
   "screen.universal_config.targets_separator": "・",
+  "screen.universal_config.date_format": "yyyy/MM/dd HH:mm",
   "screen.universal_config.date_unknown": "日時不明",
   "screen.universal_config.save": "保存",
   "screen.universal_config.restore_description": "復元すると、次回起動時にこの設定が適用されます。",
