@@ -1,8 +1,10 @@
 package com.example.universalconfig.fabric.screen;
 
+import com.example.universalconfig.core.CurrentProcessRestartService;
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.core.PendingImport;
 import com.example.universalconfig.core.ProfileManifest;
+import com.example.universalconfig.core.ProfileIcon;
 import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.ProfileSummary;
 import com.example.universalconfig.core.UniversalConfigException;
@@ -12,9 +14,14 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.block.Blocks;
+import net.minecraft.item.ItemStack;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Util;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -26,47 +33,61 @@ import java.util.List;
 import java.util.Locale;
 
 public final class ProfileListScreen extends Screen {
-    private static final int EDGE = 12;
-    private static final int GAP = 12;
-    private static final int HEADER_HEIGHT = 52;
-    private static final int PANEL_TOP = 56;
-    private static final int FOOTER_HEIGHT = 36;
-    private static final int PANEL_BOTTOM_GAP = 8;
-    private static final int PANEL_HEADER_HEIGHT = 22;
-    private static final int PANEL_PADDING = 12;
-    private static final int ACTION_PANEL_HEIGHT = 98;
-    private static final int ACTION_HEADER_HEIGHT = 18;
-    private static final int SECTION_GAP = 8;
-    private static final int CARD_STEP = 72;
-    private static final int CARD_HEIGHT = 64;
-    private static final int CARD_TEXT_PADDING = 8;
-    private static final int CARD_MARKER_GAP = 4;
-    private static final int SCROLLBAR_WIDTH = 3;
-    private static final int SCROLLBAR_GAP = 6;
+    private static final int MIN_EDGE = 10;
+    private static final int MAX_CONTENT_WIDTH = 760;
+    private static final int COLUMN_GAP = 8;
+    private static final int HEADER_HEIGHT = 46;
+    private static final int PENDING_HEIGHT = 30;
+    private static final int PANEL_GAP = 8;
+    private static final int PANEL_HEADER_HEIGHT = 24;
+    private static final int PANEL_PADDING = 10;
+    private static final int FOOTER_HEIGHT = 30;
     private static final int BUTTON_HEIGHT = 20;
-    private static final int BUTTON_GAP = 4;
-    private static final int MIN_ACTION_BUTTON_WIDTH = 70;
-    private static final int ACTION_BUTTON_ROWS = 3;
-    private static final int ACTION_BUTTON_GROUP_HEIGHT = ACTION_BUTTON_ROWS * BUTTON_HEIGHT
-            + (ACTION_BUTTON_ROWS - 1) * BUTTON_GAP;
+    private static final int PRIMARY_BUTTON_HEIGHT = 24;
+    private static final int CARD_HEIGHT = 40;
+    private static final int CARD_GAP = 3;
+    private static final int CARD_STEP = CARD_HEIGHT + CARD_GAP;
+    private static final int LIST_SCROLL_STEP = 18;
+    private static final int DETAIL_SCROLL_STEP = 18;
+    private static final int DETAIL_LINE_HEIGHT = 12;
+    private static final int PROFILE_ICON_SIZE = 28;
+    private static final int SCROLLBAR_WIDTH = 3;
+    private static final int MORE_BUTTON_WIDTH = 34;
+    private static final int MENU_WIDTH = 132;
+    private static final int MENU_ITEM_GAP = 2;
+    private static final int MENU_ITEM_COUNT = 5;
+    private static final int MENU_HEIGHT = MENU_ITEM_COUNT * BUTTON_HEIGHT + (MENU_ITEM_COUNT - 1) * MENU_ITEM_GAP + 8;
+    private static final int CLOSE_BUTTON_SIZE = 20;
     private static final String SAFE_DATE_PATTERN = "yyyy/MM/dd HH:mm";
 
-    private static final int PANEL_COLOR = 0xB0101010;
-    private static final int PANEL_HEADER_COLOR = 0x301F1F1F;
-    private static final int CARD_COLOR = 0x50181818;
-    private static final int SELECTED_CARD_COLOR = 0x60404040;
-    private static final int DIVIDER_COLOR = 0x403F3F3F;
+    private static final int PANEL_COLOR = 0xD0181818;
+    private static final int MENU_COLOR = 0xFF181818;
+    private static final int PANEL_INNER_COLOR = 0xB00B0B0B;
+    private static final int PANEL_HEADER_COLOR = 0xD02C2C2C;
+    private static final int PANEL_BORDER_DARK = 0xFF101010;
+    private static final int PANEL_BORDER_LIGHT = 0xFF6E6E6E;
+    private static final int CARD_COLOR = 0xFF303030;
+    private static final int CARD_HOVER_COLOR = 0xFF3A3A3A;
+    private static final int SELECTED_CARD_COLOR = 0xFF465064;
+    private static final int SELECTED_BORDER_COLOR = 0xFFD8E3FF;
+    private static final int DIVIDER_COLOR = 0xFF494949;
     private static final int MUTED_TEXT_COLOR = 0xFFAAAAAA;
-    private static final int SECONDARY_TEXT_COLOR = 0xFFBBBBBB;
+    private static final int SECONDARY_TEXT_COLOR = 0xFFD0D0D0;
+    private static final int PENDING_COLOR = 0xE03B321B;
+    private static final int PENDING_BORDER_COLOR = 0xFF8A7130;
+    private static final int WARNING_COLOR = 0xFFFFD34E;
+    private static final int CHECK_COLOR = 0xFF55FF55;
     private final Screen parent;
     private List<ProfileSummary> profiles = new ArrayList<>();
     private PendingImport pendingImport;
     private Path defaultProfilePath;
     private Text status = Text.empty();
-    private Text pendingStatus = Text.empty();
+    private final List<ButtonWidget> moreMenuButtons = new ArrayList<>();
     private int selectedProfileIndex;
     private int listScroll;
     private int detailScroll;
+    private boolean moreMenuOpen;
+    private boolean restarting;
     private String dateFormatterLanguage;
     private DateTimeFormatter dateFormatter;
 
@@ -81,80 +102,117 @@ public final class ProfileListScreen extends Screen {
         rebuildButtons();
     }
 
+    @Override
+    public void close() {
+        client.setScreen(parent);
+    }
+
     private void reload() {
+        Path selectedPath = selectedProfile() == null ? null : selectedProfile().path();
         try {
             ProfileService service = ScreenUtil.service();
             profiles = service.listProfiles();
             pendingImport = service.readPendingImport(ScreenUtil.instancePath());
             defaultProfilePath = service.resolveDefaultProfile(ScreenUtil.instancePath());
-            selectedProfileIndex = profiles.isEmpty() ? -1 : Math.min(selectedProfileIndex, profiles.size() - 1);
-            status = Text.translatable("screen.universal_config.common_folder", ".universal-config");
-            pendingStatus = pendingImport == null
-                    ? Text.empty()
-                    : Text.translatable("screen.universal_config.profile_pending_restart");
-        } catch (UniversalConfigException ex) {
+            selectedProfileIndex = indexOfPath(selectedPath);
+            if (selectedProfileIndex < 0) {
+                selectedProfileIndex = profiles.isEmpty() ? -1 : 0;
+            }
+            listScroll = Math.min(listScroll, maxListScroll());
+            detailScroll = Math.min(detailScroll, maxDetailScroll());
+        } catch (UniversalConfigException | RuntimeException ex) {
             profiles = List.of();
             pendingImport = null;
             defaultProfilePath = null;
             selectedProfileIndex = -1;
-            status = ScreenUtil.errorText(ex);
-            pendingStatus = Text.empty();
+            listScroll = 0;
+            detailScroll = 0;
+            status = ex instanceof UniversalConfigException universalConfigException
+                    ? ScreenUtil.errorText(universalConfigException)
+                    : Text.translatable("screen.universal_config.load_failed");
         }
     }
 
-    private int panelBottom() {
-        return height - FOOTER_HEIGHT - PANEL_BOTTOM_GAP;
+    private int indexOfPath(Path path) {
+        if (path == null) {
+            return -1;
+        }
+        for (int index = 0; index < profiles.size(); index++) {
+            if (profiles.get(index).path().equals(path)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private int contentWidth() {
+        return Math.min(MAX_CONTENT_WIDTH, Math.max(1, width - MIN_EDGE * 2));
+    }
+
+    private int contentLeft() {
+        return (width - contentWidth()) / 2;
+    }
+
+    private int mainTop() {
+        return HEADER_HEIGHT + (pendingImport == null ? 0 : PENDING_HEIGHT + PANEL_GAP);
+    }
+
+    private int mainBottom() {
+        return height - FOOTER_HEIGHT - PANEL_GAP;
     }
 
     private int leftPanelWidth() {
-        int available = width - EDGE * 2 - GAP;
-        int preferred = (int) (available * 0.38);
-        int minimumRightPanelWidth = MIN_ACTION_BUTTON_WIDTH * 2 + BUTTON_GAP + PANEL_PADDING * 2;
-        int maximumLeftPanelWidth = available - minimumRightPanelWidth;
-        if (maximumLeftPanelWidth < 100) {
-            return Math.max(80, maximumLeftPanelWidth);
-        }
-        return Math.max(100, Math.min(preferred, maximumLeftPanelWidth));
+        int available = contentWidth() - COLUMN_GAP;
+        return Math.max(142, available * 49 / 100);
     }
 
     private int leftPanelRight() {
-        return EDGE + leftPanelWidth();
+        return contentLeft() + leftPanelWidth();
     }
 
     private int rightPanelLeft() {
-        return leftPanelRight() + GAP;
+        return leftPanelRight() + COLUMN_GAP;
     }
 
-    private int rightPanelWidth() {
-        return width - EDGE - rightPanelLeft();
+    private int rightPanelRight() {
+        return contentLeft() + contentWidth();
     }
 
     private int listTop() {
-        return PANEL_TOP + PANEL_HEADER_HEIGHT + PANEL_PADDING;
+        return mainTop() + PANEL_HEADER_HEIGHT + PANEL_PADDING;
     }
 
     private int listBottom() {
-        return panelBottom() - PANEL_PADDING;
+        return mainBottom() - PANEL_PADDING;
     }
 
-    private int visibleRowCount() {
-        return Math.max(1, (listBottom() - listTop() + BUTTON_GAP) / CARD_STEP);
+    private int listViewportHeight() {
+        return Math.max(0, listBottom() - listTop());
+    }
+
+    private int maxListScroll() {
+        int contentHeight = profiles.isEmpty() ? 0 : profiles.size() * CARD_STEP - CARD_GAP;
+        return Math.max(0, contentHeight - listViewportHeight());
     }
 
     private int firstVisibleRow() {
-        return Math.min(listScroll, Math.max(0, profiles.size() - visibleRowCount()));
+        return Math.min(profiles.size(), listScroll / CARD_STEP);
+    }
+
+    private int lastVisibleRowExclusive() {
+        return Math.min(profiles.size(), (listScroll + listViewportHeight() + CARD_STEP - 1) / CARD_STEP);
     }
 
     private int cardX() {
-        return EDGE + PANEL_PADDING;
+        return contentLeft() + PANEL_PADDING;
     }
 
     private int cardWidth() {
-        return leftPanelWidth() - PANEL_PADDING * 2 - SCROLLBAR_WIDTH - SCROLLBAR_GAP;
+        return leftPanelWidth() - PANEL_PADDING * 2 - SCROLLBAR_WIDTH - 5;
     }
 
-    private int cardY(int visibleRow) {
-        return listTop() + visibleRow * CARD_STEP;
+    private int cardY(int profileIndex) {
+        return listTop() + profileIndex * CARD_STEP - listScroll;
     }
 
     private int detailX() {
@@ -162,132 +220,139 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int detailWidth() {
-        return rightPanelWidth() - PANEL_PADDING * 2;
+        return rightPanelRight() - rightPanelLeft() - PANEL_PADDING * 2;
     }
 
-    private int actionsPanelY() {
-        return panelBottom() - ACTION_PANEL_HEIGHT;
-    }
-
-    private int detailPanelBottom() {
-        return actionsPanelY() - SECTION_GAP;
+    private int primaryButtonY() {
+        return mainBottom() - PANEL_PADDING - PRIMARY_BUTTON_HEIGHT;
     }
 
     private int detailViewportTop() {
-        return PANEL_TOP + PANEL_HEADER_HEIGHT + PANEL_PADDING;
+        return mainTop() + PANEL_HEADER_HEIGHT + 7;
     }
 
     private int detailViewportBottom() {
-        return detailPanelBottom() - PANEL_PADDING;
+        return primaryButtonY() - 7;
     }
 
-    private int detailContentY() {
-        return detailContentBaseY() - detailScroll;
+    private int detailContentWidth() {
+        return Math.max(40, detailWidth() - 26);
     }
 
-    private int detailContentBaseY() {
-        return detailViewportTop();
-    }
-
-    private int detailLineHeight() {
-        return height < 400 ? 12 : 16;
-    }
-
-    private boolean showRestoreDescription() {
-        return height >= 400;
-    }
-
-    private int detailFieldsEndY() {
-        return detailContentBaseY() + detailLineHeight() * 4;
-    }
-
-    private int detailContentEndBaseY() {
-        int y = detailFieldsEndY();
-        if (showRestoreDescription()) {
-            y += 12 + detailLineHeight();
-        }
-        return y + PANEL_PADDING;
-    }
-
-    private int actionsButtonStartY() {
-        int contentTop = actionsPanelY() + ACTION_HEADER_HEIGHT;
-        int contentHeight = ACTION_PANEL_HEIGHT - ACTION_HEADER_HEIGHT;
-        int verticalInset = Math.max(0, (contentHeight - ACTION_BUTTON_GROUP_HEIGHT) / 2);
-        return contentTop + verticalInset;
+    private int detailViewportHeight() {
+        return Math.max(0, detailViewportBottom() - detailViewportTop());
     }
 
     private int maxDetailScroll() {
-        return Math.max(0, detailContentEndBaseY() - detailViewportBottom());
+        ProfileSummary selected = selectedProfile();
+        return selected == null ? 0 : Math.max(0,
+                detailContentHeight(selected.manifest()) - detailViewportHeight());
     }
 
-    private int footerY() {
-        return height - 28;
+    private int footerButtonY() {
+        return height - FOOTER_HEIGHT + 2;
     }
 
-    private int measuredButtonWidth(Text label, int minimum, int maximum) {
-        int measured = textRenderer.getWidth(label) + 16;
-        return Math.max(minimum, Math.min(maximum, measured));
+    private int pendingTop() {
+        return HEADER_HEIGHT;
+    }
+
+    private int pendingButtonWidth() {
+        Text label = Text.translatable("screen.universal_config.restart_now");
+        return Math.max(88, Math.min(128, textRenderer.getWidth(label) + 20));
+    }
+
+    private int menuX() {
+        return rightPanelRight() - PANEL_PADDING - MENU_WIDTH;
+    }
+
+    private int menuY() {
+        return primaryButtonY() - MENU_HEIGHT - 4;
     }
 
     private void rebuildButtons() {
         clearChildren();
+        moreMenuButtons.clear();
         int firstRow = firstVisibleRow();
-        int rowCount = Math.min(visibleRowCount(), profiles.size() - firstRow);
-        detailScroll = Math.min(detailScroll, maxDetailScroll());
-        for (int row = 0; row < rowCount; row++) {
-            int index = firstRow + row;
-            addDrawableChild(ButtonWidget.builder(Text.empty(), button -> {
-                selectedProfileIndex = index;
+        int lastRow = lastVisibleRowExclusive();
+        for (int index = firstRow; index < lastRow; index++) {
+            int profileIndex = index;
+            ProfileSummary profile = profiles.get(profileIndex);
+            MutableText narration = Text.literal(profileName(profile.manifest()));
+            int fullCardY = cardY(index);
+            int clippedTop = Math.max(listTop(), fullCardY);
+            int clippedBottom = Math.min(listBottom(), fullCardY + CARD_HEIGHT);
+            if (clippedBottom <= clippedTop) {
+                continue;
+            }
+            ButtonWidget profileButton = new ProfileCardButton(cardX(), clippedTop, cardWidth(),
+                    clippedBottom - clippedTop, narration, button -> {
+                selectedProfileIndex = profileIndex;
                 detailScroll = 0;
+                moreMenuOpen = false;
                 rebuildButtons();
-            }).dimensions(cardX(), cardY(row), cardWidth(), CARD_HEIGHT).build());
+            });
+            // The empty visual label avoids duplicating the custom two-line card. Narration still announces the
+            // profile name, so keyboard and screen-reader users receive the same selection context.
+            addDrawableChild(profileButton);
         }
 
         ProfileSummary selected = selectedProfile();
         if (selected != null) {
             Path path = selected.path();
-            int x = detailX();
-            int y = actionsButtonStartY();
-            int buttonWidth = Math.max(MIN_ACTION_BUTTON_WIDTH, (detailWidth() - BUTTON_GAP) / 2);
-            int secondaryY = y + BUTTON_HEIGHT + BUTTON_GAP;
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.restore"), button -> openConfirm(path))
-                    .dimensions(x, y, buttonWidth, BUTTON_HEIGHT).build());
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
-                    .dimensions(x + buttonWidth + BUTTON_GAP, y, buttonWidth, BUTTON_HEIGHT).build());
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.export"), button -> export(path))
-                    .dimensions(x, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
-                    .dimensions(x + buttonWidth + BUTTON_GAP, secondaryY, buttonWidth, BUTTON_HEIGHT).build());
-            int defaultY = secondaryY + BUTTON_HEIGHT + BUTTON_GAP;
-            Text defaultLabel = Text.translatable(isDefaultProfile(path)
-                    ? "screen.universal_config.clear_default"
-                    : "screen.universal_config.set_default");
-            addDrawableChild(ButtonWidget.builder(defaultLabel, button -> toggleDefault(path))
-                    .dimensions(x, defaultY, buttonWidth, BUTTON_HEIGHT).build());
+            int actionWidth = detailWidth() - MORE_BUTTON_WIDTH - 6;
+            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.use_profile"), button -> openConfirm(path))
+                    .dimensions(detailX(), primaryButtonY(), actionWidth, PRIMARY_BUTTON_HEIGHT).build());
+            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.more"), button -> {
+                moreMenuOpen = !moreMenuOpen;
+                rebuildButtons();
+            }).dimensions(detailX() + actionWidth + 6, primaryButtonY(), MORE_BUTTON_WIDTH, PRIMARY_BUTTON_HEIGHT).build());
+            if (moreMenuOpen) {
+                addMoreMenuButtons(path);
+            }
+        } else {
+            moreMenuOpen = false;
         }
 
-        int right = rightPanelLeft() + rightPanelWidth() - PANEL_PADDING;
-        Text saveLabel = Text.translatable("screen.universal_config.save_current");
-        Text updateLabel = Text.translatable("screen.universal_config.refresh");
-        Text closeLabel = Text.translatable("screen.universal_config.close");
-        Text outputLabel = Text.translatable("screen.universal_config.open_folder");
-        int saveWidth = measuredButtonWidth(saveLabel, 96, 144);
-        int outputWidth = measuredButtonWidth(outputLabel, 72, 104);
-        int closeWidth = measuredButtonWidth(closeLabel, 48, 72);
-        int updateWidth = measuredButtonWidth(updateLabel, 52, 88);
-        int outputX = right - outputWidth;
-        int closeX = outputX - BUTTON_GAP - closeWidth;
-        int updateX = closeX - BUTTON_GAP - updateWidth;
-        addDrawableChild(ButtonWidget.builder(saveLabel, button -> client.setScreen(new ProfileCreateScreen(this)))
-                .dimensions(EDGE, footerY(), saveWidth, BUTTON_HEIGHT).build());
-        addDrawableChild(ButtonWidget.builder(updateLabel, button -> {
-            reload();
-            rebuildButtons();
-        }).dimensions(updateX, footerY(), updateWidth, BUTTON_HEIGHT).build());
-        addDrawableChild(ButtonWidget.builder(closeLabel, button -> client.setScreen(parent))
-                .dimensions(closeX, footerY(), closeWidth, BUTTON_HEIGHT).build());
-        addDrawableChild(ButtonWidget.builder(outputLabel, button -> openOutputDirectory())
-                .dimensions(outputX, footerY(), outputWidth, BUTTON_HEIGHT).build());
+        addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.save_current"),
+                        button -> client.setScreen(new ProfileCreateScreen(this)))
+                .dimensions(contentLeft(), footerButtonY(), contentWidth(), BUTTON_HEIGHT).build());
+
+        if (pendingImport != null) {
+            int buttonWidth = pendingButtonWidth();
+            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.restart_now"), button -> restartForPendingApply())
+                    .dimensions(rightPanelRight() - buttonWidth - 6, pendingTop() + 5, buttonWidth, BUTTON_HEIGHT).build());
+        }
+
+        MutableText closeNarration = Text.translatable("screen.universal_config.close");
+        addDrawableChild(ButtonWidget.builder(Text.literal("×"), button -> close())
+                .narrationSupplier(ignored -> closeNarration)
+                .dimensions(width - CLOSE_BUTTON_SIZE - 8, 8, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE)
+                .build());
+    }
+
+    private void addMoreMenuButtons(Path path) {
+        int x = menuX() + 4;
+        int y = menuY() + 4;
+        int width = MENU_WIDTH - 8;
+        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
+                .dimensions(x, y, width, BUTTON_HEIGHT).build());
+        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.export"), button -> export(path))
+                .dimensions(x, y + BUTTON_HEIGHT + MENU_ITEM_GAP, width, BUTTON_HEIGHT).build());
+        Text defaultLabel = Text.translatable(isDefaultProfile(path)
+                ? "screen.universal_config.clear_default"
+                : "screen.universal_config.set_default");
+        addMoreMenuButton(ButtonWidget.builder(defaultLabel, button -> toggleDefault(path))
+                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 2, width, BUTTON_HEIGHT).build());
+        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.open_folder"), button -> openOutputDirectory())
+                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 3, width, BUTTON_HEIGHT).build());
+        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
+                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 4, width, BUTTON_HEIGHT).build());
+    }
+
+    private void addMoreMenuButton(ButtonWidget button) {
+        moreMenuButtons.add(button);
+        addDrawableChild(button);
     }
 
     private ProfileSummary selectedProfile() {
@@ -297,41 +362,54 @@ public final class ProfileListScreen extends Screen {
     }
 
     private void openConfirm(Path path) {
-        client.setScreen(new ProfileConfirmScreen(this, path));
+        try {
+            client.setScreen(new ProfileConfirmScreen(this, path));
+        } catch (RuntimeException ex) {
+            FileOperationLogger.failure("OPEN_PROFILE_CONFIRM", path, "failed", ex);
+            status = Text.translatable("screen.universal_config.open_confirm_failed");
+        }
     }
 
     private void duplicate(Path path) {
         try {
             ScreenUtil.service().duplicateProfile(path);
+            status = Text.translatable("screen.universal_config.duplicated");
+            moreMenuOpen = false;
             reload();
             rebuildButtons();
-        } catch (UniversalConfigException ex) {
-            status = ScreenUtil.errorText(ex);
+        } catch (UniversalConfigException | RuntimeException ex) {
+            handleActionFailure(ex, "screen.universal_config.duplicate_failed");
         }
     }
 
     private void confirmDelete(Path path) {
         ProfileSummary summary = profiles.stream().filter(profile -> profile.path().equals(path)).findFirst().orElse(null);
-        String name = summary == null ? translation("screen.universal_config.this_profile") : summary.manifest().name;
-        client.setScreen(new ConfirmScreen(confirmed -> {
-            if (confirmed) {
-                delete(path);
-            } else {
-                client.setScreen(this);
-            }
-        }, Text.translatable("screen.universal_config.delete_confirm", name),
-                Text.translatable("screen.universal_config.delete_warning")));
+        String name = summary == null ? translation("screen.universal_config.this_profile") : profileName(summary.manifest());
+        try {
+            client.setScreen(new ConfirmScreen(confirmed -> {
+                if (confirmed) {
+                    delete(path);
+                } else {
+                    client.setScreen(this);
+                }
+            }, Text.translatable("screen.universal_config.delete_confirm", name),
+                    Text.translatable("screen.universal_config.delete_warning")));
+        } catch (RuntimeException ex) {
+            FileOperationLogger.failure("OPEN_DELETE_CONFIRM", path, "failed", ex);
+            status = Text.translatable("screen.universal_config.delete_failed");
+        }
     }
 
     private void delete(Path path) {
         try {
             ScreenUtil.service().deleteProfile(ScreenUtil.instancePath(), path);
             selectedProfileIndex = Math.max(0, selectedProfileIndex - 1);
+            moreMenuOpen = false;
             reload();
             rebuildButtons();
             client.setScreen(this);
-        } catch (UniversalConfigException ex) {
-            status = ScreenUtil.errorText(ex);
+        } catch (UniversalConfigException | RuntimeException ex) {
+            handleActionFailure(ex, "screen.universal_config.delete_failed");
             client.setScreen(this);
         }
     }
@@ -339,15 +417,16 @@ public final class ProfileListScreen extends Screen {
     private void toggleDefault(Path path) {
         try {
             ProfileService service = ScreenUtil.service();
-            if (service.isDefaultProfile(path)) {
+            if (isDefaultProfile(path)) {
                 service.clearDefaultProfile(ScreenUtil.instancePath());
             } else {
                 service.setDefaultProfile(ScreenUtil.instancePath(), path);
             }
+            moreMenuOpen = false;
             reload();
             rebuildButtons();
-        } catch (UniversalConfigException ex) {
-            status = ScreenUtil.errorText(ex);
+        } catch (UniversalConfigException | RuntimeException ex) {
+            handleActionFailure(ex, "screen.universal_config.default_failed");
         }
     }
 
@@ -355,8 +434,10 @@ public final class ProfileListScreen extends Screen {
         try {
             Path exported = ScreenUtil.service().exportProfile(path, UniversalConfigPaths.exportDirectory(ScreenUtil.instancePath()));
             status = Text.translatable("screen.universal_config.exported", exported.getFileName());
-        } catch (UniversalConfigException ex) {
-            status = ScreenUtil.errorText(ex);
+            moreMenuOpen = false;
+            rebuildButtons();
+        } catch (UniversalConfigException | RuntimeException ex) {
+            handleActionFailure(ex, "screen.universal_config.export_failed");
         }
     }
 
@@ -366,38 +447,79 @@ public final class ProfileListScreen extends Screen {
             Util.getOperatingSystem().open(directory.toUri());
             FileOperationLogger.info("OPEN_OUTPUT_DIRECTORY", directory, "opened by user");
             status = Text.translatable("screen.universal_config.folder_opened");
-        } catch (UniversalConfigException ex) {
-            status = ScreenUtil.errorText(ex);
+            moreMenuOpen = false;
+            rebuildButtons();
+        } catch (UniversalConfigException | RuntimeException ex) {
+            handleActionFailure(ex, "screen.universal_config.open_folder_failed");
+        }
+    }
+
+    private void restartForPendingApply() {
+        if (restarting) {
+            return;
+        }
+        // 終了処理が始まるまでボタンは操作可能なため、連打で複数の待機プロセスを作らない。
+        // 成功時は画面が閉じるまで維持し、準備に失敗した場合だけ再試行を許可する。
+        restarting = true;
+        Path pendingPath = UniversalConfigPaths.pendingImportFile(ScreenUtil.instancePath());
+        try {
+            if (!Files.isRegularFile(pendingPath) || ScreenUtil.service().readPendingImport(ScreenUtil.instancePath()) == null) {
+                throw new IllegalStateException("Pending import could not be verified");
+            }
+            // The helper waits for this JVM to finish saving options.txt before starting the replacement process.
+            CurrentProcessRestartService.scheduleRestartAfterCurrentProcessExit();
+            FileOperationLogger.info("RESTART_FOR_PENDING_APPLY", pendingPath, "restart scheduled");
+            client.scheduleStop();
+        } catch (UniversalConfigException | RuntimeException ex) {
+            FileOperationLogger.failure("RESTART_FOR_PENDING_APPLY", pendingPath, "failed", ex);
+            restarting = false;
+            status = Text.translatable("screen.universal_config.restart_failed");
+        }
+    }
+
+    private void handleActionFailure(Exception ex, String fallbackKey) {
+        if (ex instanceof UniversalConfigException universalConfigException) {
+            status = ScreenUtil.errorText(universalConfigException);
+        } else {
+            status = Text.translatable(fallbackKey);
         }
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
-        if (mouseX >= EDGE && mouseX <= leftPanelRight()
-                && mouseY >= PANEL_TOP && mouseY <= panelBottom()) {
-            int maxScroll = Math.max(0, profiles.size() - visibleRowCount());
-            if (maxScroll <= 0) {
-                listScroll = 0;
-                return true;
+        if (mouseX >= contentLeft() && mouseX <= leftPanelRight()
+                && mouseY >= mainTop() && mouseY <= mainBottom()) {
+            int previousScroll = listScroll;
+            int delta = amount > 0 ? -LIST_SCROLL_STEP : amount < 0 ? LIST_SCROLL_STEP : 0;
+            listScroll = Math.max(0, Math.min(maxListScroll(), listScroll + delta));
+            if (listScroll != previousScroll) {
+                rebuildButtons();
             }
-            int direction = amount > 0 ? -1 : amount < 0 ? 1 : 0;
-            listScroll = Math.max(0, Math.min(maxScroll, listScroll + direction));
-            rebuildButtons();
             return true;
         }
-        if (mouseX >= rightPanelLeft() && mouseX <= width - EDGE
-                && mouseY >= PANEL_TOP && mouseY <= detailPanelBottom()) {
-            int maxScroll = maxDetailScroll();
-            if (maxScroll <= 0) {
-                detailScroll = 0;
-                return true;
-            }
-            int direction = amount > 0 ? -1 : amount < 0 ? 1 : 0;
-            detailScroll = Math.max(0, Math.min(maxScroll, detailScroll + direction));
-            rebuildButtons();
-            return true;
+        if (mouseX >= rightPanelLeft() && mouseX <= rightPanelRight()
+                && mouseY >= detailViewportTop() && mouseY <= detailViewportBottom()) {
+            int previousScroll = detailScroll;
+            int delta = amount > 0 ? -DETAIL_SCROLL_STEP : amount < 0 ? DETAIL_SCROLL_STEP : 0;
+            detailScroll = Math.max(0, Math.min(maxDetailScroll(), detailScroll + delta));
+            return detailScroll != previousScroll || amount != 0;
         }
         return super.mouseScrolled(mouseX, mouseY, amount);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (moreMenuOpen && !inside(mouseX, mouseY, menuX(), menuY(), MENU_WIDTH, MENU_HEIGHT)
+                && !inside(mouseX, mouseY, detailX() + detailWidth() - MORE_BUTTON_WIDTH, primaryButtonY(),
+                MORE_BUTTON_WIDTH, PRIMARY_BUTTON_HEIGHT)) {
+            moreMenuOpen = false;
+            rebuildButtons();
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private boolean inside(double mouseX, double mouseY, int x, int y, int width, int height) {
+        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
     }
 
     @Override
@@ -408,198 +530,151 @@ public final class ProfileListScreen extends Screen {
         drawListContent(context);
         drawDetailContent(context);
         super.render(context, mouseX, mouseY, delta);
-        drawCardSurfaces(context);
-        drawCardText(context);
+        drawProfileCards(context, mouseX, mouseY);
         drawScrollbar(context);
         drawDetailScrollbar(context);
+        drawStatus(context);
+        if (moreMenuOpen) {
+            drawMoreMenuOverlay(context, mouseX, mouseY, delta);
+        }
     }
 
     private void drawHeader(DrawContext context) {
-        context.fill(0, 0, width, HEADER_HEIGHT, 0xB0181818);
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 7, 0xFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer, Text.translatable("screen.universal_config.subtitle"), width / 2, 21, 0xFFBBBBBB);
-        drawTrimmed(context, status.getString(), EDGE, 36, width - EDGE * 2, MUTED_TEXT_COLOR);
-        if (!pendingStatus.getString().isEmpty()) {
-            drawTrimmed(context, pendingStatus.getString(), EDGE, 46, width - EDGE * 2, 0xFFFFCC66);
+        context.fill(0, 0, width, HEADER_HEIGHT, 0xB0101010);
+        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, Text.translatable("screen.universal_config.subtitle"),
+                width / 2, 25, MUTED_TEXT_COLOR);
+        if (pendingImport != null) {
+            int top = pendingTop();
+            drawBorderedRect(context, contentLeft(), top, rightPanelRight(), top + PENDING_HEIGHT,
+                    PENDING_COLOR, PENDING_BORDER_COLOR, PANEL_BORDER_DARK);
+            int availableWidth = contentWidth() - pendingButtonWidth() - 34;
+            drawTrimmed(context, Text.translatable("screen.universal_config.pending_named", pendingProfileName()).getString(),
+                    contentLeft() + 12, top + 10, availableWidth, WARNING_COLOR);
+        }
+    }
+
+    private String pendingProfileName() {
+        if (pendingImport == null || pendingImport.profilePath == null || pendingImport.profilePath.isBlank()) {
+            return translation("screen.universal_config.this_profile");
+        }
+        try {
+            Path pendingPath = Path.of(pendingImport.profilePath).toAbsolutePath().normalize();
+            for (ProfileSummary profile : profiles) {
+                if (profile.path().toAbsolutePath().normalize().equals(pendingPath)) {
+                    return profileName(profile.manifest());
+                }
+            }
+            String fileName = pendingPath.getFileName() == null ? "" : pendingPath.getFileName().toString();
+            return fileName.isBlank() ? translation("screen.universal_config.this_profile") : fileName;
+        } catch (RuntimeException ex) {
+            return translation("screen.universal_config.this_profile");
         }
     }
 
     private void drawPanels(DrawContext context) {
-        drawPanel(context, EDGE, PANEL_TOP, leftPanelRight(), panelBottom());
-        drawPanel(context, rightPanelLeft(), PANEL_TOP, width - EDGE, detailPanelBottom());
-        drawPanel(context, rightPanelLeft(), actionsPanelY(), width - EDGE, panelBottom());
+        drawBorderedRect(context, contentLeft(), mainTop(), leftPanelRight(), mainBottom(),
+                PANEL_COLOR, PANEL_BORDER_LIGHT, PANEL_BORDER_DARK);
+        drawBorderedRect(context, rightPanelLeft(), mainTop(), rightPanelRight(), mainBottom(),
+                PANEL_COLOR, PANEL_BORDER_LIGHT, PANEL_BORDER_DARK);
     }
 
     private void drawListContent(DrawContext context) {
-        int left = EDGE;
-        int right = leftPanelRight();
-        drawPanelHeader(context, left, right, PANEL_TOP, PANEL_HEADER_HEIGHT, "screen.universal_config.profile_list",
-                Text.translatable("screen.universal_config.profile_count", profiles.size()).getString());
+        drawPanelHeader(context, contentLeft(), leftPanelRight(), Text.translatable("screen.universal_config.saved_settings"));
         if (profiles.isEmpty()) {
-            drawTrimmed(context, translation("screen.universal_config.empty_title"), left + PANEL_PADDING,
-                    listTop() + 24, leftPanelWidth() - PANEL_PADDING * 2, 0xFFDDDDDD);
-            drawTrimmed(context, translation("screen.universal_config.empty_hint"), left + PANEL_PADDING,
-                    listTop() + 42, leftPanelWidth() - PANEL_PADDING * 2, MUTED_TEXT_COLOR);
+            drawTrimmed(context, translation("screen.universal_config.empty_title"), cardX(), listTop() + 12,
+                    cardWidth(), SECONDARY_TEXT_COLOR);
+            drawTrimmed(context, translation("screen.universal_config.empty_hint"), cardX(), listTop() + 28,
+                    cardWidth(), MUTED_TEXT_COLOR);
         }
     }
 
     private void drawDetailContent(DrawContext context) {
-        int left = rightPanelLeft();
-        int right = width - EDGE;
-        drawPanelHeader(context, left, right, PANEL_TOP, PANEL_HEADER_HEIGHT, "screen.universal_config.profile_detail", "");
         ProfileSummary selected = selectedProfile();
+        Text heading = selected == null
+                ? Text.translatable("screen.universal_config.profile_detail")
+                : Text.literal(profileName(selected.manifest()));
+        drawPanelHeader(context, rightPanelLeft(), rightPanelRight(), heading);
+        int innerTop = detailViewportTop();
+        int innerBottom = detailViewportBottom();
+        context.fill(detailX(), innerTop, rightPanelRight() - PANEL_PADDING, innerBottom, PANEL_INNER_COLOR);
         if (selected == null) {
-            drawTrimmed(context, translation("screen.universal_config.select_profile"), detailX(), detailViewportTop() + 12,
-                    detailWidth(), MUTED_TEXT_COLOR);
-        } else {
-            context.enableScissor(left, detailViewportTop() - 2, right, detailViewportBottom());
-            drawDetails(context, selected, detailX(), detailContentY(), detailWidth());
-            context.disableScissor();
-        }
-        drawPanelHeader(context, left, right, actionsPanelY(), ACTION_HEADER_HEIGHT, "screen.universal_config.actions", "");
-    }
-
-    private void drawPanelHeader(DrawContext context, int left, int right, int top, int headerHeight, String headingKey, String trailing) {
-        context.fill(left, top, right, top + headerHeight, PANEL_HEADER_COLOR);
-        int headingY = top + 5;
-        context.drawTextWithShadow(textRenderer, Text.translatable(headingKey), left + PANEL_PADDING, headingY, 0xFFFFFFFF);
-        if (!trailing.isEmpty()) {
-            int trailingWidth = Math.min(84, Math.max(32, right - left - 96));
-            drawTrimmed(context, trailing, right - PANEL_PADDING - trailingWidth, headingY, trailingWidth, MUTED_TEXT_COLOR);
-        }
-        context.fill(left, top + headerHeight - 1, right, top + headerHeight, DIVIDER_COLOR);
-    }
-
-    private void drawCardSurfaces(DrawContext context) {
-        int firstRow = firstVisibleRow();
-        int rowCount = Math.min(visibleRowCount(), profiles.size() - firstRow);
-        for (int row = 0; row < rowCount; row++) {
-            int index = firstRow + row;
-            int y = cardY(row);
-            context.fill(cardX(), y, cardX() + cardWidth(), y + CARD_HEIGHT,
-                    index == selectedProfileIndex ? SELECTED_CARD_COLOR : CARD_COLOR);
-        }
-    }
-
-    private void drawCardText(DrawContext context) {
-        int firstRow = firstVisibleRow();
-        int rowCount = Math.min(visibleRowCount(), profiles.size() - firstRow);
-        for (int row = 0; row < rowCount; row++) {
-            ProfileSummary summary = profiles.get(firstRow + row);
-            ProfileManifest manifest = summary.manifest();
-            int y = cardY(row);
-            int textX = cardX() + CARD_TEXT_PADDING;
-            int textWidth = Math.max(0, cardWidth() - CARD_TEXT_PADDING * 2);
-            int nameWidth = textWidth;
-            if (isDefaultProfile(summary.path())) {
-                String marker = translation("screen.universal_config.default_marker");
-                int markerWidth = textRenderer.getWidth(marker);
-                int markerRenderWidth = Math.min(markerWidth, textWidth);
-                int markerX = textX + textWidth - markerRenderWidth;
-                nameWidth = Math.max(0, markerX - textX - CARD_MARKER_GAP);
-                drawTrimmed(context, marker, markerX, y + 5, markerRenderWidth, SECONDARY_TEXT_COLOR);
-            }
-            drawTrimmed(context, manifest.name, textX, y + 5, nameWidth, 0xFFFFFFFF);
-            String[] environmentLines = environmentLines(manifest);
-            drawTrimmed(context, environmentLines[0], textX, y + 20, textWidth, SECONDARY_TEXT_COLOR);
-            drawTrimmed(context, environmentLines[1], textX, y + 35, textWidth, SECONDARY_TEXT_COLOR);
-            drawTrimmed(context, translation("screen.universal_config.updated") + ": " + formatDate(manifest.updatedAt),
-                    textX, y + 50, textWidth, MUTED_TEXT_COLOR);
-        }
-    }
-
-    private void drawScrollbar(DrawContext context) {
-        int maxScroll = profiles.size() - visibleRowCount();
-        if (maxScroll <= 0) {
+            drawTrimmed(context, translation("screen.universal_config.select_profile"), detailX() + 8, innerTop + 12,
+                    detailWidth() - 16, MUTED_TEXT_COLOR);
             return;
         }
-        int trackTop = listTop();
-        int trackBottom = listBottom();
-        int trackHeight = trackBottom - trackTop;
-        int thumbHeight = Math.max(14, trackHeight * visibleRowCount() / profiles.size());
-        int thumbTravel = trackHeight - thumbHeight;
-        int thumbTop = trackTop + thumbTravel * firstVisibleRow() / maxScroll;
-        int scrollbarX = leftPanelRight() - PANEL_PADDING - SCROLLBAR_WIDTH;
-        context.fill(scrollbarX, trackTop, scrollbarX + SCROLLBAR_WIDTH, trackBottom, 0x403F3F3F);
-        context.fill(scrollbarX, thumbTop, scrollbarX + SCROLLBAR_WIDTH, thumbTop + thumbHeight, 0xFF8A8A8A);
-    }
+        ProfileManifest manifest = selected.manifest();
+        int x = detailX() + 10;
+        int contentWidth = detailContentWidth();
+        int y = innerTop + 8 - detailScroll;
+        context.enableScissor(detailX(), innerTop, rightPanelRight() - PANEL_PADDING, innerBottom);
+        drawProfileIcon(context, x, y, PROFILE_ICON_SIZE, manifest.icon);
+        int infoX = x + PROFILE_ICON_SIZE + 10;
+        int infoWidth = Math.max(0, x + contentWidth - infoX);
+        drawTrimmed(context, environmentSummary(manifest), infoX, y + 1, infoWidth, 0xFFFFFFFF);
+        drawTrimmed(context, loaderSummary(manifest), infoX, y + 15, infoWidth, MUTED_TEXT_COLOR);
 
-    private void drawDetailScrollbar(DrawContext context) {
-        int maxScroll = maxDetailScroll();
-        if (maxScroll <= 0) {
-            return;
+        y += 31;
+        for (OrderedText line : descriptionLines(manifest)) {
+            context.drawTextWithShadow(textRenderer, line, x, y, SECONDARY_TEXT_COLOR);
+            y += DETAIL_LINE_HEIGHT;
         }
-        int trackTop = detailViewportTop();
-        int trackBottom = detailViewportBottom();
-        int trackHeight = trackBottom - trackTop;
-        int contentHeight = detailContentEndBaseY() - detailContentBaseY();
-        int thumbHeight = Math.max(14, trackHeight * trackHeight / Math.max(trackHeight, contentHeight));
-        int thumbTravel = trackHeight - thumbHeight;
-        int thumbTop = trackTop + thumbTravel * detailScroll / maxScroll;
-        int scrollbarX = rightPanelLeft() + rightPanelWidth() - PANEL_PADDING - SCROLLBAR_WIDTH;
-        context.fill(scrollbarX, trackTop, scrollbarX + SCROLLBAR_WIDTH, trackBottom, 0x403F3F3F);
-        context.fill(scrollbarX, thumbTop, scrollbarX + SCROLLBAR_WIDTH, thumbTop + thumbHeight, 0xFF8A8A8A);
-    }
-
-    private void drawDetails(DrawContext context, ProfileSummary summary, int x, int y, int maxWidth) {
-        ProfileManifest manifest = summary.manifest();
-        int lineHeight = detailLineHeight();
-        drawField(context, "screen.universal_config.name", manifest.name, x, y, maxWidth);
-        drawField(context, "screen.universal_config.environment", environmentText(manifest), x, y + lineHeight, maxWidth);
-        drawField(context, "screen.universal_config.updated", formatDate(manifest.updatedAt), x, y + lineHeight * 2, maxWidth);
-        drawField(context, "screen.universal_config.targets", includesText(manifest), x, y + lineHeight * 3, maxWidth);
-        int descriptionY = y + lineHeight * 4 + 12;
-        if (showRestoreDescription()) {
-            drawTrimmed(context, translation("screen.universal_config.restore_description"), x, descriptionY, maxWidth, MUTED_TEXT_COLOR);
-        }
-    }
-
-    private void drawField(DrawContext context, String labelKey, String value, int x, int y, int maxWidth) {
-        drawTrimmed(context, Text.translatable(labelKey).getString() + ": " + value, x, y, maxWidth, 0xFFFFFFFF);
-    }
-
-    private String environmentText(ProfileManifest manifest) {
-        if (manifest.source == null) {
-            return translation("screen.universal_config.environment_unknown");
-        }
-        String[] lines = environmentLines(manifest);
-        return lines[0] + " / " + lines[1];
-    }
-
-    private String[] environmentLines(ProfileManifest manifest) {
-        if (manifest.source == null) {
-            return new String[]{translation("screen.universal_config.environment_unknown"), ""};
-        }
-        return new String[]{"Minecraft " + safe(manifest.source.minecraftVersion), formatLoader(manifest.source.loader)};
-    }
-
-    private String formatLoader(String value) {
-        String loader = safe(value);
-        return switch (loader.toLowerCase()) {
-            case "fabric" -> "Fabric";
-            case "forge" -> "Forge";
-            case "neoforge" -> "NeoForge";
-            default -> loader.substring(0, 1).toUpperCase() + loader.substring(1);
-        };
-    }
-
-    private String includesText(ProfileManifest manifest) {
+        y += 3;
+        drawTrimmed(context, updatedSummary(manifest), x, y, contentWidth, MUTED_TEXT_COLOR);
+        y += 18;
+        context.fill(x, y, x + contentWidth, y + 1, DIVIDER_COLOR);
+        context.drawTextWithShadow(textRenderer, Text.translatable("screen.universal_config.included_settings"),
+                x, y + 9, SECONDARY_TEXT_COLOR);
+        int itemY = y + 25;
         if (manifest.includes == null) {
-            return translation("screen.universal_config.targets_unknown");
+            drawTrimmed(context, translation("screen.universal_config.targets_unknown"), x, itemY,
+                    contentWidth, MUTED_TEXT_COLOR);
+        } else {
+            itemY = drawInclude(context, manifest.includes.keybinds, "screen.universal_config.target_keybinds", x, itemY);
+            itemY = drawInclude(context, manifest.includes.clientOptions, "screen.universal_config.target_client", x, itemY);
+            drawInclude(context, manifest.includes.modConfigs, "screen.universal_config.target_mods", x, itemY);
         }
-        List<String> includes = new ArrayList<>();
-        if (manifest.includes.keybinds) {
-            includes.add(translation("screen.universal_config.target_keybinds"));
-        }
-        if (manifest.includes.clientOptions) {
-            includes.add(translation("screen.universal_config.target_client"));
-        }
-        if (manifest.includes.modConfigs) {
-            includes.add(translation("screen.universal_config.target_mods"));
-        }
-        return includes.isEmpty()
-                ? translation("screen.universal_config.targets_none")
-                : String.join(translation("screen.universal_config.targets_separator"), includes);
+        context.disableScissor();
+    }
+
+    private List<OrderedText> descriptionLines(ProfileManifest manifest) {
+        return textRenderer.wrapLines(Text.literal(descriptionSummary(manifest)), detailContentWidth());
+    }
+
+    private int detailContentHeight(ProfileManifest manifest) {
+        int includeLines = Math.max(1, includedSettingCount(manifest));
+        return 8 + 31 + descriptionLines(manifest).size() * DETAIL_LINE_HEIGHT + 3 + 18 + 25
+                + includeLines * 15;
+    }
+
+    private String environmentSummary(ProfileManifest manifest) {
+        String minecraftVersion = manifest.source == null
+                ? translation("screen.universal_config.unknown")
+                : safe(manifest.source.minecraftVersion);
+        String loader = manifest.source == null
+                ? translation("screen.universal_config.unknown")
+                : formatLoader(manifest.source.loader);
+        return Text.translatable("screen.universal_config.confirm_environment", minecraftVersion, loader).getString();
+    }
+
+    private String descriptionSummary(ProfileManifest manifest) {
+        return manifest.description == null || manifest.description.isBlank()
+                ? translation("screen.universal_config.description_none")
+                : manifest.description;
+    }
+
+    private String updatedSummary(ProfileManifest manifest) {
+        return formatDate(manifest.updatedAt);
+    }
+
+    private String loaderSummary(ProfileManifest manifest) {
+        String loader = manifest.source == null
+                ? translation("screen.universal_config.unknown")
+                : formatLoader(manifest.source.loader);
+        String loaderVersion = manifest.source == null
+                ? translation("screen.universal_config.unknown")
+                : safe(manifest.source.loaderVersion);
+        return Text.translatable("screen.universal_config.loader_summary", loader, loaderVersion).getString();
     }
 
     private String formatDate(String value) {
@@ -615,6 +690,112 @@ public final class ProfileListScreen extends Screen {
                 return value.length() > 16 ? value.substring(0, 16) : value;
             }
         }
+    }
+
+    private String includedSettingsText(ProfileManifest manifest) {
+        if (manifest.includes == null) {
+            return translation("screen.universal_config.targets_unknown");
+        }
+        List<String> names = new ArrayList<>();
+        if (manifest.includes.keybinds) {
+            names.add(translation("screen.universal_config.target_keybinds"));
+        }
+        if (manifest.includes.clientOptions) {
+            names.add(translation("screen.universal_config.target_client"));
+        }
+        if (manifest.includes.modConfigs) {
+            names.add(translation("screen.universal_config.target_mods"));
+        }
+        return names.isEmpty()
+                ? translation("screen.universal_config.targets_none")
+                : String.join(translation("screen.universal_config.targets_separator"), names);
+    }
+
+    private int includedSettingCount(ProfileManifest manifest) {
+        if (manifest.includes == null) {
+            return 1;
+        }
+        int count = 0;
+        if (manifest.includes.keybinds) {
+            count++;
+        }
+        if (manifest.includes.clientOptions) {
+            count++;
+        }
+        if (manifest.includes.modConfigs) {
+            count++;
+        }
+        return count;
+    }
+
+    private int drawInclude(DrawContext context, boolean included, String key, int x, int y) {
+        if (included) {
+            context.drawTextWithShadow(textRenderer, Text.literal("✓"), x, y, CHECK_COLOR);
+            drawTrimmed(context, Text.translatable(key).getString(), x + 14, y, detailWidth() - 34, 0xFFFFFFFF);
+            return y + 15;
+        }
+        return y;
+    }
+
+    private void drawPanelHeader(DrawContext context, int left, int right, Text heading) {
+        context.fill(left + 2, mainTop() + 2, right - 2, mainTop() + PANEL_HEADER_HEIGHT, PANEL_HEADER_COLOR);
+        context.drawTextWithShadow(textRenderer, heading, left + PANEL_PADDING, mainTop() + 8, 0xFFFFFFFF);
+        context.fill(left + 2, mainTop() + PANEL_HEADER_HEIGHT - 1, right - 2, mainTop() + PANEL_HEADER_HEIGHT, DIVIDER_COLOR);
+    }
+
+    private void drawProfileCards(DrawContext context, int mouseX, int mouseY) {
+        int firstRow = firstVisibleRow();
+        int lastRow = lastVisibleRowExclusive();
+        // Cards intentionally remain full-height and are clipped at the viewport boundary. A partially visible
+        // next card tells users that more profiles exist without reserving enough space for a complete row.
+        context.enableScissor(cardX(), listTop(), cardX() + cardWidth(), listBottom());
+        for (int index = firstRow; index < lastRow; index++) {
+            int y = cardY(index);
+            boolean hovered = inside(mouseX, mouseY, cardX(), y, cardWidth(), CARD_HEIGHT);
+            int fill = index == selectedProfileIndex ? SELECTED_CARD_COLOR : hovered ? CARD_HOVER_COLOR : CARD_COLOR;
+            int border = index == selectedProfileIndex ? SELECTED_BORDER_COLOR : PANEL_BORDER_DARK;
+            drawBorderedRect(context, cardX(), y, cardX() + cardWidth(), y + CARD_HEIGHT, fill, border, PANEL_BORDER_DARK);
+            ProfileSummary summary = profiles.get(index);
+            ProfileManifest manifest = summary.manifest();
+            int iconX = cardX() + 7;
+            int iconY = y + (CARD_HEIGHT - PROFILE_ICON_SIZE) / 2;
+            drawProfileIcon(context, iconX, iconY, PROFILE_ICON_SIZE, manifest.icon);
+            int textX = iconX + PROFILE_ICON_SIZE + 9;
+            int textWidth = cardX() + cardWidth() - textX - 7;
+            int nameWidth = textWidth;
+            if (isDefaultProfile(summary.path())) {
+                String marker = translation("screen.universal_config.default_marker");
+                int markerWidth = Math.min(textRenderer.getWidth(marker), textWidth);
+                int markerX = textX + textWidth - markerWidth;
+                nameWidth = Math.max(0, markerX - textX - 4);
+                drawTrimmed(context, marker, markerX, y + 7, markerWidth, SECONDARY_TEXT_COLOR);
+            }
+            drawTrimmed(context, profileName(manifest), textX, y + 7, nameWidth, 0xFFFFFFFF);
+            String[] environment = environmentLines(manifest);
+            String version = manifest.source == null ? translation("screen.universal_config.environment_unknown")
+                    : safe(manifest.source.minecraftVersion);
+            drawTrimmed(context, version + " " + environment[1], textX, y + 23, textWidth, SECONDARY_TEXT_COLOR);
+        }
+        context.disableScissor();
+    }
+
+    private void drawProfileIcon(DrawContext context, int x, int y, int size, String iconId) {
+        ItemStack stack = switch (ProfileIcon.normalize(iconId)) {
+            case ProfileIcon.CRAFTING_TABLE -> new ItemStack(Blocks.CRAFTING_TABLE);
+            case ProfileIcon.BOOKSHELF -> new ItemStack(Blocks.BOOKSHELF);
+            case ProfileIcon.COBBLESTONE -> new ItemStack(Blocks.COBBLESTONE);
+            case ProfileIcon.TNT -> new ItemStack(Blocks.TNT);
+            case ProfileIcon.CHEST -> new ItemStack(Blocks.CHEST);
+            case ProfileIcon.FURNACE -> new ItemStack(Blocks.FURNACE);
+            case ProfileIcon.DIAMOND_BLOCK -> new ItemStack(Blocks.DIAMOND_BLOCK);
+            default -> new ItemStack(Blocks.GRASS_BLOCK);
+        };
+        float scale = size / 16.0F;
+        context.getMatrices().push();
+        context.getMatrices().translate(x, y, 0);
+        context.getMatrices().scale(scale, scale, 1.0F);
+        context.drawItem(stack, 0, 0);
+        context.getMatrices().pop();
     }
 
     private DateTimeFormatter displayDateFormatter() {
@@ -647,25 +828,121 @@ public final class ProfileListScreen extends Screen {
         return locale.getLanguage().isBlank() ? Locale.ENGLISH : locale;
     }
 
-    private String safe(String value) {
-        return value == null || value.isBlank() ? translation("screen.universal_config.unknown") : value;
-    }
-
     private boolean isDefaultProfile(Path profilePath) {
         return defaultProfilePath != null
                 && profilePath != null
                 && defaultProfilePath.equals(profilePath.toAbsolutePath().normalize());
     }
 
+    private void drawScrollbar(DrawContext context) {
+        int maxScroll = maxListScroll();
+        if (maxScroll <= 0) {
+            return;
+        }
+        int trackTop = listTop();
+        int trackBottom = listBottom();
+        int trackHeight = trackBottom - trackTop;
+        int contentHeight = profiles.size() * CARD_STEP - CARD_GAP;
+        int thumbHeight = Math.max(14, trackHeight * trackHeight / contentHeight);
+        int thumbTop = trackTop + (trackHeight - thumbHeight) * listScroll / maxScroll;
+        int x = leftPanelRight() - PANEL_PADDING - SCROLLBAR_WIDTH;
+        context.fill(x, trackTop, x + SCROLLBAR_WIDTH, trackBottom, 0xFF303030);
+        context.fill(x, thumbTop, x + SCROLLBAR_WIDTH, thumbTop + thumbHeight, 0xFFAAAAAA);
+    }
+
+    private void drawDetailScrollbar(DrawContext context) {
+        int maxScroll = maxDetailScroll();
+        if (maxScroll <= 0) {
+            return;
+        }
+        int trackTop = detailViewportTop();
+        int trackBottom = detailViewportBottom();
+        int trackHeight = trackBottom - trackTop;
+        int contentHeight = detailContentHeight(selectedProfile().manifest());
+        int thumbHeight = Math.max(14, trackHeight * trackHeight / contentHeight);
+        int thumbTop = trackTop + (trackHeight - thumbHeight) * detailScroll / maxScroll;
+        int x = rightPanelRight() - PANEL_PADDING - SCROLLBAR_WIDTH;
+        context.fill(x, trackTop, x + SCROLLBAR_WIDTH, trackBottom, 0xFF303030);
+        context.fill(x, thumbTop, x + SCROLLBAR_WIDTH, thumbTop + thumbHeight, 0xFFAAAAAA);
+    }
+
+    private void drawMoreMenuOverlay(DrawContext context, int mouseX, int mouseY, float delta) {
+        // Screen children are rendered at Minecraft's widget depth. Redrawing the menu after every base layer
+        // prevents detail text and dividers from leaking over this temporary top-level surface.
+        context.getMatrices().push();
+        context.getMatrices().translate(0.0F, 0.0F, 300.0F);
+        drawBorderedRect(context, menuX(), menuY(), menuX() + MENU_WIDTH, menuY() + MENU_HEIGHT,
+                MENU_COLOR, PANEL_BORDER_LIGHT, PANEL_BORDER_DARK);
+        for (ButtonWidget button : moreMenuButtons) {
+            button.render(context, mouseX, mouseY, delta);
+        }
+        context.getMatrices().pop();
+    }
+
+    private void drawStatus(DrawContext context) {
+        if (status.getString().isEmpty()) {
+            return;
+        }
+        drawTrimmed(context, status.getString(), contentLeft(), footerButtonY() - 11, contentWidth(),
+                status.getStyle().getColor() == null ? MUTED_TEXT_COLOR : status.getStyle().getColor().getRgb());
+    }
+
+    private String[] environmentLines(ProfileManifest manifest) {
+        if (manifest.source == null) {
+            return new String[]{translation("screen.universal_config.environment_unknown"), ""};
+        }
+        return new String[]{Text.translatable("screen.universal_config.minecraft_version",
+                safe(manifest.source.minecraftVersion)).getString(), formatLoader(manifest.source.loader)};
+    }
+
+    private String formatLoader(String value) {
+        String loader = safe(value);
+        if (loader.isEmpty()) {
+            return loader;
+        }
+        return switch (loader.toLowerCase()) {
+            case "fabric" -> "Fabric";
+            case "forge" -> "Forge";
+            case "neoforge" -> "NeoForge";
+            default -> loader.substring(0, 1).toUpperCase() + loader.substring(1);
+        };
+    }
+
+    private String safe(String value) {
+        return value == null || value.isBlank() ? translation("screen.universal_config.unknown") : value;
+    }
+
+    private String profileName(ProfileManifest manifest) {
+        return manifest == null || manifest.name == null || manifest.name.isBlank()
+                ? translation("screen.universal_config.this_profile")
+                : manifest.name;
+    }
+
     private String translation(String key) {
         return Text.translatable(key).getString();
     }
 
-    private void drawPanel(DrawContext context, int left, int top, int right, int bottom) {
-        context.fill(left, top, right, bottom, PANEL_COLOR);
+    private void drawBorderedRect(DrawContext context, int left, int top, int right, int bottom,
+                                  int fill, int lightBorder, int darkBorder) {
+        context.fill(left, top, right, bottom, darkBorder);
+        context.fill(left + 1, top + 1, right - 1, bottom - 1, lightBorder);
+        context.fill(left + 2, top + 2, right - 2, bottom - 2, fill);
     }
 
     private void drawTrimmed(DrawContext context, String text, int x, int y, int maxWidth, int color) {
-        context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(text == null ? "" : text, Math.max(0, maxWidth)), x, y, color);
+        context.drawTextWithShadow(textRenderer,
+                textRenderer.trimToWidth(text == null ? "" : text, Math.max(0, maxWidth)), x, y, color);
+    }
+
+    private static final class ProfileCardButton extends ButtonWidget {
+        private ProfileCardButton(int x, int y, int width, int height, MutableText narration, PressAction onPress) {
+            super(x, y, width, height, Text.empty(), onPress, ignored -> narration);
+        }
+
+        @Override
+        protected void renderButton(DrawContext context, int mouseX, int mouseY, float delta) {
+            // Profile cards are drawn once by the screen and clipped as a group. Rendering the vanilla nine-slice
+            // for a partially visible click target can divide by zero on 1.20.1 when only a few pixels remain.
+        }
     }
 }

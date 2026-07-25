@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -32,7 +33,9 @@ public final class ProfileService {
 
         Path normalized = configured.toAbsolutePath().normalize();
         if (!isValidProfilePath(normalized) || !Files.isRegularFile(normalized)) {
-            FileOperationLogger.info("CLEAR_INVALID_DEFAULT_PROFILE", normalized, "missing or outside profiles directory");
+            FileOperationLogger.failure("CLEAR_INVALID_DEFAULT_PROFILE", normalized,
+                    "missing or outside profiles directory",
+                    new UniversalConfigException("Configured default profile is unavailable."));
             settings.setDefaultProfilePath(null);
             try {
                 UniversalConfigPaths.saveSettings(instancePath, settings);
@@ -67,6 +70,71 @@ public final class ProfileService {
         settings.setDefaultProfilePath(null);
         UniversalConfigPaths.saveSettings(instancePath, settings);
         FileOperationLogger.info("CLEAR_DEFAULT_PROFILE", previous, "default profile cleared");
+    }
+
+    /**
+     * Issue #12: a shared default is imported only during an instance's first-run onboarding.
+     * Manual pending imports always win, and the marker is written only after apply() completes.
+     */
+    public ApplyResult applyDefaultProfileOnFirstStart(
+            Path instancePath,
+            MinecraftEnvironment environment
+    ) throws UniversalConfigException {
+        Path marker = UniversalConfigPaths.defaultProfileAppliedMarker(instancePath);
+        if (Files.exists(marker)) {
+            FileOperationLogger.info("AUTO_APPLY_DEFAULT_PROFILE", marker, "already applied in this instance");
+            return null;
+        }
+        if (readPendingImport(instancePath) != null) {
+            FileOperationLogger.info("AUTO_APPLY_DEFAULT_PROFILE", instancePath, "manual pending import takes priority");
+            return null;
+        }
+        if (!isFirstMinecraftStart(instancePath)) {
+            FileOperationLogger.info("AUTO_APPLY_DEFAULT_PROFILE", instancePath, "not first start");
+            return null;
+        }
+
+        Path defaultProfile = resolveDefaultProfile(instancePath);
+        if (defaultProfile == null) {
+            FileOperationLogger.info("AUTO_APPLY_DEFAULT_PROFILE", instancePath, "no default profile configured");
+            return null;
+        }
+
+        FileOperationLogger.info("AUTO_APPLY_DEFAULT_PROFILE", defaultProfile, "start");
+        ApplyResult result = apply(instancePath, defaultProfile, environment);
+        writeDefaultProfileAppliedMarker(marker);
+        FileOperationLogger.info("AUTO_APPLY_DEFAULT_PROFILE", defaultProfile, "complete marker=" + marker);
+        return result;
+    }
+
+    boolean isFirstMinecraftStart(Path instancePath) throws UniversalConfigException {
+        Path options = UniversalConfigPaths.optionsFile(instancePath);
+        if (!Files.exists(options)) {
+            return true;
+        }
+        try {
+            for (String line : Files.readAllLines(options, StandardCharsets.UTF_8)) {
+                int separator = line.indexOf(':');
+                if (separator > 0
+                        && "onboardAccessibility".equals(line.substring(0, separator).trim())
+                        && Boolean.parseBoolean(line.substring(separator + 1).trim())) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (IOException ex) {
+            throw new UniversalConfigException("Failed to inspect Minecraft first-start state.", ex);
+        }
+    }
+
+    private void writeDefaultProfileAppliedMarker(Path marker) throws UniversalConfigException {
+        try {
+            Files.createDirectories(marker.getParent());
+            Files.writeString(marker, "", StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException ex) {
+            throw new UniversalConfigException("Default profile was applied, but its marker could not be saved.", ex);
+        }
     }
 
     public List<ProfileSummary> listProfiles() throws UniversalConfigException {
@@ -132,6 +200,8 @@ public final class ProfileService {
         manifest.id = UniversalConfigPaths.safeFileSlug(options.name);
         manifest.name = options.name;
         manifest.description = options.description == null ? "" : options.description;
+        // Profiles can be imported from outside the client UI. Keep only known cosmetic IDs in manifests.
+        manifest.icon = ProfileIcon.normalize(options.icon);
         manifest.createdAt = now;
         manifest.updatedAt = now;
         manifest.source.minecraftVersion = environment.minecraftVersion();

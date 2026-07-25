@@ -14,20 +14,34 @@ public final class UniversalConfigPreLaunch implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
         Path gameDirectory = FabricLoader.getInstance().getGameDir();
+        String operation = "PRELAUNCH_INITIALIZE";
         try {
             UniversalConfigSettings settings = UniversalConfigPaths.loadOrCreateSettings(gameDirectory);
             ProfileService service = new ProfileService(settings);
-            if (service.readPendingImport(gameDirectory) == null) {
-                FileOperationLogger.info("PRELAUNCH_PENDING_IMPORT", gameDirectory, "no pending import");
+            if (service.readPendingImport(gameDirectory) != null) {
+                operation = "PRELAUNCH_PENDING_IMPORT";
+                ProfileService.ApplyResult result = service.applyPendingImport(
+                        gameDirectory,
+                        FabricEnvironmentDetector.detectFromLoader(gameDirectory)
+                );
+                FileOperationLogger.info("PRELAUNCH_PENDING_IMPORT", gameDirectory,
+                        "complete backup=" + result.backupPath());
                 return;
             }
-            ProfileService.ApplyResult result = service.applyPendingImport(
+
+            operation = "PRELAUNCH_DEFAULT_PROFILE";
+            ProfileService.ApplyResult result = service.applyDefaultProfileOnFirstStart(
                     gameDirectory,
                     FabricEnvironmentDetector.detectFromLoader(gameDirectory)
             );
-            FileOperationLogger.info("PRELAUNCH_PENDING_IMPORT", gameDirectory, "complete backup=" + result.backupPath());
+            if (result == null) {
+                FileOperationLogger.info("PRELAUNCH_DEFAULT_PROFILE", gameDirectory, "not applied");
+            } else {
+                FileOperationLogger.info("PRELAUNCH_DEFAULT_PROFILE", gameDirectory,
+                        "complete backup=" + result.backupPath());
+            }
         } catch (UniversalConfigException | RuntimeException ex) {
-            FileOperationLogger.failure("PRELAUNCH_PENDING_IMPORT", gameDirectory, "failed", ex);
+            FileOperationLogger.failure(operation, gameDirectory, "failed", ex);
         }
     }
 }

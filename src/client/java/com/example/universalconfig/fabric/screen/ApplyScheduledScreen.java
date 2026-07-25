@@ -1,5 +1,6 @@
 package com.example.universalconfig.fabric.screen;
 
+import com.example.universalconfig.core.CurrentProcessRestartService;
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.core.PendingImport;
 import com.example.universalconfig.core.ProfileService;
@@ -26,25 +27,25 @@ public final class ApplyScheduledScreen extends Screen {
     private static final int BUTTON_GAP = 8;
 
     private final Screen parent;
-    private final boolean quitError;
-    private boolean quitting;
+    private final boolean restartError;
+    private boolean restarting;
 
     public ApplyScheduledScreen(Screen parent) {
         this(parent, false);
     }
 
-    private ApplyScheduledScreen(Screen parent, boolean quitError) {
-        super(Text.translatable(quitError
-                ? "screen.universal_config.quit_failed_title"
+    private ApplyScheduledScreen(Screen parent, boolean restartError) {
+        super(Text.translatable(restartError
+                ? "screen.universal_config.restart_failed_title"
                 : "screen.universal_config.apply_scheduled_title"));
         this.parent = parent;
-        this.quitError = quitError;
+        this.restartError = restartError;
     }
 
     @Override
     protected void init() {
         int panelTop = panelTop();
-        if (quitError) {
+        if (restartError) {
             addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.ok"), button -> close())
                     .dimensions(width / 2 - 50, panelTop + ERROR_PANEL_HEIGHT - 34, 100, 20)
                     .build());
@@ -52,14 +53,14 @@ public final class ApplyScheduledScreen extends Screen {
         }
 
         Text laterLabel = Text.translatable("screen.universal_config.apply_scheduled_later");
-        Text quitLabel = Text.translatable("screen.universal_config.apply_scheduled_quit");
-        int buttonWidth = actionButtonWidth(laterLabel, quitLabel);
+        Text restartLabel = Text.translatable("screen.universal_config.restart_now");
+        int buttonWidth = actionButtonWidth(laterLabel, restartLabel);
         if (stackButtons(buttonWidth)) {
             int buttonY = panelTop + STACKED_PANEL_HEIGHT - 54;
             addDrawableChild(ButtonWidget.builder(laterLabel, button -> close())
                     .dimensions(width / 2 - buttonWidth / 2, buttonY, buttonWidth, 20)
                     .build());
-            addDrawableChild(ButtonWidget.builder(quitLabel, button -> quitMinecraft())
+            addDrawableChild(ButtonWidget.builder(restartLabel, button -> restartMinecraft())
                     .dimensions(width / 2 - buttonWidth / 2, buttonY + 28, buttonWidth, 20)
                     .build());
         } else {
@@ -69,7 +70,7 @@ public final class ApplyScheduledScreen extends Screen {
             addDrawableChild(ButtonWidget.builder(laterLabel, button -> close())
                     .dimensions(left, buttonY, buttonWidth, 20)
                     .build());
-            addDrawableChild(ButtonWidget.builder(quitLabel, button -> quitMinecraft())
+            addDrawableChild(ButtonWidget.builder(restartLabel, button -> restartMinecraft())
                     .dimensions(left + buttonWidth + BUTTON_GAP, buttonY, buttonWidth, 20)
                     .build());
         }
@@ -98,11 +99,11 @@ public final class ApplyScheduledScreen extends Screen {
 
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, panelTop + 16, TEXT_COLOR);
         int textY = panelTop + 48;
-        String firstLineKey = quitError
-                ? "screen.universal_config.quit_failed_line1"
+        String firstLineKey = restartError
+                ? "screen.universal_config.restart_failed_line1"
                 : "screen.universal_config.apply_scheduled_line1";
-        String secondLineKey = quitError
-                ? "screen.universal_config.quit_failed_line2"
+        String secondLineKey = restartError
+                ? "screen.universal_config.restart_failed_line2"
                 : "screen.universal_config.apply_scheduled_line2";
         context.drawCenteredTextWithShadow(textRenderer, Text.translatable(firstLineKey), width / 2, textY, MUTED_TEXT_COLOR);
         context.drawCenteredTextWithShadow(textRenderer, Text.translatable(secondLineKey), width / 2, textY + 18, MUTED_TEXT_COLOR);
@@ -110,11 +111,11 @@ public final class ApplyScheduledScreen extends Screen {
         super.render(context, mouseX, mouseY, delta);
     }
 
-    private void quitMinecraft() {
-        if (quitting) {
+    private void restartMinecraft() {
+        if (restarting) {
             return;
         }
-        quitting = true;
+        restarting = true;
         Path pendingPath = UniversalConfigPaths.pendingImportFile(ScreenUtil.instancePath());
         try {
             if (!Files.isRegularFile(pendingPath)) {
@@ -125,11 +126,12 @@ public final class ApplyScheduledScreen extends Screen {
             if (pending == null) {
                 throw new IllegalStateException("Pending import data is missing");
             }
-            FileOperationLogger.info("QUIT_AFTER_SCHEDULE", pendingPath, "pending import verified");
+            CurrentProcessRestartService.scheduleRestartAfterCurrentProcessExit();
+            FileOperationLogger.info("RESTART_AFTER_SCHEDULE", pendingPath, "restart scheduled");
             client.scheduleStop();
         } catch (UniversalConfigException | RuntimeException ex) {
-            FileOperationLogger.failure("QUIT_AFTER_SCHEDULE", pendingPath, "pending import verification failed", ex);
-            quitting = false;
+            FileOperationLogger.failure("RESTART_AFTER_SCHEDULE", pendingPath, "failed", ex);
+            restarting = false;
             client.setScreen(new ApplyScheduledScreen(this, true));
         }
     }
@@ -139,12 +141,12 @@ public final class ApplyScheduledScreen extends Screen {
     }
 
     private int panelHeight() {
-        if (quitError) {
+        if (restartError) {
             return ERROR_PANEL_HEIGHT;
         }
         return stackButtons(actionButtonWidth(
                 Text.translatable("screen.universal_config.apply_scheduled_later"),
-                Text.translatable("screen.universal_config.apply_scheduled_quit")))
+                Text.translatable("screen.universal_config.restart_now")))
                 ? STACKED_PANEL_HEIGHT : PANEL_HEIGHT;
     }
 

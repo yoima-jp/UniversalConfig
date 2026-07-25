@@ -41,6 +41,16 @@ public final class UniversalConfigPaths {
                     settings.setDefaultProfilePath(parseDefaultProfilePath(dto.defaultProfilePath));
                     ensureDirectories(settings);
                     FileOperationLogger.configure(settings);
+                    Path sharedSettingsFile = rootSettingsFile(settings);
+                    if (Files.isRegularFile(sharedSettingsFile)) {
+                        SettingsDto sharedDto = readSettingsDto(sharedSettingsFile);
+                        invalidDefaultProfilePath = hasInvalidDefaultProfilePath(sharedDto == null ? null : sharedDto.defaultProfilePath);
+                        settings.setDefaultProfilePath(parseDefaultProfilePath(
+                                sharedDto == null ? null : sharedDto.defaultProfilePath));
+                    } else {
+                        // Older versions stored the default only inside one instance. Migrate it to the shared root.
+                        saveRootSettings(settings);
+                    }
                     if (invalidDefaultProfilePath) {
                         settings.setDefaultProfilePath(null);
                         saveSettings(minecraftRunDirectory, settings);
@@ -55,6 +65,12 @@ public final class UniversalConfigPaths {
         UniversalConfigSettings settings = new UniversalConfigSettings(defaultRootDirectory());
         ensureDirectories(settings);
         FileOperationLogger.configure(settings);
+        Path sharedSettingsFile = rootSettingsFile(settings);
+        if (Files.isRegularFile(sharedSettingsFile)) {
+            SettingsDto sharedDto = readSettingsDto(sharedSettingsFile);
+            settings.setDefaultProfilePath(parseDefaultProfilePath(
+                    sharedDto == null ? null : sharedDto.defaultProfilePath));
+        }
         saveSettings(minecraftRunDirectory, settings);
         return settings;
     }
@@ -71,6 +87,7 @@ public final class UniversalConfigPaths {
             try (Writer writer = Files.newBufferedWriter(localSettings, StandardCharsets.UTF_8)) {
                 GSON.toJson(dto, writer);
             }
+            saveRootSettings(settings);
             FileOperationLogger.info("WRITE_SETTINGS", localSettings, "saved local settings");
             ensureDirectories(settings);
         } catch (IOException ex) {
@@ -121,6 +138,12 @@ public final class UniversalConfigPaths {
         return configDirectory(minecraftRunDirectory).resolve(UniversalConfigFormat.PENDING_IMPORT_FILE_NAME);
     }
 
+    public static Path defaultProfileAppliedMarker(Path minecraftRunDirectory) {
+        return configDirectory(minecraftRunDirectory)
+                .resolve(UniversalConfigFormat.INTERNAL_DIRECTORY_PREFIX)
+                .resolve(UniversalConfigFormat.DEFAULT_PROFILE_APPLIED_MARKER_NAME);
+    }
+
     public static Path logsDirectory(UniversalConfigSettings settings) {
         return settings.rootDirectory().resolve(UniversalConfigFormat.LOGS_DIRECTORY_NAME);
     }
@@ -140,6 +163,32 @@ public final class UniversalConfigPaths {
     private static final class SettingsDto {
         String rootDirectory;
         String defaultProfilePath;
+    }
+
+    private static SettingsDto readSettingsDto(Path path) throws UniversalConfigException {
+        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            return GSON.fromJson(reader, SettingsDto.class);
+        } catch (IOException | RuntimeException ex) {
+            throw new UniversalConfigException("Failed to read Universal Config settings.", ex);
+        }
+    }
+
+    private static void saveRootSettings(UniversalConfigSettings settings) throws UniversalConfigException {
+        Path rootSettings = rootSettingsFile(settings);
+        try {
+            Files.createDirectories(rootSettings.getParent());
+            SettingsDto dto = new SettingsDto();
+            dto.rootDirectory = settings.rootDirectory().toAbsolutePath().normalize().toString();
+            dto.defaultProfilePath = settings.defaultProfilePath() == null
+                    ? null
+                    : settings.defaultProfilePath().toAbsolutePath().normalize().toString();
+            try (Writer writer = Files.newBufferedWriter(rootSettings, StandardCharsets.UTF_8)) {
+                GSON.toJson(dto, writer);
+            }
+            FileOperationLogger.info("WRITE_ROOT_SETTINGS", rootSettings, "saved shared settings");
+        } catch (IOException ex) {
+            throw new UniversalConfigException("Failed to save shared Universal Config settings.", ex);
+        }
     }
 
     private static Path parseDefaultProfilePath(String value) {

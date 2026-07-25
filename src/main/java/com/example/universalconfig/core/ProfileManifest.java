@@ -9,6 +9,7 @@ public final class ProfileManifest {
     public String id;
     public String name;
     public String description;
+    public String icon;
     public String createdAt;
     public String updatedAt;
     public Source source = new Source();
