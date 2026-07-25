@@ -3,7 +3,8 @@ plugins {
     id "maven-publish"
 }
 
-version = project.mod_version
+// mcバージョンを自動挿入: gradle.propertiesの mod_version + minecraft_version
+version = "${project.mod_version}-mc${project.minecraft_version}"
 group = project.maven_group
 def resourceVersion = version.toString()
 
