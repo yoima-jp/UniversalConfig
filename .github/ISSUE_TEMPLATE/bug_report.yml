@@ -1,0 +1,101 @@
+name: Bug report
+description: Report a reproducible problem with Universal Config
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+        Please fill out the information below so we can reproduce and fix the issue.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I am using a version of Universal Config intended for my Minecraft version and mod loader.
+          required: true
+
+  - type: input
+    id: universal-config-version
+    attributes:
+      label: Universal Config version
+      description: The exact Universal Config version you are using.
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: minecraft-version
+    attributes:
+      label: Minecraft version
+      placeholder: e.g. 1.21.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: loader
+    attributes:
+      label: Mod loader
+      options:
+        - Fabric
+        - Forge
+        - NeoForge
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Client
+        - Dedicated server
+        - Both / unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem clearly. Include what you expected to happen instead.
+      placeholder: Tell us what went wrong and what you expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence of steps that triggers the problem.
+      placeholder: |
+        1. Open ...
+        2. Create/apply ...
+        3. Restart ...
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / crash report
+      description: Drag and drop relevant logs or crash reports here, or paste a link. Please do not paste huge logs directly into the issue body.
+      placeholder: latest.log, crash report, or link
+
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other installed mods
+      description: List other relevant mods, especially configuration, keybind, launcher, or compatibility-related mods.
+      placeholder: Mod name + version
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, videos, profile details, launcher information, or anything else that may help.
