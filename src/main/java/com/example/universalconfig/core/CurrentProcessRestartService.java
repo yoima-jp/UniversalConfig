@@ -1,6 +1,7 @@
 package com.example.universalconfig.core;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,24 +24,92 @@ public final class CurrentProcessRestartService {
     }
 
     public static void scheduleRestartAfterCurrentProcessExit() throws UniversalConfigException {
+        scheduleRestartAfterCurrentProcessExit(currentWorkingDirectory(), List.of());
+    }
+
+    /**
+     * Schedules the current Minecraft process to be replaced after it exits.
+     *
+     * @param workingDirectory the Minecraft game directory used by the loader, not an inferred launcher cwd
+     */
+    public static void scheduleRestartAfterCurrentProcessExit(Path workingDirectory)
+            throws UniversalConfigException {
+        scheduleRestartAfterCurrentProcessExit(workingDirectory, List.of());
+    }
+
+    /**
+     * Schedules the current Minecraft process to be replaced, using loader-provided arguments when the operating
+     * system does not expose the current process arguments through {@link ProcessHandle}.
+     */
+    public static void scheduleRestartAfterCurrentProcessExit(
+            Path workingDirectory,
+            List<String> loaderResolvedArguments
+    ) throws UniversalConfigException {
         ProcessHandle current = ProcessHandle.current();
         ProcessHandle.Info processInfo = current.info();
         String executable = processInfo.command()
                 .filter(value -> !value.isBlank())
                 .orElseThrow(() -> new UniversalConfigException("Could not determine the current Java executable."));
-        Path workingDirectory = currentWorkingDirectory();
+        Path normalizedWorkingDirectory = normalizeWorkingDirectory(workingDirectory);
         List<ProcessCommand> ancestors = ancestorCommands(current);
+        Optional<List<String>> currentArguments = currentJavaArguments(processInfo, loaderResolvedArguments);
         // Modrinth's documented launch URL requires a database-only internal ID that is not inherited by the game.
         // Guessing it from the folder name could launch the wrong profile, so only self-identifying launchers are used.
-        LaunchCommand replacement = prismFamilyLauncherCommand(System.getenv(), workingDirectory, ancestors)
-                .or(() -> atLauncherCommand(workingDirectory, ancestors))
-                .orElseGet(() -> processInfo.arguments()
-                        .map(values -> new LaunchCommand(executable, List.of(values)))
+        LaunchCommand replacement = prismFamilyLauncherCommand(System.getenv(), normalizedWorkingDirectory, ancestors)
+                .or(() -> atLauncherCommand(normalizedWorkingDirectory, ancestors))
+                .or(() -> gdLauncherCommand(
+                        normalizedWorkingDirectory, ancestors, executable, currentArguments))
+                .orElseGet(() -> currentArguments
+                        .map(values -> new LaunchCommand(executable, values))
                         .orElse(null));
         if (replacement == null) {
             throw new UniversalConfigException("Could not determine how to restart this launcher instance.");
         }
-        scheduleJavaHelper(current.pid(), executable, replacement, workingDirectory);
+        scheduleJavaHelper(current.pid(), executable, replacement, normalizedWorkingDirectory);
+    }
+
+    /**
+     * Builds a Java command from argument sources that preserve their original boundaries.
+     */
+    public static List<String> buildJavaLaunchArguments(
+            List<String> jvmArguments,
+            String classPath,
+            String mainClass,
+            List<String> applicationArguments
+    ) throws UniversalConfigException {
+        try {
+            if (classPath == null || classPath.isBlank() || mainClass == null || mainClass.isBlank()) {
+                throw new IllegalArgumentException("Java classpath and main class are required");
+            }
+            List<String> arguments = new ArrayList<>(
+                    jvmArguments.size() + applicationArguments.size() + 3);
+            arguments.addAll(jvmArguments);
+            arguments.add("-cp");
+            arguments.add(classPath);
+            arguments.add(mainClass);
+            arguments.addAll(applicationArguments);
+            return List.copyOf(arguments);
+        } catch (RuntimeException ex) {
+            throw new UniversalConfigException("Could not determine the current Java arguments.", ex);
+        }
+    }
+
+    private static Optional<List<String>> currentJavaArguments(
+            ProcessHandle.Info processInfo,
+            List<String> loaderResolvedArguments
+    ) throws UniversalConfigException {
+        try {
+            Optional<List<String>> processArguments = processInfo.arguments().map(List::of);
+            if (processArguments.isPresent()) {
+                return processArguments;
+            }
+            if (loaderResolvedArguments == null || loaderResolvedArguments.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(List.copyOf(loaderResolvedArguments));
+        } catch (RuntimeException ex) {
+            throw new UniversalConfigException("Could not determine the current Java arguments.", ex);
+        }
     }
 
     private static void scheduleJavaHelper(
@@ -56,42 +125,42 @@ public final class CurrentProcessRestartService {
                 .toAbsolutePath()
                 .normalize();
         String helperId = UUID.randomUUID().toString();
-        Path planPath = helperDirectory.resolve(helperId + UniversalConfigFormat.RESTART_PLAN_FILE_EXTENSION);
         Path readyPath = helperDirectory.resolve(helperId + UniversalConfigFormat.RESTART_READY_FILE_EXTENSION);
         Path diagnosticLog = helperDirectory.getParent().resolve(UniversalConfigFormat.RESTART_HELPER_LOG_NAME);
         Process helper = null;
         try {
             Files.createDirectories(helperDirectory);
-            RestartHelper.writePlan(planPath, new RestartHelper.LaunchPlan(
+            RestartHelper.LaunchPlan launchPlan = new RestartHelper.LaunchPlan(
                     currentPid, replacement.executable(), replacement.arguments(),
-                    workingDirectory, readyPath, diagnosticLog));
+                    workingDirectory, readyPath, diagnosticLog);
 
             // A plain Java child keeps argument boundaries intact on every OS. It also avoids generated scripts and
             // Windows administration tools whose delayed-process patterns can trigger security heuristics.
             helper = new ProcessBuilder(buildHelperCommand(
-                    helperExecutable(helperJavaExecutable), helperClasspathEntry(), planPath))
+                    helperExecutable(helperJavaExecutable), helperClasspathEntry()))
                     .directory(workingDirectory.toFile())
                     .redirectInput(ProcessBuilder.Redirect.PIPE)
                     .redirectOutput(ProcessBuilder.Redirect.DISCARD)
                     .redirectError(ProcessBuilder.Redirect.DISCARD)
                     .start();
-            helper.getOutputStream().close();
+            // Loader arguments can contain an access token. Send the launch plan through the helper's private pipe
+            // and close it so the helper can validate the complete payload before publishing its ready marker.
+            try (OutputStream helperInput = helper.getOutputStream()) {
+                RestartHelper.writePlan(helperInput, launchPlan);
+            }
 
             waitUntilHelperIsReady(helper, readyPath);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             stopHelper(helper);
-            deleteQuietly(planPath);
             deleteQuietly(readyPath);
             throw new UniversalConfigException("Minecraft restart preparation was interrupted.", ex);
         } catch (UniversalConfigException ex) {
             stopHelper(helper);
-            deleteQuietly(planPath);
             deleteQuietly(readyPath);
             throw ex;
         } catch (IOException | RuntimeException ex) {
             stopHelper(helper);
-            deleteQuietly(planPath);
             deleteQuietly(readyPath);
             throw new UniversalConfigException("Could not start the Minecraft restart helper.", ex);
         }
@@ -210,6 +279,42 @@ public final class CurrentProcessRestartService {
         return Optional.empty();
     }
 
+    static Optional<LaunchCommand> gdLauncherCommand(
+            Path workingDirectory,
+            List<ProcessCommand> ancestorCommands,
+            String currentExecutable,
+            Optional<List<String>> currentArguments
+    ) {
+        if (!isGdLauncherGameDirectory(workingDirectory)
+                || !ancestorCommands.stream().anyMatch(command -> isGdLauncherExecutable(command.executable()))
+                || !ancestorCommands.stream().anyMatch(command -> isGdCoreModuleExecutable(command.executable()))
+                || !isJavaExecutable(currentExecutable)) {
+            return Optional.empty();
+        }
+
+        // Carbon does not provide a stable command-line launch interface for an instance. The core module supervises
+        // the Java child, so reusing the already resolved Java command is the only way to preserve the selected
+        // loader, natives, assets, account, and instance-specific arguments without guessing launcher internals.
+        return currentArguments.map(arguments -> new LaunchCommand(currentExecutable, arguments));
+    }
+
+    private static boolean isGdLauncherGameDirectory(Path workingDirectory) {
+        try {
+            Path gameDirectory = workingDirectory.toAbsolutePath().normalize();
+            Path instanceDirectory = gameDirectory.getParent();
+            Path instancesDirectory = instanceDirectory == null ? null : instanceDirectory.getParent();
+            return gameDirectory.getFileName() != null
+                    && gameDirectory.getFileName().toString().equalsIgnoreCase("instance")
+                    && instanceDirectory != null
+                    && Files.isRegularFile(instanceDirectory.resolve("instance.json"))
+                    && instancesDirectory != null
+                    && instancesDirectory.getFileName() != null
+                    && instancesDirectory.getFileName().toString().equalsIgnoreCase("instances");
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     private static Optional<List<String>> atLauncherJarArguments(
             List<String> ancestorArguments,
             List<String> launchArguments
@@ -230,13 +335,12 @@ public final class CurrentProcessRestartService {
         return Optional.empty();
     }
 
-    static List<String> buildHelperCommand(String javaExecutable, Path helperClasspath, Path planPath) {
+    static List<String> buildHelperCommand(String javaExecutable, Path helperClasspath) {
         return List.of(
                 javaExecutable,
                 "-cp",
                 helperClasspath.toString(),
-                RestartHelper.class.getName(),
-                planPath.toString()
+                RestartHelper.class.getName()
         );
     }
 
@@ -258,7 +362,20 @@ public final class CurrentProcessRestartService {
 
     private static Path currentWorkingDirectory() throws UniversalConfigException {
         try {
-            return Path.of(System.getProperty("user.dir", ".")).toAbsolutePath().normalize();
+            return normalizeWorkingDirectory(Path.of(System.getProperty("user.dir", ".")));
+        } catch (UniversalConfigException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw new UniversalConfigException("Could not determine the current working directory.", ex);
+        }
+    }
+
+    private static Path normalizeWorkingDirectory(Path workingDirectory) throws UniversalConfigException {
+        try {
+            if (workingDirectory == null) {
+                throw new IllegalArgumentException("workingDirectory");
+            }
+            return workingDirectory.toAbsolutePath().normalize();
         } catch (RuntimeException ex) {
             throw new UniversalConfigException("Could not determine the current working directory.", ex);
         }
@@ -318,6 +435,16 @@ public final class CurrentProcessRestartService {
         return fileName.equalsIgnoreCase("atlauncher.exe") || fileName.equalsIgnoreCase("atlauncher");
     }
 
+    private static boolean isGdLauncherExecutable(String command) {
+        String fileName = fileName(command);
+        return fileName.equalsIgnoreCase("gdlauncher.exe") || fileName.equalsIgnoreCase("gdlauncher");
+    }
+
+    private static boolean isGdCoreModuleExecutable(String command) {
+        String fileName = fileName(command);
+        return fileName.equalsIgnoreCase("core_module.exe") || fileName.equalsIgnoreCase("core_module");
+    }
+
     private static boolean isJavaExecutable(String command) {
         String fileName = fileName(command);
         return fileName.equalsIgnoreCase("java.exe")
@@ -329,12 +456,11 @@ public final class CurrentProcessRestartService {
         if (command == null || command.isBlank()) {
             return "";
         }
-        try {
-            Path fileName = Path.of(command).getFileName();
-            return fileName == null ? "" : fileName.toString();
-        } catch (RuntimeException ex) {
-            return "";
-        }
+        // ProcessHandle can expose a Windows-style path while tests or tooling run on another OS,
+        // so normalize both separator styles before checking launcher executable names.
+        String normalized = command.replace('\\', '/');
+        int separator = normalized.lastIndexOf('/');
+        return normalized.substring(separator + 1);
     }
 
     private static void stopHelper(Process helper) {

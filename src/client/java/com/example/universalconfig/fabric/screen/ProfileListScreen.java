@@ -1,6 +1,5 @@
 package com.example.universalconfig.fabric.screen;
 
-import com.example.universalconfig.core.CurrentProcessRestartService;
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.core.PendingImport;
 import com.example.universalconfig.core.ProfileManifest;
@@ -9,6 +8,7 @@ import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.ProfileSummary;
 import com.example.universalconfig.core.UniversalConfigException;
 import com.example.universalconfig.core.UniversalConfigPaths;
+import com.example.universalconfig.fabric.FabricRestartService;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ConfirmScreen;
@@ -473,7 +473,7 @@ public final class ProfileListScreen extends Screen {
                 throw new IllegalStateException("Pending import could not be verified");
             }
             // The helper waits for this JVM to finish saving options.txt before starting the replacement process.
-            CurrentProcessRestartService.scheduleRestartAfterCurrentProcessExit();
+            FabricRestartService.scheduleRestartAfterCurrentProcessExit();
             FileOperationLogger.info("RESTART_FOR_PENDING_APPLY", pendingPath, "restart scheduled");
             client.scheduleStop();
         } catch (UniversalConfigException | RuntimeException ex) {

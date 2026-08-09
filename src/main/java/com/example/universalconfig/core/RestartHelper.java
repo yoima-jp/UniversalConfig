@@ -5,6 +5,8 @@ import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,20 +28,15 @@ public final class RestartHelper {
     }
 
     public static void main(String[] arguments) {
-        if (arguments.length != 1) {
-            return;
-        }
-        Path planPath;
-        try {
-            planPath = Path.of(arguments[0]).toAbsolutePath().normalize();
-        } catch (RuntimeException ex) {
+        if (arguments.length != 0) {
             return;
         }
 
         LaunchPlan plan = null;
         try {
-            plan = readPlan(planPath);
-            Files.deleteIfExists(planPath);
+            // Read the whole payload before creating the ready file. The parent only exits after that marker exists,
+            // so no launch arguments (including an access token) need to survive in a crash-recoverable file.
+            plan = readPlan(System.in);
             writeStatus(plan.diagnosticLog(), "helper-started");
             Files.writeString(plan.readyPath(), "ready", StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
@@ -73,18 +70,16 @@ public final class RestartHelper {
             if (plan != null) {
                 writeStatus(plan.diagnosticLog(), "failed " + ex.getClass().getName() + ": " + safeMessage(ex));
             }
-        } finally {
-            try {
-                Files.deleteIfExists(planPath);
-            } catch (IOException ignored) {
-                // The launch data is best-effort cleanup; no further recovery is available in this helper process.
-            }
         }
     }
 
-    static void writePlan(Path path, LaunchPlan plan) throws IOException {
-        try (DataOutputStream output = new DataOutputStream(new BufferedOutputStream(Files.newOutputStream(
-                path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)))) {
+    /**
+     * Writes a restart plan to a caller-owned stream. The stream remains open so the parent controls when
+     * the helper observes EOF; that EOF is part of the complete-payload check in {@link #readPlan(InputStream)}.
+     */
+    static void writePlan(OutputStream destination, LaunchPlan plan) throws IOException {
+        DataOutputStream output = new DataOutputStream(new BufferedOutputStream(destination));
+        try {
             writeValue(output, PLAN_MAGIC);
             output.writeLong(plan.parentPid());
             writeValue(output, plan.executable());
@@ -95,11 +90,15 @@ public final class RestartHelper {
             for (String argument : plan.arguments()) {
                 writeValue(output, argument);
             }
+            output.flush();
+        } catch (RuntimeException ex) {
+            throw new IOException("Invalid restart plan.", ex);
         }
     }
 
-    static LaunchPlan readPlan(Path path) throws IOException {
-        try (DataInputStream input = new DataInputStream(new BufferedInputStream(Files.newInputStream(path)))) {
+    static LaunchPlan readPlan(InputStream source) throws IOException {
+        DataInputStream input = new DataInputStream(new BufferedInputStream(source));
+        try {
             if (!PLAN_MAGIC.equals(readValue(input))) {
                 throw new IOException("Unknown restart plan format.");
             }

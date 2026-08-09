@@ -22,7 +22,6 @@ public final class UniversalConfigFormat {
     public static final String DEFAULT_PROFILE_APPLIED_MARKER_NAME = "default-profile-applied";
     public static final String RESTART_HELPER_LOG_NAME = "restart-helper.log";
     public static final String RESTART_HELPER_DIRECTORY_NAME = "restart";
-    public static final String RESTART_PLAN_FILE_EXTENSION = ".plan";
     public static final String RESTART_READY_FILE_EXTENSION = ".ready";
     public static final String PROFILES_DIRECTORY_NAME = "profiles";
     public static final String BACKUPS_DIRECTORY_NAME = "backups";

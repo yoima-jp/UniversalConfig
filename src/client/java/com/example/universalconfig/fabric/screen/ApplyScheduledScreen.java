@@ -1,11 +1,11 @@
 package com.example.universalconfig.fabric.screen;
 
-import com.example.universalconfig.core.CurrentProcessRestartService;
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.core.PendingImport;
 import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.UniversalConfigException;
 import com.example.universalconfig.core.UniversalConfigPaths;
+import com.example.universalconfig.fabric.FabricRestartService;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -107,7 +107,7 @@ public final class ApplyScheduledScreen extends Screen {
 
     // Issue #25: when automatic restart cannot be scheduled, offer an explicit quit action.
     // CurrentProcessRestartService cleans artifacts belonging to a failed scheduling attempt. This screen only quits
-    // and preserves the pending reservation, avoiding deletion of another process's active restart plan.
+    // and preserves the pending reservation, avoiding deletion of another process's active restart artifacts.
     private void initErrorButtons() {
         int panelTop = panelTop();
         Text backLabel = Text.translatable("screen.universal_config.back");
@@ -217,7 +217,7 @@ public final class ApplyScheduledScreen extends Screen {
         }
 
         try {
-            CurrentProcessRestartService.scheduleRestartAfterCurrentProcessExit();
+            FabricRestartService.scheduleRestartAfterCurrentProcessExit();
             FileOperationLogger.info("RESTART_AFTER_SCHEDULE", pendingPath, "restart scheduled");
             client.scheduleStop();
         } catch (UniversalConfigException | RuntimeException ex) {
@@ -266,8 +266,8 @@ public final class ApplyScheduledScreen extends Screen {
     }
 
     // Issue #25: quit Minecraft after a restart could not be scheduled. The pending apply reservation is intentionally
-    // preserved so the next manual launch applies it. CurrentProcessRestartService already removes the plan and ready
-    // files for every failed scheduling path, so this screen must not sweep files that another process may still own.
+    // preserved so the next manual launch applies it. CurrentProcessRestartService already removes the ready marker
+    // for every failed scheduling path, so this screen must not sweep files that another process may still own.
     private void quitMinecraft() {
         if (exiting) {
             return;

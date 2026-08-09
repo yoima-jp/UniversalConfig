@@ -3,10 +3,13 @@ package com.example.universalconfig.core;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,17 +20,21 @@ class CurrentProcessRestartServiceTest {
     Path temporaryDirectory;
 
     @Test
-    void helperPassesPlanPathWithoutUsingAnOperatingSystemShell() {
+    void helperCommandDoesNotRequireAPlanPathOrOperatingSystemShell() {
+        Path helperClasspath = Path.of("/path with spaces/universal-config.jar");
         List<String> command = CurrentProcessRestartService.buildHelperCommand(
                 "/opt/java/bin/java",
-                Path.of("/path with spaces/universal-config.jar"),
-                Path.of("/game instance/config/restart.plan")
+                helperClasspath
         );
 
-        assertEquals("/opt/java/bin/java", command.get(0));
-        assertEquals("-cp", command.get(1));
-        assertEquals(RestartHelper.class.getName(), command.get(3));
+        assertEquals(List.of(
+                "/opt/java/bin/java",
+                "-cp",
+                helperClasspath.toString(),
+                RestartHelper.class.getName()
+        ), command);
         String joined = String.join(" ", command).toLowerCase();
+        assertFalse(joined.contains(".plan"));
         assertFalse(joined.contains("/bin/sh"));
         assertFalse(joined.contains("powershell"));
     }
@@ -36,8 +43,7 @@ class CurrentProcessRestartServiceTest {
     void windowsHelperUsesJavaWithoutPowerShellOrEncodedCommands() {
         List<String> command = CurrentProcessRestartService.buildHelperCommand(
                 "C:\\Program Files\\Java\\bin\\javaw.exe",
-                Path.of("C:\\mods\\universal-config.jar"),
-                Path.of("C:\\game path\\config\\restart.plan")
+                Path.of("C:\\mods\\universal-config.jar")
         );
 
         assertEquals("C:\\Program Files\\Java\\bin\\javaw.exe", command.get(0));
@@ -47,6 +53,28 @@ class CurrentProcessRestartServiceTest {
         assertFalse(joined.contains("powershell"));
         assertFalse(joined.contains("encodedcommand"));
         assertFalse(joined.contains("cim"));
+    }
+
+    @Test
+    void javaLaunchArgumentsPreserveLoaderAndJvmArgumentBoundaries() throws Exception {
+        List<String> arguments = CurrentProcessRestartService.buildJavaLaunchArguments(
+                List.of("-Xmx4G", "-Dlabel=value with spaces"),
+                "C:\\libraries with spaces\\client.jar;C:\\libraries\\loader.jar",
+                "net.fabricmc.loader.impl.launch.knot.KnotClient",
+                List.of("--gameDir", "C:\\instances\\fabric 1.20.1\\instance", "--accessToken", "token-value")
+        );
+
+        assertEquals(List.of(
+                "-Xmx4G",
+                "-Dlabel=value with spaces",
+                "-cp",
+                "C:\\libraries with spaces\\client.jar;C:\\libraries\\loader.jar",
+                "net.fabricmc.loader.impl.launch.knot.KnotClient",
+                "--gameDir",
+                "C:\\instances\\fabric 1.20.1\\instance",
+                "--accessToken",
+                "token-value"
+        ), arguments);
     }
 
     @Test
@@ -168,8 +196,47 @@ class CurrentProcessRestartServiceTest {
     }
 
     @Test
-    void restartPlanRoundTripsArgumentsWithoutCommandLineEncoding() throws Exception {
-        Path planPath = temporaryDirectory.resolve("restart.plan");
+    void gdLauncherReusesTheResolvedJavaCommandForCarbonInstances() throws Exception {
+        Path instanceDirectory = temporaryDirectory.resolve("data").resolve("instances").resolve("fabric 1.20.1");
+        Path gameDirectory = instanceDirectory.resolve("instance");
+        Files.createDirectories(gameDirectory);
+        Files.writeString(instanceDirectory.resolve("instance.json"), "{}");
+        String javaExecutable = "C:\\Program Files\\Java\\bin\\java.exe";
+        List<String> javaArguments = List.of(
+                "-cp", "C:\\game libraries\\client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient",
+                "--gameDir", gameDirectory.toString());
+
+        CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.gdLauncherCommand(
+                gameDirectory,
+                List.of(
+                        new CurrentProcessRestartService.ProcessCommand("C:\\GDLauncher\\core_module.exe", List.of()),
+                        new CurrentProcessRestartService.ProcessCommand("C:\\GDLauncher\\GDLauncher.exe", List.of())
+                ),
+                javaExecutable,
+                Optional.of(javaArguments)
+        ).orElseThrow();
+
+        assertEquals(javaExecutable, command.executable());
+        assertEquals(javaArguments, command.arguments());
+    }
+
+    @Test
+    void gdLauncherRejectsAJavaProcessWithoutTheCarbonProcessTree() throws Exception {
+        Path instanceDirectory = temporaryDirectory.resolve("data").resolve("instances").resolve("fabric 1.20.1");
+        Path gameDirectory = instanceDirectory.resolve("instance");
+        Files.createDirectories(gameDirectory);
+        Files.writeString(instanceDirectory.resolve("instance.json"), "{}");
+
+        assertTrue(CurrentProcessRestartService.gdLauncherCommand(
+                gameDirectory,
+                List.of(new CurrentProcessRestartService.ProcessCommand("java.exe", List.of())),
+                "java.exe",
+                Optional.of(List.of("--gameDir", gameDirectory.toString()))
+        ).isEmpty());
+    }
+
+    @Test
+    void restartPlanRoundTripsArgumentsThroughAnInMemoryStream() throws Exception {
         RestartHelper.LaunchPlan expected = new RestartHelper.LaunchPlan(
                 84,
                 "C:\\Program Files\\Java\\bin\\javaw.exe",
@@ -179,8 +246,9 @@ class CurrentProcessRestartServiceTest {
                 temporaryDirectory.resolve("restart.log")
         );
 
-        RestartHelper.writePlan(planPath, expected);
-        RestartHelper.LaunchPlan actual = RestartHelper.readPlan(planPath);
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        RestartHelper.writePlan(stream, expected);
+        RestartHelper.LaunchPlan actual = RestartHelper.readPlan(new ByteArrayInputStream(stream.toByteArray()));
 
         assertEquals(expected.parentPid(), actual.parentPid());
         assertEquals(expected.executable(), actual.executable());
