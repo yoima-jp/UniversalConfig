@@ -16,7 +16,6 @@
   </a>
 </p>
 
-> **Note:** The Modrinth and CurseForge distribution pages are being prepared and may not be publicly available yet.
 
 Universal Config is a client-side mod that lets you save your Minecraft settings, keybinds, and mod configuration files as reusable profiles and share them across different instances and Minecraft versions.
 
