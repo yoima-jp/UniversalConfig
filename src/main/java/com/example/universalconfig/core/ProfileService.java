@@ -251,6 +251,9 @@ public final class ProfileService {
             requireProfile(reader);
             adapter.importProfile(instancePath, reader, diff);
             FileOperationLogger.info("APPLY_PROFILE", profilePath, "complete backup=" + backupPath.toAbsolutePath().normalize());
+            // Issue #24: after a successful backup+apply, opportunistically clean up expired generated files.
+            // Cleanup is best-effort and must never cause apply to fail.
+            runGeneratedFileCleanup();
             return new ApplyResult(backupPath, diff);
         } catch (IOException ex) {
             FileOperationLogger.failure("APPLY_PROFILE", profilePath, "failed backup=" + backupPath.toAbsolutePath().normalize(), ex);
@@ -470,5 +473,16 @@ public final class ProfileService {
     }
 
     public record ApplyResult(Path backupPath, ProfileDiff diff) {
+    }
+
+    /**
+     * Issue #24: runs generated-file cleanup, swallowing all failures so callers never break.
+     */
+    void runGeneratedFileCleanup() {
+        try {
+            new GeneratedFileCleaner(settings).cleanup();
+        } catch (RuntimeException ex) {
+            FileOperationLogger.failure("CLEANUP", settings.rootDirectory(), "cleanup failed", ex);
+        }
     }
 }

@@ -9,69 +9,138 @@ import com.example.universalconfig.core.UniversalConfigPaths;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 public final class ApplyScheduledScreen extends Screen {
+    private enum State {
+        SCHEDULED,
+        RESTART_FAILED,
+        PENDING_INVALID
+    }
+
     private static final int PANEL_WIDTH = 360;
     private static final int PANEL_MARGIN = 12;
-    private static final int PANEL_HEIGHT = 170;
-    private static final int ERROR_PANEL_HEIGHT = 150;
-    private static final int STACKED_PANEL_HEIGHT = 198;
+    private static final int SCHEDULED_PANEL_HEIGHT = 166;
+    private static final int SCHEDULED_STACKED_PANEL_HEIGHT = 194;
+    private static final int ERROR_PANEL_HEIGHT = 160;
+    private static final int ERROR_STACKED_PANEL_HEIGHT = 186;
     private static final int PANEL_COLOR = 0xE6101010;
     private static final int PANEL_BORDER_COLOR = 0xFF555555;
     private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final int MUTED_TEXT_COLOR = 0xFFD0D0D0;
     private static final int BUTTON_GAP = 8;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int ROW_GAP = 8;
+    private static final int PANEL_BOTTOM_PADDING = 14;
+    private static final int BOTTOM_BUTTON_OFFSET = BUTTON_HEIGHT + PANEL_BOTTOM_PADDING;
 
     private final Screen parent;
-    private final boolean restartError;
+    private final State state;
     private boolean restarting;
+    private boolean canceling;
+    private boolean cancelError;
+    private boolean exiting;
 
     public ApplyScheduledScreen(Screen parent) {
-        this(parent, false);
+        this(parent, State.SCHEDULED);
     }
 
-    private ApplyScheduledScreen(Screen parent, boolean restartError) {
-        super(Text.translatable(restartError
-                ? "screen.universal_config.restart_failed_title"
-                : "screen.universal_config.apply_scheduled_title"));
+    public static ApplyScheduledScreen restartFailed(Screen parent) {
+        return new ApplyScheduledScreen(parent, State.RESTART_FAILED);
+    }
+
+    private ApplyScheduledScreen(Screen parent, State state) {
+        super(Text.translatable(titleKey(state)));
         this.parent = parent;
-        this.restartError = restartError;
+        this.state = state;
     }
 
     @Override
     protected void init() {
+        if (state != State.SCHEDULED) {
+            initErrorButtons();
+            return;
+        }
+        initScheduledButtons();
+    }
+
+    // Issue #25: restore an explicit cancel action on the scheduled screen.
+    // Cancel deletes only this instance's pending import reservation; profiles and current settings are untouched.
+    // The reservation is recreatable from the profile list, so no confirmation dialog is needed.
+    private void initScheduledButtons() {
         int panelTop = panelTop();
-        if (restartError) {
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.ok"), button -> close())
-                    .dimensions(width / 2 - 50, panelTop + ERROR_PANEL_HEIGHT - 34, 100, 20)
+        Text laterLabel = Text.translatable("screen.universal_config.apply_scheduled_later");
+        Text restartLabel = Text.translatable("screen.universal_config.restart_now");
+        Text cancelLabel = Text.translatable("screen.universal_config.apply_scheduled_cancel");
+        int buttonWidth = scheduledButtonWidth();
+        boolean stack = stackButtons(buttonWidth);
+        int panelHeight = stack ? SCHEDULED_STACKED_PANEL_HEIGHT : SCHEDULED_PANEL_HEIGHT;
+        int bottomRowY = panelTop + panelHeight - BOTTOM_BUTTON_OFFSET;
+        int actionRowY = bottomRowY - BUTTON_HEIGHT - ROW_GAP;
+        if (stack) {
+            int firstActionY = actionRowY - BUTTON_HEIGHT - ROW_GAP;
+            addDrawableChild(ButtonWidget.builder(laterLabel, button -> close())
+                    .dimensions(width / 2 - buttonWidth / 2, firstActionY, buttonWidth, BUTTON_HEIGHT)
+                    .build());
+            addDrawableChild(ButtonWidget.builder(restartLabel, button -> restartMinecraft())
+                    .dimensions(width / 2 - buttonWidth / 2, actionRowY, buttonWidth, BUTTON_HEIGHT)
+                    .build());
+        } else {
+            int totalActionWidth = buttonWidth * 2 + BUTTON_GAP;
+            int actionLeft = width / 2 - totalActionWidth / 2;
+            addDrawableChild(ButtonWidget.builder(laterLabel, button -> close())
+                    .dimensions(actionLeft, actionRowY, buttonWidth, BUTTON_HEIGHT)
+                    .build());
+            addDrawableChild(ButtonWidget.builder(restartLabel, button -> restartMinecraft())
+                    .dimensions(actionLeft + buttonWidth + BUTTON_GAP, actionRowY, buttonWidth, BUTTON_HEIGHT)
+                    .build());
+        }
+        addDrawableChild(ButtonWidget.builder(cancelLabel, button -> cancelPendingApply())
+                .dimensions(width / 2 - buttonWidth / 2, bottomRowY, buttonWidth, BUTTON_HEIGHT)
+                .build());
+    }
+
+    // Issue #25: when automatic restart cannot be scheduled, offer an explicit quit action.
+    // CurrentProcessRestartService cleans artifacts belonging to a failed scheduling attempt. This screen only quits
+    // and preserves the pending reservation, avoiding deletion of another process's active restart plan.
+    private void initErrorButtons() {
+        int panelTop = panelTop();
+        Text backLabel = Text.translatable("screen.universal_config.back");
+        if (state == State.PENDING_INVALID) {
+            int buttonWidth = measureButton(backLabel);
+            int buttonY = panelTop + ERROR_PANEL_HEIGHT - BOTTOM_BUTTON_OFFSET;
+            addDrawableChild(ButtonWidget.builder(backLabel, button -> close())
+                    .dimensions(width / 2 - buttonWidth / 2, buttonY, buttonWidth, BUTTON_HEIGHT)
                     .build());
             return;
         }
 
-        Text laterLabel = Text.translatable("screen.universal_config.apply_scheduled_later");
-        Text restartLabel = Text.translatable("screen.universal_config.restart_now");
-        int buttonWidth = actionButtonWidth(laterLabel, restartLabel);
-        if (stackButtons(buttonWidth)) {
-            int buttonY = panelTop + STACKED_PANEL_HEIGHT - 54;
-            addDrawableChild(ButtonWidget.builder(laterLabel, button -> close())
-                    .dimensions(width / 2 - buttonWidth / 2, buttonY, buttonWidth, 20)
+        Text quitLabel = Text.translatable("screen.universal_config.quit");
+        int buttonWidth = errorButtonWidth();
+        boolean stack = stackButtons(buttonWidth);
+        int panelHeight = stack ? ERROR_STACKED_PANEL_HEIGHT : ERROR_PANEL_HEIGHT;
+        int bottomRowY = panelTop + panelHeight - BOTTOM_BUTTON_OFFSET;
+        if (stack) {
+            int topRowY = bottomRowY - BUTTON_HEIGHT - ROW_GAP;
+            addDrawableChild(ButtonWidget.builder(backLabel, button -> close())
+                    .dimensions(width / 2 - buttonWidth / 2, topRowY, buttonWidth, BUTTON_HEIGHT)
                     .build());
-            addDrawableChild(ButtonWidget.builder(restartLabel, button -> restartMinecraft())
-                    .dimensions(width / 2 - buttonWidth / 2, buttonY + 28, buttonWidth, 20)
+            addDrawableChild(ButtonWidget.builder(quitLabel, button -> quitMinecraft())
+                    .dimensions(width / 2 - buttonWidth / 2, bottomRowY, buttonWidth, BUTTON_HEIGHT)
                     .build());
         } else {
-            int buttonY = panelTop + PANEL_HEIGHT - 34;
             int totalWidth = buttonWidth * 2 + BUTTON_GAP;
             int left = width / 2 - totalWidth / 2;
-            addDrawableChild(ButtonWidget.builder(laterLabel, button -> close())
-                    .dimensions(left, buttonY, buttonWidth, 20)
+            addDrawableChild(ButtonWidget.builder(backLabel, button -> close())
+                    .dimensions(left, bottomRowY, buttonWidth, BUTTON_HEIGHT)
                     .build());
-            addDrawableChild(ButtonWidget.builder(restartLabel, button -> restartMinecraft())
-                    .dimensions(left + buttonWidth + BUTTON_GAP, buttonY, buttonWidth, 20)
+            addDrawableChild(ButtonWidget.builder(quitLabel, button -> quitMinecraft())
+                    .dimensions(left + buttonWidth + BUTTON_GAP, bottomRowY, buttonWidth, BUTTON_HEIGHT)
                     .build());
         }
     }
@@ -99,14 +168,26 @@ public final class ApplyScheduledScreen extends Screen {
 
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, panelTop + 16, TEXT_COLOR);
         int textY = panelTop + 48;
-        String firstLineKey = restartError
+        String firstLineKey = state == State.RESTART_FAILED
                 ? "screen.universal_config.restart_failed_line1"
+                : state == State.PENDING_INVALID
+                ? "screen.universal_config.pending_invalid_line1"
                 : "screen.universal_config.apply_scheduled_line1";
-        String secondLineKey = restartError
+        String secondLineKey = state == State.RESTART_FAILED
                 ? "screen.universal_config.restart_failed_line2"
+                : state == State.PENDING_INVALID
+                ? "screen.universal_config.pending_invalid_line2"
                 : "screen.universal_config.apply_scheduled_line2";
         context.drawCenteredTextWithShadow(textRenderer, Text.translatable(firstLineKey), width / 2, textY, MUTED_TEXT_COLOR);
         context.drawCenteredTextWithShadow(textRenderer, Text.translatable(secondLineKey), width / 2, textY + 18, MUTED_TEXT_COLOR);
+        if (state == State.RESTART_FAILED) {
+            // Translated text length varies, so wrap within the panel instead of allowing it to cross the border.
+            drawWrappedCenteredText(context, Text.translatable("screen.universal_config.restart_failed_line3"),
+                    textY + 36, MUTED_TEXT_COLOR);
+        } else if (cancelError) {
+            drawWrappedCenteredText(context, Text.translatable("screen.universal_config.cancel_failed"),
+                    textY + 36, 0xFFFF7777);
+        }
 
         super.render(context, mouseX, mouseY, delta);
     }
@@ -126,13 +207,86 @@ public final class ApplyScheduledScreen extends Screen {
             if (pending == null) {
                 throw new IllegalStateException("Pending import data is missing");
             }
+        } catch (UniversalConfigException | RuntimeException ex) {
+            // A missing or malformed reservation cannot be promised for the next launch. Keep this failure separate
+            // from launcher detection so the user is sent back to create a new reservation instead of quitting.
+            FileOperationLogger.failure("RESTART_AFTER_SCHEDULE", pendingPath, "pending import invalid", ex);
+            restarting = false;
+            client.setScreen(new ApplyScheduledScreen(parent, State.PENDING_INVALID));
+            return;
+        }
+
+        try {
             CurrentProcessRestartService.scheduleRestartAfterCurrentProcessExit();
             FileOperationLogger.info("RESTART_AFTER_SCHEDULE", pendingPath, "restart scheduled");
             client.scheduleStop();
         } catch (UniversalConfigException | RuntimeException ex) {
             FileOperationLogger.failure("RESTART_AFTER_SCHEDULE", pendingPath, "failed", ex);
             restarting = false;
-            client.setScreen(new ApplyScheduledScreen(this, true));
+            client.setScreen(new ApplyScheduledScreen(this, State.RESTART_FAILED));
+        }
+    }
+
+    // Issue #25: cancel the scheduled apply. Only the pending import reservation for this instance is removed;
+    // profiles and the current Minecraft settings are never touched. Success/failure is logged by clearPendingImport.
+    // The canceling flag prevents double execution from repeated clicks or screen reinitialization.
+    private void cancelPendingApply() {
+        if (canceling) {
+            return;
+        }
+        canceling = true;
+        cancelError = false;
+        Path instancePath = ScreenUtil.instancePath();
+        ProfileService service;
+        try {
+            service = ScreenUtil.service();
+        } catch (UniversalConfigException | RuntimeException ex) {
+            FileOperationLogger.failure("CANCEL_PENDING_IMPORT",
+                    UniversalConfigPaths.pendingImportFile(instancePath), "service initialization failed", ex);
+            canceling = false;
+            cancelError = true;
+            return;
+        }
+
+        try {
+            service.clearPendingImport(instancePath);
+            // Return to the parent screen (typically the profile list) where the pending banner is now gone.
+            close();
+        } catch (UniversalConfigException ex) {
+            // clearPendingImport records the file-operation failure at the core boundary; logging it again here would
+            // duplicate the same event. This layer only keeps the screen actionable for a retry.
+            canceling = false;
+            cancelError = true;
+        } catch (RuntimeException ex) {
+            FileOperationLogger.failure("CANCEL_PENDING_IMPORT",
+                    UniversalConfigPaths.pendingImportFile(instancePath), "unexpected screen failure", ex);
+            canceling = false;
+            cancelError = true;
+        }
+    }
+
+    // Issue #25: quit Minecraft after a restart could not be scheduled. The pending apply reservation is intentionally
+    // preserved so the next manual launch applies it. CurrentProcessRestartService already removes the plan and ready
+    // files for every failed scheduling path, so this screen must not sweep files that another process may still own.
+    private void quitMinecraft() {
+        if (exiting) {
+            return;
+        }
+        exiting = true;
+        Path instancePath = ScreenUtil.instancePath();
+        FileOperationLogger.info("QUIT_AFTER_RESTART_FAILED",
+                UniversalConfigPaths.pendingImportFile(instancePath), "quit requested; pending import preserved");
+        client.scheduleStop();
+    }
+
+    private void drawWrappedCenteredText(DrawContext context, Text message, int startY, int color) {
+        int maxTextWidth = Math.max(1, panelWidth() - PANEL_MARGIN * 2);
+        List<OrderedText> lines = textRenderer.wrapLines(message, maxTextWidth);
+        int lineY = startY;
+        for (OrderedText line : lines) {
+            int lineX = width / 2 - textRenderer.getWidth(line) / 2;
+            context.drawTextWithShadow(textRenderer, line, lineX, lineY, color);
+            lineY += 10;
         }
     }
 
@@ -141,13 +295,13 @@ public final class ApplyScheduledScreen extends Screen {
     }
 
     private int panelHeight() {
-        if (restartError) {
+        if (state == State.PENDING_INVALID) {
             return ERROR_PANEL_HEIGHT;
         }
-        return stackButtons(actionButtonWidth(
-                Text.translatable("screen.universal_config.apply_scheduled_later"),
-                Text.translatable("screen.universal_config.restart_now")))
-                ? STACKED_PANEL_HEIGHT : PANEL_HEIGHT;
+        if (state == State.RESTART_FAILED) {
+            return stackButtons(errorButtonWidth()) ? ERROR_STACKED_PANEL_HEIGHT : ERROR_PANEL_HEIGHT;
+        }
+        return stackButtons(scheduledButtonWidth()) ? SCHEDULED_STACKED_PANEL_HEIGHT : SCHEDULED_PANEL_HEIGHT;
     }
 
     private int panelLeft() {
@@ -158,12 +312,38 @@ public final class ApplyScheduledScreen extends Screen {
         return Math.max(PANEL_MARGIN, (height - panelHeight()) / 2);
     }
 
-    private int actionButtonWidth(Text first, Text second) {
-        int measured = Math.max(textRenderer.getWidth(first), textRenderer.getWidth(second)) + 20;
+    private int measureButton(Text label) {
+        int measured = textRenderer.getWidth(label) + 20;
         return Math.max(104, Math.min(150, measured));
+    }
+
+    private int pairButtonWidth(Text first, Text second) {
+        return Math.max(measureButton(first), measureButton(second));
+    }
+
+    private int scheduledButtonWidth() {
+        int action = pairButtonWidth(
+                Text.translatable("screen.universal_config.apply_scheduled_later"),
+                Text.translatable("screen.universal_config.restart_now"));
+        int cancel = measureButton(Text.translatable("screen.universal_config.apply_scheduled_cancel"));
+        return Math.max(action, cancel);
+    }
+
+    private int errorButtonWidth() {
+        return pairButtonWidth(
+                Text.translatable("screen.universal_config.back"),
+                Text.translatable("screen.universal_config.quit"));
     }
 
     private boolean stackButtons(int buttonWidth) {
         return panelWidth() < buttonWidth * 2 + BUTTON_GAP + 24;
+    }
+
+    private static String titleKey(State state) {
+        return switch (state) {
+            case SCHEDULED -> "screen.universal_config.apply_scheduled_title";
+            case RESTART_FAILED -> "screen.universal_config.restart_failed_title";
+            case PENDING_INVALID -> "screen.universal_config.pending_invalid_title";
+        };
     }
 }

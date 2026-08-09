@@ -1,5 +1,6 @@
 package com.example.universalconfig.fabric;
 
+import com.example.universalconfig.core.GeneratedFileCleaner;
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.UniversalConfigException;
@@ -18,6 +19,7 @@ public final class UniversalConfigPreLaunch implements PreLaunchEntrypoint {
         try {
             UniversalConfigSettings settings = UniversalConfigPaths.loadOrCreateSettings(gameDirectory);
             ProfileService service = new ProfileService(settings);
+            runGeneratedFileCleanup(settings);
             if (service.readPendingImport(gameDirectory) != null) {
                 operation = "PRELAUNCH_PENDING_IMPORT";
                 ProfileService.ApplyResult result = service.applyPendingImport(
@@ -42,6 +44,16 @@ public final class UniversalConfigPreLaunch implements PreLaunchEntrypoint {
             }
         } catch (UniversalConfigException | RuntimeException ex) {
             FileOperationLogger.failure(operation, gameDirectory, "failed", ex);
+        }
+    }
+
+    private void runGeneratedFileCleanup(UniversalConfigSettings settings) {
+        try {
+            // Cleanup is intentionally isolated from pending/default-profile application so a stale file can never
+            // prevent startup work from continuing.
+            new GeneratedFileCleaner(settings).cleanup();
+        } catch (RuntimeException ex) {
+            FileOperationLogger.failure("CLEANUP", settings.rootDirectory(), "startup cleanup failed", ex);
         }
     }
 }

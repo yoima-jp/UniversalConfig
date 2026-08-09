@@ -88,6 +88,7 @@ public final class ProfileListScreen extends Screen {
     private int detailScroll;
     private boolean moreMenuOpen;
     private boolean restarting;
+    private boolean cancelingPendingApply;
     private String dateFormatterLanguage;
     private DateTimeFormatter dateFormatter;
 
@@ -257,8 +258,7 @@ public final class ProfileListScreen extends Screen {
         return HEADER_HEIGHT;
     }
 
-    private int pendingButtonWidth() {
-        Text label = Text.translatable("screen.universal_config.restart_now");
+    private int pendingButtonWidth(Text label) {
         return Math.max(88, Math.min(128, textRenderer.getWidth(label) + 20));
     }
 
@@ -319,9 +319,15 @@ public final class ProfileListScreen extends Screen {
                 .dimensions(contentLeft(), footerButtonY(), contentWidth(), BUTTON_HEIGHT).build());
 
         if (pendingImport != null) {
-            int buttonWidth = pendingButtonWidth();
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.restart_now"), button -> restartForPendingApply())
-                    .dimensions(rightPanelRight() - buttonWidth - 6, pendingTop() + 5, buttonWidth, BUTTON_HEIGHT).build());
+            Text restartLabel = Text.translatable("screen.universal_config.restart_now");
+            Text cancelLabel = Text.translatable("screen.universal_config.apply_scheduled_cancel");
+            int restartWidth = pendingButtonWidth(restartLabel);
+            int cancelWidth = pendingButtonWidth(cancelLabel);
+            int right = rightPanelRight() - 6;
+            addDrawableChild(ButtonWidget.builder(cancelLabel, button -> cancelPendingApply())
+                    .dimensions(right - cancelWidth, pendingTop() + 5, cancelWidth, BUTTON_HEIGHT).build());
+            addDrawableChild(ButtonWidget.builder(restartLabel, button -> restartForPendingApply())
+                    .dimensions(right - cancelWidth - 6 - restartWidth, pendingTop() + 5, restartWidth, BUTTON_HEIGHT).build());
         }
 
         MutableText closeNarration = Text.translatable("screen.universal_config.close");
@@ -473,7 +479,29 @@ public final class ProfileListScreen extends Screen {
         } catch (UniversalConfigException | RuntimeException ex) {
             FileOperationLogger.failure("RESTART_FOR_PENDING_APPLY", pendingPath, "failed", ex);
             restarting = false;
-            status = Text.translatable("screen.universal_config.restart_failed");
+            client.setScreen(ApplyScheduledScreen.restartFailed(this));
+        }
+    }
+
+    private void cancelPendingApply() {
+        if (cancelingPendingApply) {
+            return;
+        }
+        cancelingPendingApply = true;
+        Path pendingPath = UniversalConfigPaths.pendingImportFile(ScreenUtil.instancePath());
+        try {
+            // The profile and current settings remain untouched; only the next-start reservation is removed.
+            ScreenUtil.service().clearPendingImport(ScreenUtil.instancePath());
+            pendingImport = null;
+            status = Text.empty();
+            rebuildButtons();
+        } catch (UniversalConfigException ex) {
+            status = Text.translatable("screen.universal_config.cancel_failed");
+        } catch (RuntimeException ex) {
+            FileOperationLogger.failure("CANCEL_PENDING_IMPORT", pendingPath, "unexpected screen failure", ex);
+            status = Text.translatable("screen.universal_config.cancel_failed");
+        } finally {
+            cancelingPendingApply = false;
         }
     }
 
@@ -548,7 +576,9 @@ public final class ProfileListScreen extends Screen {
             int top = pendingTop();
             drawBorderedRect(context, contentLeft(), top, rightPanelRight(), top + PENDING_HEIGHT,
                     PENDING_COLOR, PENDING_BORDER_COLOR, PANEL_BORDER_DARK);
-            int availableWidth = contentWidth() - pendingButtonWidth() - 34;
+            int actionWidth = pendingButtonWidth(Text.translatable("screen.universal_config.restart_now"))
+                    + pendingButtonWidth(Text.translatable("screen.universal_config.apply_scheduled_cancel")) + 6;
+            int availableWidth = contentWidth() - actionWidth - 34;
             drawTrimmed(context, Text.translatable("screen.universal_config.pending_named", pendingProfileName()).getString(),
                     contentLeft() + 12, top + 10, availableWidth, WARNING_COLOR);
         }
