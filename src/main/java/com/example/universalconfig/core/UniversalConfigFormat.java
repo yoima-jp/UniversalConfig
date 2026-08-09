@@ -24,12 +24,12 @@ public final class UniversalConfigFormat {
     public static final String RESTART_HELPER_DIRECTORY_NAME = "restart";
     public static final String RESTART_READY_FILE_EXTENSION = ".ready";
     public static final String PROFILES_DIRECTORY_NAME = "profiles";
+    public static final String PROFILE_OPERATION_LOCK_FILE_NAME = ".profile-operation.lock";
     public static final String BACKUPS_DIRECTORY_NAME = "backups";
     public static final String LOGS_DIRECTORY_NAME = "logs";
     public static final String LAUNCH_LOGS_DIRECTORY_NAME = "launches";
     public static final String LATEST_LOG_FILE_NAME = "latest.log";
     public static final String LAUNCH_LOG_FILE_PREFIX = "universal-config-";
-    public static final String EXPORT_DIRECTORY_NAME = "universal-config-exports";
 
     public static final String PROFILE_FILE_EXTENSION = ".ucp";
     public static final String BACKUP_FILE_EXTENSION = ".ucbackup";

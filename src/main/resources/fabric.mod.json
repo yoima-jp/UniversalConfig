@@ -11,7 +11,8 @@
   ],
   "contact": {
     "homepage": "https://modrinth.com/project/universal-config",
-    "sources": "https://github.com/tofuturu/UniversalConfig",
+    "sources": "https://github.com/yoima-jp/UniversalConfig",
+    "issues": "https://github.com/yoima-jp/UniversalConfig/issues/new/choose",
     "modrinth": "universal-config"
   },
   "license": "MIT",

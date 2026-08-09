@@ -148,10 +148,6 @@ public final class UniversalConfigPaths {
         return settings.rootDirectory().resolve(UniversalConfigFormat.LOGS_DIRECTORY_NAME);
     }
 
-    public static Path exportDirectory(Path minecraftRunDirectory) {
-        return minecraftRunDirectory.resolve(UniversalConfigFormat.EXPORT_DIRECTORY_NAME);
-    }
-
     public static String safeFileSlug(String value) {
         String lower = value == null
                 ? UniversalConfigFormat.DEFAULT_PROFILE_SLUG

@@ -7,6 +7,7 @@ import com.example.universalconfig.core.ProfileIcon;
 import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.ProfileSummary;
 import com.example.universalconfig.core.UniversalConfigException;
+import com.example.universalconfig.core.UniversalConfigFormat;
 import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.fabric.FabricRestartService;
 import net.minecraft.client.MinecraftClient;
@@ -55,7 +56,7 @@ public final class ProfileListScreen extends Screen {
     private static final int MORE_BUTTON_WIDTH = 34;
     private static final int MENU_WIDTH = 132;
     private static final int MENU_ITEM_GAP = 2;
-    private static final int MENU_ITEM_COUNT = 5;
+    private static final int MENU_ITEM_COUNT = 4;
     private static final int MENU_HEIGHT = MENU_ITEM_COUNT * BUTTON_HEIGHT + (MENU_ITEM_COUNT - 1) * MENU_ITEM_GAP + 8;
     private static final int CLOSE_BUTTON_SIZE = 20;
     private static final String SAFE_DATE_PATTERN = "yyyy/MM/dd HH:mm";
@@ -341,19 +342,17 @@ public final class ProfileListScreen extends Screen {
         int x = menuX() + 4;
         int y = menuY() + 4;
         int width = MENU_WIDTH - 8;
-        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
-                .dimensions(x, y, width, BUTTON_HEIGHT).build());
-        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.export"), button -> export(path))
-                .dimensions(x, y + BUTTON_HEIGHT + MENU_ITEM_GAP, width, BUTTON_HEIGHT).build());
         Text defaultLabel = Text.translatable(isDefaultProfile(path)
                 ? "screen.universal_config.clear_default"
                 : "screen.universal_config.set_default");
         addMoreMenuButton(ButtonWidget.builder(defaultLabel, button -> toggleDefault(path))
+                .dimensions(x, y, width, BUTTON_HEIGHT).build());
+        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.open_folder"), button -> openProfileDirectory())
+                .dimensions(x, y + BUTTON_HEIGHT + MENU_ITEM_GAP, width, BUTTON_HEIGHT).build());
+        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
                 .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 2, width, BUTTON_HEIGHT).build());
-        addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.open_folder"), button -> openOutputDirectory())
-                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 3, width, BUTTON_HEIGHT).build());
         addMoreMenuButton(ButtonWidget.builder(Text.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
-                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 4, width, BUTTON_HEIGHT).build());
+                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 3, width, BUTTON_HEIGHT).build());
     }
 
     private void addMoreMenuButton(ButtonWidget button) {
@@ -376,10 +375,46 @@ public final class ProfileListScreen extends Screen {
         }
     }
 
+    private void confirmImport(Path source) {
+        try {
+            ProfileManifest manifest = ScreenUtil.service().readManifest(source);
+            String name = profileName(manifest);
+            client.setScreen(new ConfirmScreen(confirmed -> {
+                if (confirmed) {
+                    importProfile(source);
+                } else {
+                    client.setScreen(this);
+                }
+            }, Text.translatable("screen.universal_config.import_confirm", name),
+                    Text.translatable("screen.universal_config.import_warning")));
+        } catch (UniversalConfigException | RuntimeException ex) {
+            FileOperationLogger.failure("OPEN_IMPORT_CONFIRM", source, "invalid dropped profile", ex);
+            status = Text.translatable("screen.universal_config.import_failed");
+            rebuildButtons();
+        }
+    }
+
+    private void importProfile(Path source) {
+        try {
+            // The service validates the archive again after confirmation so a replaced file cannot bypass validation.
+            Path imported = ScreenUtil.service().importProfile(source);
+            status = Text.empty();
+            moreMenuOpen = false;
+            reload();
+            selectedProfileIndex = indexOfPath(imported);
+            detailScroll = 0;
+            rebuildButtons();
+        } catch (UniversalConfigException | RuntimeException ex) {
+            FileOperationLogger.failure("IMPORT_PROFILE_FROM_DROP", source, "failed", ex);
+            status = Text.translatable("screen.universal_config.import_failed");
+        }
+        client.setScreen(this);
+    }
+
     private void duplicate(Path path) {
         try {
             ScreenUtil.service().duplicateProfile(path);
-            status = Text.translatable("screen.universal_config.duplicated");
+            status = Text.empty();
             moreMenuOpen = false;
             reload();
             rebuildButtons();
@@ -409,6 +444,7 @@ public final class ProfileListScreen extends Screen {
     private void delete(Path path) {
         try {
             ScreenUtil.service().deleteProfile(ScreenUtil.instancePath(), path);
+            status = Text.empty();
             selectedProfileIndex = Math.max(0, selectedProfileIndex - 1);
             moreMenuOpen = false;
             reload();
@@ -428,6 +464,7 @@ public final class ProfileListScreen extends Screen {
             } else {
                 service.setDefaultProfile(ScreenUtil.instancePath(), path);
             }
+            status = Text.empty();
             moreMenuOpen = false;
             reload();
             rebuildButtons();
@@ -436,28 +473,36 @@ public final class ProfileListScreen extends Screen {
         }
     }
 
-    private void export(Path path) {
+    private void openProfileDirectory() {
         try {
-            Path exported = ScreenUtil.service().exportProfile(path, UniversalConfigPaths.exportDirectory(ScreenUtil.instancePath()));
-            status = Text.translatable("screen.universal_config.exported", exported.getFileName());
-            moreMenuOpen = false;
-            rebuildButtons();
-        } catch (UniversalConfigException | RuntimeException ex) {
-            handleActionFailure(ex, "screen.universal_config.export_failed");
-        }
-    }
-
-    private void openOutputDirectory() {
-        try {
-            Path directory = ScreenUtil.service().settings().rootDirectory().toAbsolutePath().normalize();
+            ProfileService service = ScreenUtil.service();
+            Path directory = UniversalConfigPaths.profilesDirectory(service.settings()).toAbsolutePath().normalize();
             Util.getOperatingSystem().open(directory.toUri());
-            FileOperationLogger.info("OPEN_OUTPUT_DIRECTORY", directory, "opened by user");
-            status = Text.translatable("screen.universal_config.folder_opened");
+            FileOperationLogger.info("OPEN_PROFILES_DIRECTORY", directory, "opened by user");
+            status = Text.empty();
             moreMenuOpen = false;
             rebuildButtons();
         } catch (UniversalConfigException | RuntimeException ex) {
             handleActionFailure(ex, "screen.universal_config.open_folder_failed");
         }
+    }
+
+    @Override
+    public void filesDragged(List<Path> paths) {
+        if (paths == null || paths.size() != 1 || !isDroppedProfileFile(paths.get(0))) {
+            status = Text.translatable("screen.universal_config.drop_one_profile");
+            rebuildButtons();
+            return;
+        }
+        confirmImport(paths.get(0).toAbsolutePath().normalize());
+    }
+
+    private boolean isDroppedProfileFile(Path path) {
+        if (path == null || path.getFileName() == null || !Files.isRegularFile(path)) {
+            return false;
+        }
+        return path.getFileName().toString().toLowerCase(Locale.ROOT)
+                .endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION);
     }
 
     private void restartForPendingApply() {

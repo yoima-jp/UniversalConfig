@@ -1,19 +1,30 @@
 package com.example.universalconfig.core;
 
+import com.google.gson.JsonObject;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 
 public final class ProfileService {
+    private static final ReentrantLock PROFILE_OPERATION_PROCESS_LOCK = new ReentrantLock();
     private final UniversalConfigSettings settings;
     private final AdapterRegistry adapterRegistry = new AdapterRegistry();
 
@@ -198,7 +209,6 @@ public final class ProfileService {
         String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
         ProfileManifest manifest = new ProfileManifest();
         manifest.id = UniversalConfigPaths.safeFileSlug(options.name);
-        manifest.name = options.name;
         manifest.description = options.description == null ? "" : options.description;
         // Profiles can be imported from outside the client UI. Keep only known cosmetic IDs in manifests.
         manifest.icon = ProfileIcon.normalize(options.icon);
@@ -212,17 +222,27 @@ public final class ProfileService {
         manifest.includes.clientOptions = options.includeClientOptions;
         manifest.includes.modConfigs = options.includeModConfigs;
 
-        Path destination = uniqueProfilePath(manifest.id);
-        FileOperationLogger.info("CREATE_PROFILE", destination, "name=" + manifest.name);
-        try (ProfileArchiveWriter.InMemory writer = new ProfileArchiveWriter.InMemory()) {
-            writer.addString(UniversalConfigFormat.MANIFEST_ENTRY, JsonDocuments.toJson(manifest));
-            adapterRegistry.adapterFor(instancePath).exportProfile(instancePath, writer, options, environment);
-            writer.addString(UniversalConfigFormat.PROFILE_README_ENTRY, "Universal Config profile. Apply only after reviewing warnings and creating a backup.\n");
-            ChecksumDocument checksums = Checksums.create(writer.pendingEntries());
-            writer.addString(UniversalConfigFormat.CHECKSUMS_ENTRY, JsonDocuments.toJson(checksums));
-            ZipArchiveWriter.write(destination, writer.pendingEntries());
-            FileOperationLogger.info("CREATE_PROFILE", destination, "complete entries=" + writer.pendingEntries().size());
-            return destination;
+        Path destination = null;
+        try (ProfileDirectoryLock ignored = lockProfileDirectory()) {
+            manifest.name = uniqueProfileName(options.name);
+            destination = uniqueProfilePath(manifest.id);
+            FileOperationLogger.info("CREATE_PROFILE", destination, "name=" + manifest.name);
+            try (ProfileArchiveWriter.InMemory writer = new ProfileArchiveWriter.InMemory()) {
+                writer.addString(UniversalConfigFormat.MANIFEST_ENTRY, JsonDocuments.toJson(manifest));
+                adapterRegistry.adapterFor(instancePath).exportProfile(instancePath, writer, options, environment);
+                writer.addString(UniversalConfigFormat.PROFILE_README_ENTRY, "Universal Config profile. Apply only after reviewing warnings and creating a backup.\n");
+                ChecksumDocument checksums = Checksums.create(writer.pendingEntries());
+                writer.addString(UniversalConfigFormat.CHECKSUMS_ENTRY, JsonDocuments.toJson(checksums));
+                Path temporary = Files.createTempFile(destination.getParent(), ".universal-config-profile-", ".tmp");
+                try {
+                    ZipArchiveWriter.write(temporary, writer.pendingEntries());
+                    moveNewProfile(temporary, destination);
+                } finally {
+                    deleteTemporaryProfile(temporary);
+                }
+                FileOperationLogger.info("CREATE_PROFILE", destination, "complete entries=" + writer.pendingEntries().size());
+                return destination;
+            }
         } catch (IOException ex) {
             FileOperationLogger.failure("CREATE_PROFILE", destination, "failed", ex);
             throw new UniversalConfigException("Failed to create profile.", ex);
@@ -358,7 +378,7 @@ public final class ProfileService {
                 || !normalized.getFileName().toString().endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION)) {
             throw new UniversalConfigException("Refusing to delete file outside profiles directory: " + profilePath);
         }
-        try {
+        try (ProfileDirectoryLock ignored = lockProfileDirectory()) {
             Files.deleteIfExists(normalized);
             FileOperationLogger.info("DELETE_PROFILE", normalized, "deleteIfExists");
         } catch (IOException ex) {
@@ -377,28 +397,80 @@ public final class ProfileService {
 
     public Path duplicateProfile(Path profilePath) throws UniversalConfigException {
         ProfileManifest manifest = readManifest(profilePath);
-        Path destination = uniqueProfilePath(UniversalConfigPaths.safeFileSlug(manifest.id + "-copy"));
-        try {
-            Files.copy(profilePath, destination);
+        Path destination = null;
+        boolean destinationCreated = false;
+        try (ProfileDirectoryLock ignored = lockProfileDirectory()) {
+            destination = uniqueProfilePath(UniversalConfigPaths.safeFileSlug(manifest.id) + "-copy");
+            copyProfile(profilePath, destination);
+            destinationCreated = true;
+            ProfileManifest copiedManifest = readManifest(destination);
+            ensureUniqueProfileName(destination, copiedManifest.name);
+            readManifest(destination);
             FileOperationLogger.info("DUPLICATE_PROFILE", destination, "from=" + profilePath.toAbsolutePath().normalize());
             return destination;
+        } catch (UniversalConfigException ex) {
+            if (destinationCreated) {
+                deleteFailedProfile(destination, "DELETE_FAILED_DUPLICATE", ex);
+            }
+            FileOperationLogger.failure("DUPLICATE_PROFILE", destination,
+                    "from=" + profilePath.toAbsolutePath().normalize(), ex);
+            throw ex;
         } catch (IOException ex) {
+            if (destinationCreated) {
+                deleteFailedProfile(destination, "DELETE_FAILED_DUPLICATE", ex);
+            }
             FileOperationLogger.failure("DUPLICATE_PROFILE", destination, "from=" + profilePath.toAbsolutePath().normalize(), ex);
             throw new UniversalConfigException("Failed to duplicate profile.", ex);
         }
     }
 
-    public Path exportProfile(Path profilePath, Path destinationDirectory) throws UniversalConfigException {
+    public Path importProfile(Path sourceProfilePath) throws UniversalConfigException {
+        if (sourceProfilePath == null) {
+            throw new UniversalConfigException("A profile file is required.");
+        }
+        Path source = sourceProfilePath.toAbsolutePath().normalize();
+        String fileName = source.getFileName() == null ? "" : source.getFileName().toString();
+        if (!Files.isRegularFile(source)
+                || !fileName.toLowerCase(Locale.ROOT).endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION)) {
+            UniversalConfigException exception = new UniversalConfigException("The selected file is not a .ucp profile.");
+            FileOperationLogger.failure("IMPORT_PROFILE", source, "invalid source file", exception);
+            throw exception;
+        }
+
+        ProfileManifest manifest;
         try {
-            Files.createDirectories(destinationDirectory);
-            FileOperationLogger.info("CREATE_DIRECTORY", destinationDirectory, "export destination");
-            Path destination = destinationDirectory.resolve(profilePath.getFileName());
-            Files.copy(profilePath, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            FileOperationLogger.info("EXPORT_PROFILE", destination, "from=" + profilePath.toAbsolutePath().normalize());
+            // Validate every ZIP entry and the manifest before copying untrusted external files into shared storage.
+            manifest = readManifest(source);
+        } catch (UniversalConfigException ex) {
+            FileOperationLogger.failure("IMPORT_PROFILE", source, "profile validation failed", ex);
+            throw ex;
+        }
+
+        Path destination = null;
+        boolean destinationCreated = false;
+        try (ProfileDirectoryLock ignored = lockProfileDirectory()) {
+            destination = uniqueProfilePath(UniversalConfigPaths.safeFileSlug(manifest.id));
+            copyProfile(source, destination);
+            destinationCreated = true;
+            // Revalidate after copying so a replacement between confirmation and copy cannot bypass validation.
+            ProfileManifest copiedManifest = readManifest(destination);
+            ensureUniqueProfileName(destination, copiedManifest.name);
+            // Revalidate once more because a duplicate name rewrite also rebuilds the archive and its checksums.
+            readManifest(destination);
+            FileOperationLogger.info("IMPORT_PROFILE", destination, "from=" + source);
             return destination;
+        } catch (UniversalConfigException ex) {
+            if (destinationCreated) {
+                deleteFailedProfile(destination, "DELETE_FAILED_IMPORT", ex);
+            }
+            FileOperationLogger.failure("IMPORT_PROFILE", destination, "from=" + source, ex);
+            throw ex;
         } catch (IOException ex) {
-            FileOperationLogger.failure("EXPORT_PROFILE", destinationDirectory, "failed", ex);
-            throw new UniversalConfigException("Failed to export profile.", ex);
+            if (destinationCreated) {
+                deleteFailedProfile(destination, "DELETE_FAILED_IMPORT", ex);
+            }
+            FileOperationLogger.failure("IMPORT_PROFILE", destination, "from=" + source, ex);
+            throw new UniversalConfigException("Failed to add the profile to shared storage.", ex);
         }
     }
 
@@ -430,6 +502,181 @@ public final class ProfileService {
             counter++;
         }
         return candidate;
+    }
+
+    private ProfileDirectoryLock lockProfileDirectory() throws UniversalConfigException {
+        Path directory = UniversalConfigPaths.profilesDirectory(settings);
+        Path lockPath = directory.resolve(UniversalConfigFormat.PROFILE_OPERATION_LOCK_FILE_NAME);
+        FileChannel channel = null;
+        PROFILE_OPERATION_PROCESS_LOCK.lock();
+        try {
+            Files.createDirectories(directory);
+            channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            FileLock lock = channel.lock();
+            return new ProfileDirectoryLock(lockPath, channel, lock, PROFILE_OPERATION_PROCESS_LOCK);
+        } catch (IOException | RuntimeException ex) {
+            if (channel != null) {
+                try {
+                    channel.close();
+                } catch (IOException cleanupException) {
+                    ex.addSuppressed(cleanupException);
+                }
+            }
+            PROFILE_OPERATION_PROCESS_LOCK.unlock();
+            FileOperationLogger.failure("LOCK_PROFILES_DIRECTORY", lockPath, "failed", ex);
+            throw new UniversalConfigException("Failed to lock the profiles directory.", ex);
+        }
+    }
+
+    /**
+     * Keeps duplicate profiles distinguishable without renaming existing profiles when the list is reloaded.
+     * The selected name is stored in the profile manifest, so deleting one profile does not re-number the others.
+     */
+    private String uniqueProfileName(String name) throws UniversalConfigException {
+        return uniqueProfileName(name, null);
+    }
+
+    private String uniqueProfileName(String name, Path excludedProfilePath) throws UniversalConfigException {
+        if (name == null || name.isBlank()) {
+            return name;
+        }
+
+        Path normalizedExcludedPath = excludedProfilePath == null
+                ? null
+                : excludedProfilePath.toAbsolutePath().normalize();
+        Set<String> usedNames = new HashSet<>();
+        for (ProfileSummary summary : listProfiles()) {
+            if (normalizedExcludedPath != null
+                    && summary.path().toAbsolutePath().normalize().equals(normalizedExcludedPath)) {
+                continue;
+            }
+            ProfileManifest existing = summary.manifest();
+            if (existing != null && existing.name != null && !existing.name.isBlank()) {
+                usedNames.add(existing.name);
+            }
+        }
+
+        if (!usedNames.contains(name)) {
+            return name;
+        }
+
+        int suffix = 1;
+        while (true) {
+            String candidate = name + " (" + suffix + ")";
+            if (!usedNames.contains(candidate)) {
+                return candidate;
+            }
+            suffix++;
+        }
+    }
+
+    private void ensureUniqueProfileName(Path profilePath, String originalName) throws UniversalConfigException {
+        String uniqueName = uniqueProfileName(originalName, profilePath);
+        if (Objects.equals(originalName, uniqueName)) {
+            return;
+        }
+        rewriteProfileName(profilePath, uniqueName);
+        FileOperationLogger.info("RENAME_PROFILE_DISPLAY_NAME", profilePath,
+                "from=" + originalName + " to=" + uniqueName);
+    }
+
+    private void copyProfile(Path source, Path destination) throws IOException {
+        Path temporary = Files.createTempFile(destination.getParent(), ".universal-config-profile-copy-", ".tmp");
+        try {
+            Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
+            moveNewProfile(temporary, destination);
+        } finally {
+            deleteTemporaryProfile(temporary);
+        }
+    }
+
+    private void moveNewProfile(Path temporary, Path destination) throws IOException {
+        try {
+            Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException ex) {
+            Files.move(temporary, destination);
+        }
+    }
+
+    private void deleteTemporaryProfile(Path temporary) {
+        try {
+            Files.deleteIfExists(temporary);
+        } catch (IOException cleanupException) {
+            FileOperationLogger.failure("DELETE_PROFILE_TEMPORARY", temporary, "cleanup failed", cleanupException);
+        }
+    }
+
+    private void rewriteProfileName(Path profilePath, String name) throws UniversalConfigException {
+        try {
+            Path temporary = Files.createTempFile(profilePath.getParent(), ".universal-config-profile-", ".tmp");
+            try {
+                try (ZipArchiveReader reader = new ZipArchiveReader(profilePath);
+                     InputStream input = reader.open(UniversalConfigFormat.MANIFEST_ENTRY)) {
+                    byte[] originalManifest = input.readAllBytes();
+                    JsonObject manifest = JsonDocuments.GSON.fromJson(
+                            new String(originalManifest, StandardCharsets.UTF_8), JsonObject.class);
+                    if (manifest == null) {
+                        throw new UniversalConfigException("Profile manifest is empty.");
+                    }
+                    manifest.addProperty("name", name);
+                    byte[] updatedManifest = JsonDocuments.GSON.toJson(manifest).getBytes(StandardCharsets.UTF_8);
+                    ZipArchiveWriter.writeWithReplacedManifest(temporary, reader, updatedManifest);
+                }
+                try {
+                    Files.move(temporary, profilePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (AtomicMoveNotSupportedException ex) {
+                    Files.move(temporary, profilePath, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                deleteTemporaryProfile(temporary);
+            }
+        } catch (IOException ex) {
+            throw new UniversalConfigException("Failed to save the profile with a unique name.", ex);
+        } catch (RuntimeException ex) {
+            throw new UniversalConfigException("Failed to update the profile manifest.", ex);
+        }
+    }
+
+    private void deleteFailedProfile(Path profilePath, String operation, Exception failure) {
+        try {
+            Files.deleteIfExists(profilePath);
+            FileOperationLogger.info(operation, profilePath, "cleanup after failure");
+        } catch (IOException cleanupException) {
+            failure.addSuppressed(cleanupException);
+            FileOperationLogger.failure(operation, profilePath, "cleanup failed", cleanupException);
+        }
+    }
+
+    private static final class ProfileDirectoryLock implements AutoCloseable {
+        private final Path path;
+        private final FileChannel channel;
+        private final FileLock lock;
+        private final ReentrantLock processLock;
+
+        private ProfileDirectoryLock(Path path, FileChannel channel, FileLock lock, ReentrantLock processLock) {
+            this.path = path;
+            this.channel = channel;
+            this.lock = lock;
+            this.processLock = processLock;
+        }
+
+        @Override
+        public void close() {
+            try {
+                try {
+                    lock.release();
+                } catch (IOException ex) {
+                    FileOperationLogger.failure("UNLOCK_PROFILES_DIRECTORY", path, "release failed", ex);
+                }
+                try {
+                    channel.close();
+                } catch (IOException ex) {
+                    FileOperationLogger.failure("UNLOCK_PROFILES_DIRECTORY", path, "close failed", ex);
+                }
+            } finally {
+                processLock.unlock();
+            }
+        }
     }
 
     private Path validateProfilePath(Path profilePath) throws UniversalConfigException {
