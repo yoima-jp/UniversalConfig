@@ -24,6 +24,9 @@
     ],
     "client": [
       "com.example.universalconfig.fabric.UniversalConfigMod"
+    ],
+    "modmenu": [
+      "com.example.universalconfig.fabric.UniversalConfigModMenuApi"
     ]
   },
   "depends": {
@@ -31,5 +34,8 @@
     "minecraft": ">=1.20.1",
     "java": ">=17",
     "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
   }
 }

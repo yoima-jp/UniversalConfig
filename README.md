@@ -20,6 +20,7 @@ The core profile logic is separated from Fabric UI code under `com.example.unive
 ## Features
 
 - Create a profile from the current instance.
+- Open the profile list from Universal Config's configuration button in Mod Menu.
 - Store profile metadata in `manifest.json`.
 - Store keybinds from `options.txt` without overwriting the full file.
 - Store every non-keybind setting from `options.txt` without requiring a version-specific allowlist.
@@ -58,7 +59,7 @@ build/libs/
 ## Usage
 
 1. Install the generated jar in a Fabric 1.20.1 client instance.
-2. Open Minecraft and use the `Universal Config` button on the title menu.
+2. Open Minecraft and use the `Universal Config` button on the title menu, or its configuration button in Mod Menu.
 3. Use the profile list screen to create, inspect, schedule, duplicate, delete, or export profiles.
 4. Review warnings, then choose the next-start import reservation button.
 5. Restart Minecraft. Universal Config applies the reserved profile during Fabric pre-launch, before Minecraft reads `options.txt` and common config files, and creates a backup first.
