@@ -127,7 +127,6 @@ Official distribution pages:
 - [Modrinth](https://modrinth.com/project/universal-config)
 - [CurseForge](https://www.curseforge.com/minecraft/mc-mods/universal-config/)
 
-These pages may remain unavailable until the first public release is published.
 
 ## Issues and Feature Requests
 
