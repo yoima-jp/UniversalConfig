@@ -152,7 +152,7 @@ public final class ApplyScheduledScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context, mouseX, mouseY, delta);
+        ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
 
         int panelLeft = panelLeft();
         int panelTop = panelTop();

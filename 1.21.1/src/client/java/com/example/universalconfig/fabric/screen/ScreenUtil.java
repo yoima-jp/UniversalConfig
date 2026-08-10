@@ -7,6 +7,8 @@ import com.example.universalconfig.core.ProfileService;
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.fabric.FabricEnvironmentDetector;
 import com.example.universalconfig.fabric.UniversalConfigMod;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.text.Text;
@@ -33,6 +35,19 @@ final class ScreenUtil {
 
     static Text literal(String value) {
         return Text.literal(value == null ? "" : value);
+    }
+
+    /**
+     * 1.21.1のScreen.renderBackgroundはワールド中では暗い半透明レイヤーだけを描くため、
+     * 画面遷移直後の前フレームが透けないよう、1.20.1相当の不透明背景を描画する。
+     */
+    static void renderBackground(Screen screen, DrawContext context, int mouseX, int mouseY, float delta) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world != null) {
+            screen.renderInGameBackground(context);
+        } else {
+            screen.renderBackground(context, mouseX, mouseY, delta);
+        }
     }
 
     static Text errorText(Exception ex) {

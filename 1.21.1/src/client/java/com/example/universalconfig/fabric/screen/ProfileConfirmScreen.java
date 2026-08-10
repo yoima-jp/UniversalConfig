@@ -190,7 +190,7 @@ public final class ProfileConfirmScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context, mouseX, mouseY, delta);
+        ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, 0xFFFFFFFF);
         drawPanel(context);
         super.render(context, mouseX, mouseY, delta);

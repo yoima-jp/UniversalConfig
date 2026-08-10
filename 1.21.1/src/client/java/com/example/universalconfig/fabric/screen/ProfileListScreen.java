@@ -597,7 +597,7 @@ public final class ProfileListScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context, mouseX, mouseY, delta);
+        ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
         drawHeader(context);
         drawPanels(context);
         drawListContent(context);

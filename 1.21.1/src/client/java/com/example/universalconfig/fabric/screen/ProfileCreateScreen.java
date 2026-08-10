@@ -105,7 +105,7 @@ public final class ProfileCreateScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context, mouseX, mouseY, delta);
+        ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
         int formLeft = width / 2 - FORM_LEFT_OFFSET;
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 18, 0xFFFFFF);
         context.drawTextWithShadow(textRenderer, Text.translatable("screen.universal_config.profile_name_label"),

@@ -70,7 +70,7 @@ public final class BackupListScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        renderBackground(context, mouseX, mouseY, delta);
+        ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 14, 0xFFFFFF);
         context.drawTextWithShadow(textRenderer, status, 12, 28, 0xFFCC66);
         int y = 44;
