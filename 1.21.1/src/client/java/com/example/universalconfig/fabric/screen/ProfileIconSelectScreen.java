@@ -64,7 +64,7 @@ final class ProfileIconSelectScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 20, 0xFFFFFFFF);
-        super.render(context, mouseX, mouseY, delta);
+        ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
         int gridWidth = COLUMNS * BUTTON_SIZE + (COLUMNS - 1) * BUTTON_GAP;
         int left = (width - gridWidth) / 2;
         int top = 52;

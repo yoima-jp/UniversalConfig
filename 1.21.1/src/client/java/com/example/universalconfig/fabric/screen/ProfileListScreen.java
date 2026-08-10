@@ -602,7 +602,7 @@ public final class ProfileListScreen extends Screen {
         drawPanels(context);
         drawListContent(context);
         drawDetailContent(context);
-        super.render(context, mouseX, mouseY, delta);
+        ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
         drawProfileCards(context, mouseX, mouseY);
         drawScrollbar(context);
         drawDetailScrollbar(context);

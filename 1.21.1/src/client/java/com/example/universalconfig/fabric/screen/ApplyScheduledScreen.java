@@ -189,7 +189,7 @@ public final class ApplyScheduledScreen extends Screen {
                     textY + 36, 0xFFFF7777);
         }
 
-        super.render(context, mouseX, mouseY, delta);
+        ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
     }
 
     private void restartMinecraft() {

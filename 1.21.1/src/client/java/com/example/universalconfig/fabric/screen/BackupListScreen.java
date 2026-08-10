@@ -87,6 +87,6 @@ public final class BackupListScreen extends Screen {
                     + backup.manifest().loader + "  files: " + backup.manifest().files.size(), 12, y + 12, 0xBBBBBB);
             y += 36;
         }
-        super.render(context, mouseX, mouseY, delta);
+        ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
     }
 }

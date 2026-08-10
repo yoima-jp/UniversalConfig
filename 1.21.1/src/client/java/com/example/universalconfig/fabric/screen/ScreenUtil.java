@@ -8,6 +8,8 @@ import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.fabric.FabricEnvironmentDetector;
 import com.example.universalconfig.fabric.UniversalConfigMod;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Drawable;
+import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
@@ -16,6 +18,8 @@ import net.minecraft.text.Text;
 import java.nio.file.Path;
 
 final class ScreenUtil {
+    private static final int OPAQUE_BACKGROUND_COLOR = 0xFF101010;
+
     private ScreenUtil() {
     }
 
@@ -47,6 +51,17 @@ final class ScreenUtil {
             screen.renderInGameBackground(context);
         } else {
             screen.renderBackground(context, mouseX, mouseY, delta);
+        }
+        // Screen.renderBackground in 1.21.1 intentionally uses translucent darkening. Clear the
+        // whole framebuffer after it so a screen that was replaced cannot remain visible behind us.
+        context.fill(0, 0, screen.width, screen.height, OPAQUE_BACKGROUND_COLOR);
+    }
+
+    static void renderWidgets(Screen screen, DrawContext context, int mouseX, int mouseY, float delta) {
+        for (Element child : screen.children()) {
+            if (child instanceof Drawable drawable) {
+                drawable.render(context, mouseX, mouseY, delta);
+            }
         }
     }
 

@@ -117,7 +117,7 @@ public final class ProfileCreateScreen extends Screen {
         // 高さ240pxのGUIでも、エラー文と下部ボタンの間に読みやすい余白を確保する。
         int statusY = Math.min(STATUS_PREFERRED_Y, height - 32 - STATUS_FOOTER_GAP);
         context.drawTextWithShadow(textRenderer, status, formLeft, statusY, 0xFF7777);
-        super.render(context, mouseX, mouseY, delta);
+        ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
         context.drawItem(iconStack(selectedIconId), formLeft + 2, NAME_FIELD_Y + 2);
     }
 

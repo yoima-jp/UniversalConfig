@@ -193,7 +193,7 @@ public final class ProfileConfirmScreen extends Screen {
         ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, 0xFFFFFFFF);
         drawPanel(context);
-        super.render(context, mouseX, mouseY, delta);
+        ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
         if (!status.getString().isEmpty()) {
             drawTrimmed(context, status.getString(), panelLeft() + PANEL_PADDING, panelTop() + 4,
                     panelWidth() - PANEL_PADDING * 2, WARNING_COLOR);
