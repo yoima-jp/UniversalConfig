@@ -3,15 +3,18 @@ name: Notify Discord about GitHub events
 on:
   issues:
     types: [opened, closed, reopened]
-  pull_request:
-    types: [opened, closed, reopened, ready_for_review]
+  # This metadata-only workflow never checks out or executes untrusted PR code, so using
+  # pull_request_target safely makes repository secrets available for fork PR notifications.
+  pull_request_target:
+    types: [opened, closed, reopened, ready_for_review, synchronize, review_requested]
 
 permissions:
   contents: read
 
 jobs:
   notify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - name: Send Discord notification
         env:
