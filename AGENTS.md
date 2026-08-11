@@ -96,7 +96,7 @@ Text.translatable("message.universal_config.confirm_delete", profileName);
 ## 公開リポジトリへの移行
 
 - 現在設定されているリモートリポジトリは共同開発者向けのプライベートリポジトリである。
-- 公開できるレベルになったら ttps://github.com/yoima-jp/UniversalConfigにブランチごとプッシュする。
+- 公開できるレベルになったら https://github.com/yoima-jp/UniversalConfigにブランチごとプッシュする。
 - 公開リポジトリへプッシュする際は、必ずユーザーの許可を取る。ユーザーから明示的な指示がない限り公開リポジトリへのプッシュは行わない。
 - 公開リポジトリ側のブランチ構成は、各Modローダーごとのブランチを持ち、その中に各Minecraftバージョンのフォルダを配置する形とする。
 - 公開リポジトリへプッシュするのはソースコードのみとする。README、AGENTS.md、その他開発用ファイルや個人設定、環境依存ファイルはプッシュしない。
