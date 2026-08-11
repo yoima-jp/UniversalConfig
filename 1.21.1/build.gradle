@@ -1,0 +1,50 @@
+plugins {
+    id 'java'
+    id 'idea'
+    id 'eclipse'
+    id 'net.minecraftforge.gradle' version '7.0.32'
+}
+
+version = '1.0.0-mc1.21.1-forge'
+group = 'com.example.universalconfig'
+base.archivesName = 'universal-config'
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+minecraft {
+    mappings channel: 'official', version: '1.21.1'
+    runs {
+        configureEach {
+            workingDir = layout.projectDirectory.dir('run')
+            systemProperty 'forge.enabledGameTestNamespaces', 'universal_config'
+        }
+        register('client')
+    }
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    mavenCentral()
+}
+
+dependencies {
+    implementation minecraft.dependency('net.minecraftforge:forge:1.21.1-52.1.16')
+    testImplementation platform('org.junit:junit-bom:5.10.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('test', Test) { useJUnitPlatform() }
+tasks.named('jar', Jar) {
+    from('LICENSE.txt') { into 'META-INF'; rename { 'LICENSE_universal_config' } }
+    manifest {
+        attributes('Specification-Title': 'universal_config',
+                'Specification-Vendor': 'yoima-jp, tofuturu, tanzana7',
+                'Specification-Version': '1',
+                'Implementation-Title': 'Universal Config',
+                'Implementation-Version': project.version,
+                'Implementation-Vendor': 'yoima-jp, tofuturu, tanzana7')
+    }
+}

@@ -1,75 +1,38 @@
 plugins {
-    id "fabric-loom" version "1.10.5"
-    id "maven-publish"
+    id 'base'
 }
 
-// mcバージョンを自動挿入: gradle.propertiesの mod_version + minecraft_version
-version = "${project.mod_version}-mc${project.minecraft_version}"
-group = project.maven_group
-def resourceVersion = version.toString()
+group = 'com.example.universalconfig'
+version = '1.0.0'
 
-repositories {
-    maven {
-        name = "Terraformers"
-        url = "https://maven.terraformersmc.com/releases/"
-    }
-}
+// The root project intentionally owns no Java source set. Every Minecraft version is a standalone
+// Gradle project with its own wrapper, sources, tests, resources, dependencies, and distribution Jar.
+tasks.register('verifyIndependentVersions') {
+    doLast {
+        def versions = ['1.7.10', '1.8.9', '1.12.2', '1.16.5', '1.18.2', '1.19.2',
+                        '1.20.1', '1.21.1', '26.1.x', '26.2']
+        versions.each { version ->
+            def projectDirectory = file(version)
+            if (!new File(projectDirectory, 'gradlew.bat').isFile()
+                    || !new File(projectDirectory, 'build.gradle').isFile()
+                    || !new File(projectDirectory, 'src/main/java').isDirectory()
+                    || !new File(projectDirectory, 'LICENSE.txt').isFile()) {
+                throw new GradleException("Standalone project is incomplete: ${version}")
+            }
 
-base {
-    archivesName = project.archives_base_name
-}
-
-loom {
-    splitEnvironmentSourceSets()
-
-    mods {
-        universal_config {
-            sourceSet sourceSets.main
-            sourceSet sourceSets.client
+            fileTree(projectDirectory) {
+                include 'build.gradle', 'settings.gradle', 'gradle.properties'
+                exclude 'build/**', '.gradle/**'
+            }.each { configurationFile ->
+                def contents = configurationFile.getText('UTF-8')
+                if (contents.contains('../') || contents.contains('common/src') || contents.contains('legacy/src')) {
+                    throw new GradleException("External project reference found: ${configurationFile}")
+                }
+            }
         }
     }
 }
 
-dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-    modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
-    implementation "com.google.code.gson:gson:${project.gson_version}"
-    include "com.google.code.gson:gson:${project.gson_version}"
-    testImplementation "org.junit.jupiter:junit-jupiter:${project.junit_jupiter_version}"
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher:${project.junit_platform_version}"
-}
-
-processResources {
-    inputs.property "version", resourceVersion
-
-    filesMatching("fabric.mod.json") {
-        expand "version": resourceVersion
-    }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 17
-    it.options.encoding = "UTF-8"
-}
-
-test {
-    useJUnitPlatform()
-}
-
-java {
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
-
-publishing {
-    publications {
-        create("mavenJava", MavenPublication) {
-            artifactId = project.archives_base_name
-            from components.java
-        }
-    }
+tasks.named('check') {
+    dependsOn tasks.named('verifyIndependentVersions')
 }

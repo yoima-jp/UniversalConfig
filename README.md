@@ -1,138 +1,77 @@
-# Universal Config
+# Universal Config — Forge
 
-Universal Config is a Fabric client mod for sharing Minecraft keybinds and mod configuration files across multiple instances through portable profiles.
-
-Project pages:
+Universal Config is a client-side Forge mod for saving Minecraft keybinds, client options, and mod configuration files as portable profiles shared across instances.
 
 - Modrinth: https://modrinth.com/project/universal-config
+- Source: https://github.com/yoima-jp/UniversalConfig
+- License: MIT
 
-## Current Scope
+## Supported Forge builds
 
-- Minecraft target for this build: Fabric 1.20.1
-- Internal mod id: `universal_config`
-- Profile extension: `.ucp` as ZIP
-- Backup extension: `.ucbackup` as ZIP
-- Default shared folder: `%APPDATA%\.universal-config\`
-- Compatibility mode: warning-based best effort
+| Minecraft | Forge used to build | Java | Project directory |
+| --- | --- | --- | --- |
+| 1.7.10 | 10.13.4.1614 | 8 | `1.7.10/` |
+| 1.8.9 | 11.15.1.2318 | 8 | `1.8.9/` |
+| 1.12.2 | 14.23.5.2864 | 8 | `1.12.2/` |
+| 1.16.5 | 36.2.42 | 8 | `1.16.5/` |
+| 1.18.2 | 40.3.12 | 17 | `1.18.2/` |
+| 1.19.2 | 43.5.2 | 17 | `1.19.2/` |
+| 1.20.1 | 47.4.22 | 17 | `1.20.1/` |
+| 1.21.1 | 52.1.16 | 21 | `1.21.1/` |
+| 26.1.1–26.1.x | 63.0.2 | 25 | `26.1.x/` |
+| 26.2 | 65.1.0 | 25 | `26.2/` |
 
-The core profile logic is separated from Fabric UI code under `com.example.universalconfig.core`, so Forge, legacy-version adapters, CLI tools, or launcher integrations can reuse the same profile format later.
+Most distribution jars declare the exact Minecraft release they were compiled against. The `26.1.x/` build is compiled against Minecraft 26.1.1 and declares compatibility with releases from 26.1.1 up to, but not including, 26.2.
 
 ## Features
 
-- Create a profile from the current instance.
-- Open the profile list from Universal Config's configuration button in Mod Menu.
-- Store profile metadata in `manifest.json`.
-- Store keybinds from `options.txt` without overwriting the full file.
-- Store every non-keybind setting from `options.txt` without requiring a version-specific allowlist.
-- Store selected `config/` files as profile entries.
-- List shared `.ucp` profiles outside the current Minecraft instance.
-- Show load-time warnings for Minecraft version, loader, loader version, and untested versions.
-- Show planned keybind/client option changes and added or replaced config files.
-- Schedule profile import from the title menu and apply it on the next Minecraft start.
-- Create a required `.ucbackup` before applying a scheduled profile.
-- Restore files from a `.ucbackup`.
-- Verify `checksums.json` when loading profiles.
-- Reject unsafe ZIP entries such as absolute paths and parent traversal.
-- Log profile and file operations to `logs/universal-config.log` in the shared Universal Config folder.
-- Reload and rewrite Minecraft client options after the next-start import or backup restore, so Minecraft does not overwrite imported keybinds on shutdown.
+- Create, inspect, duplicate, delete, and select shared `.ucp` profiles.
+- Save keybindings separately from the remaining `options.txt` values and merge by key on apply.
+- Save selected files under `config/` while rejecting unsafe or internal paths.
+- Set or clear a default profile and apply it exactly once on the first launch of an instance.
+- Show compatibility warnings and planned file/key changes before scheduling an apply.
+- Apply scheduled profiles early during startup and always create a `.ucbackup` first.
+- List and restore backups.
+- Reload Minecraft options after startup apply or restore so shutdown does not overwrite imported values.
+- Restart Prism Launcher/MultiMC, ATLauncher, and GDLauncher Carbon instances when their process metadata identifies the instance; otherwise reuse the current Java launch when safely discoverable.
+- Reject absolute paths, parent traversal, oversized JSON, invalid checksums, and writes outside the intended directories.
 
-## Build
+Each Minecraft version directory is a fully standalone Gradle project. It contains its own profile implementation, loader integration, UI, resources, tests where supported by that generation's toolchain, license, Gradle Wrapper, and distribution Jar. No version reads source code or build inputs from another version or from a shared source directory.
 
-Java 17 or newer is required. Use the committed Gradle Wrapper so every developer and CI use the project-defined Gradle version.
+## Build and verification
+
+Use the wrapper inside each target directory. Examples:
 
 ```powershell
-.\gradlew.bat build
+$env:JAVA_HOME='C:\Program Files\Java\jdk-17'
+cd 1.20.1
+.\gradlew.bat check build
 ```
 
-On Linux or macOS:
-
-```bash
-./gradlew build
+```powershell
+$env:JAVA_HOME='C:\Program Files\Java\jdk1.8.0_202'
+cd 1.7.10
+.\gradlew.bat check build
 ```
 
-The remapped mod jar is generated under:
+The root wrapper verifies that every listed version is a complete, independent project and does not reference removed shared source directories:
 
-```txt
-build/libs/
+```powershell
+.\gradlew.bat clean check
 ```
+
+Distribution jars are written to `<version>/build/libs/`, except the 1.7.10 jar, which is written to `1.7.10/build/distributions/`. Do not distribute `*-sources.jar`.
 
 ## Usage
 
-1. Install the generated jar in a Fabric 1.20.1 client instance.
-2. Open Minecraft and use the `Universal Config` button on the title menu, or its configuration button in Mod Menu.
-3. Use the profile list screen to create, inspect, schedule, duplicate, delete, or export profiles.
-4. Review warnings, then choose the next-start import reservation button.
-5. Restart Minecraft. Universal Config applies the reserved profile during Fabric pre-launch, before Minecraft reads `options.txt` and common config files, and creates a backup first.
-6. Use the backup screen to restore prior settings if needed.
+1. Put the jar matching the exact Minecraft release in the instance's `mods/` directory.
+2. Open Universal Config from the title-screen button or mod configuration screen on modern Forge, or press the Universal Config keybinding on legacy Forge.
+3. Create or select a profile and review the compatibility/diff screen.
+4. Schedule the profile, then restart. The profile is applied before Minecraft loads client settings.
+5. If necessary, restore the automatically created backup from the backup screen.
 
-Scheduled imports are stored in the current instance at:
+Scheduled imports are stored in the current instance at `config/universal_config_pending_import.json`. Shared files and logs default to `%APPDATA%\.universal-config\` on Windows.
 
-```txt
-config/universal_config_pending_import.json
-```
+## Safety
 
-The reservation is deleted automatically after a successful startup import. It can also be cleared from the profile list screen before restarting.
-
-## Safety Notes
-
-Universal Config does not replace the full `options.txt`. It merges every stored option by key, preserves settings that only exist in the current instance, and handles keybind rows separately for format compatibility. A backup is created before a scheduled profile is applied.
-
-Universal Config intentionally does not include these folders:
-
-- `mods/`
-- `saves/`
-- `logs/`
-- `crash-reports/`
-- `resourcepacks/`
-- `shaderpacks/`
-- `screenshots/`
-
-Profiles are for configuration sharing, not complete instance cloning.
-
-## Development Layout
-
-- Persistent paths and profile archive entry names are defined in `UniversalConfigFormat`.
-- Minecraft option validation and config file restrictions are defined in `MinecraftConfigPolicy`.
-- Filesystem path construction is defined in `UniversalConfigPaths`.
-
-When changing option validation or a shared file name, update the corresponding definition first and add a focused test. Do not duplicate these values in adapters or screens.
-
-## Verification
-
-```powershell
-.\gradlew.bat check
-```
-
-To launch the development client on Windows:
-
-```powershell
-.\gradlew.bat runClient
-```
-
-The current tests cover ZIP Slip rejection, keybind and client-option extraction, and the shared format/policy definitions.
-
-## Logs
-
-File and profile operations are written to:
-
-```txt
-%APPDATA%\.universal-config\logs\latest.log
-%APPDATA%\.universal-config\logs\launches\universal-config-<launch-id>.log
-```
-
-`latest.log` is replaced on each Minecraft launch. The `launches/` directory keeps one separate log file per launch.
-
-The log includes profile listing, ZIP reads and writes, config exports and imports, pending import scheduling, startup import execution, backups, restores, deletes, exports, and client option reload attempts.
-
-Universal Config internal files such as `config/universal_config_settings.json` and `config/universal_config_pending_import.json` are skipped during profile export, import, and backup.
-
-## Discord通知
-
-GitHubのIssueとPRの作成・再オープン・クローズなどをDiscordへ通知できます。
-
-リポジトリの `Settings → Secrets and variables → Actions` に、次の2つのRepository secretを登録してください。
-
-- `DISCORD_ISSUE_WEBHOOK`: Issue通知用のDiscord Webhook URL
-- `DISCORD_PR_WEBHOOK`: PR通知用のDiscord Webhook URL
-
-Webhook URLはソースコード、Issue、チャットなどへ貼り付けず、漏えいした場合はDiscord側で再生成してください。
+Profiles do not include `mods/`, `saves/`, `logs/`, `crash-reports/`, `resourcepacks/`, `shaderpacks/`, or `screenshots/`. Universal Config's own settings and pending-import file are also excluded. File operations are logged without file contents or credentials.
