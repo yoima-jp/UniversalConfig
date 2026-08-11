@@ -32,7 +32,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Verify standalone projects
-        run: ./gradlew check
+        run: bash ./gradlew check
 
       - name: Build latest Forge version
-        run: cd 26.2 && ./gradlew build
+        run: cd 26.2 && bash ./gradlew build
