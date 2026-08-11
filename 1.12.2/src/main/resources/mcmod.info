@@ -1,0 +1,16 @@
+[
+  {
+    "modid": "universal_config",
+    "name": "Universal Config",
+    "description": "Share Minecraft keybinds, client settings, and mod configuration profiles across Minecraft instances.",
+    "version": "1.0.0-mc1.12.2-forge",
+    "mcversion": "1.12.2",
+    "url": "https://modrinth.com/project/universal-config",
+    "updateUrl": "",
+    "authorList": ["yoima-jp", "tofuturu", "tanzana7"],
+    "credits": "",
+    "logoFile": "universal_config.png",
+    "screenshots": [],
+    "dependencies": []
+  }
+]

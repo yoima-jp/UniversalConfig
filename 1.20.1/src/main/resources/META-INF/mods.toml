@@ -1,0 +1,28 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+issueTrackerURL="https://github.com/yoima-jp/UniversalConfig/issues/new/choose"
+clientSideOnly=true
+
+[[mods]]
+modId="universal_config"
+version="1.0.0-mc1.20.1-forge"
+displayName="Universal Config"
+displayURL="https://modrinth.com/project/universal-config"
+logoFile="universal_config.png"
+authors="yoima-jp, tofuturu, tanzana7"
+description='''Share Minecraft keybinds, client settings, and mod configuration profiles across Minecraft instances.'''
+
+[[dependencies.universal_config]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.universal_config]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.20.2)"
+ordering="NONE"
+side="CLIENT"
