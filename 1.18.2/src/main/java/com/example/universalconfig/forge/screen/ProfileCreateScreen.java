@@ -48,7 +48,7 @@ public final class ProfileCreateScreen extends Screen {
         String currentDescription = descriptionField == null ? "" : descriptionField.getValue();
         boolean includeKeybinds = keybindsCheckbox == null || keybindsCheckbox.selected();
         boolean includeClientOptions = clientOptionsCheckbox == null || clientOptionsCheckbox.selected();
-        boolean includeModConfigs = modConfigsCheckbox == null || modConfigsCheckbox.selected();
+        boolean includeModConfigs = modConfigsCheckbox != null && modConfigsCheckbox.selected();
         int formLeft = width / 2 - FORM_LEFT_OFFSET;
         addRenderableWidget(new BlockIconButton(formLeft, NAME_FIELD_Y, ICON_BUTTON_SIZE, ICON_BUTTON_SIZE,
                 new TranslatableComponent("screen.universal_config.profile_icon_change", iconLabel(selectedIconId)),

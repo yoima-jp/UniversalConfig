@@ -16,11 +16,25 @@ public final class ZipArchiveReader implements ProfileArchiveReader {
     public ZipArchiveReader(Path archivePath) throws IOException, UniversalConfigException {
         this.archivePath = archivePath;
         this.zipFile = new ZipFile(archivePath.toFile());
-        FileOperationLogger.info("OPEN_ZIP", archivePath, "read");
-        Enumeration<? extends ZipEntry> entries = zipFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
-            ZipSecurity.validateRelativeEntryName(entry.getName());
+        try {
+            FileOperationLogger.info("OPEN_ZIP", archivePath, "read");
+            long totalUncompressedSize = 0;
+            Enumeration<? extends ZipEntry> entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                ZipSecurity.validateRelativeEntryName(entry.getName());
+                if (!entry.isDirectory()) {
+                    totalUncompressedSize = ZipSecurity.validateEntrySizes(
+                            entry.getName(), entry.getSize(), entry.getCompressedSize(), totalUncompressedSize);
+                }
+            }
+        } catch (UniversalConfigException | RuntimeException ex) {
+            try {
+                zipFile.close();
+            } catch (IOException closeException) {
+                ex.addSuppressed(closeException);
+            }
+            throw ex;
         }
     }
 
@@ -43,8 +57,14 @@ public final class ZipArchiveReader implements ProfileArchiveReader {
 
     @Override
     public List<String> entries() {
-        List<String> names = new ArrayList<>();
-        zipFile.stream().filter(entry -> !entry.isDirectory()).forEach(entry -> names.add(entry.getName()));
+        List<String> names = new ArrayList<String>();
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        while (entries.hasMoreElements()) {
+            ZipEntry entry = entries.nextElement();
+            if (!entry.isDirectory()) {
+                names.add(entry.getName());
+            }
+        }
         return names;
     }
 

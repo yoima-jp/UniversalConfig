@@ -3,7 +3,7 @@
     "modid": "universal_config",
     "name": "Universal Config",
     "description": "Share Minecraft keybinds, client settings, and mod configuration profiles across Minecraft instances.",
-    "version": "1.0.0-mc1.7.10-forge",
+    "version": "1.1.0-mc1.7.10-forge",
     "mcversion": "1.7.10",
     "url": "https://modrinth.com/project/universal-config",
     "updateUrl": "",

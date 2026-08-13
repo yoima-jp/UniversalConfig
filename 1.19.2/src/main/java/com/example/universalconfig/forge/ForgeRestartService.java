@@ -2,11 +2,10 @@ package com.example.universalconfig.forge;
 
 import com.example.universalconfig.core.CurrentProcessRestartService;
 import com.example.universalconfig.core.UniversalConfigException;
-import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.loading.FMLPaths;
-import net.minecraftforge.forgespi.language.IModFileInfo;
+import net.minecraftforge.fml.ModList;
 
-import java.nio.file.Path;
+import java.util.List;
 
 public final class ForgeRestartService {
     private ForgeRestartService() {
@@ -14,13 +13,13 @@ public final class ForgeRestartService {
 
     public static void scheduleRestartAfterCurrentProcessExit() throws UniversalConfigException {
         try {
-            IModFileInfo modFileInfo = ModList.get().getModFileById(UniversalConfigMod.MOD_ID);
-            if (modFileInfo == null || modFileInfo.getFile() == null) {
-                throw new UniversalConfigException("Could not locate the Universal Config Forge mod file.");
-            }
-            Path modFile = modFileInfo.getFile().getFilePath();
+            // Forge does not expose FabricLoader-style launch arguments. Reuse the already resolved current Java
+            // arguments, as the v1.0 Forge builds did, and let the shared service validate the launch shape.
+            List<String> javaArguments = CurrentProcessRestartService.currentProcessArguments();
+            java.nio.file.Path helperClasspath = ModList.get().getModFileById("universal_config")
+                    .getFile().getFilePath();
             CurrentProcessRestartService.scheduleRestartAfterCurrentProcessExit(
-                    FMLPaths.GAMEDIR.get(), modFile);
+                    FMLPaths.GAMEDIR.get(), javaArguments, helperClasspath);
         } catch (UniversalConfigException ex) {
             throw ex;
         } catch (RuntimeException ex) {

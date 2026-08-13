@@ -53,10 +53,12 @@ public final class ProfileListScreen extends Screen {
     private static final int DETAIL_LINE_HEIGHT = 12;
     private static final int PROFILE_ICON_SIZE = 28;
     private static final int SCROLLBAR_WIDTH = 3;
+    private static final int REORDER_BUTTON_WIDTH = 16;
+    private static final int REORDER_BUTTON_HEIGHT = 16;
     private static final int MORE_BUTTON_WIDTH = 34;
     private static final int MENU_WIDTH = 132;
     private static final int MENU_ITEM_GAP = 2;
-    private static final int MENU_ITEM_COUNT = 5;
+    private static final int MENU_ITEM_COUNT = 6;
     private static final int MENU_HEIGHT = MENU_ITEM_COUNT * BUTTON_HEIGHT + (MENU_ITEM_COUNT - 1) * MENU_ITEM_GAP + 8;
     private static final int CLOSE_BUTTON_SIZE = 20;
     private static final String SAFE_DATE_PATTERN = "yyyy/MM/dd HH:mm";
@@ -84,12 +86,17 @@ public final class ProfileListScreen extends Screen {
     private Path defaultProfilePath;
     private Component status = Component.empty();
     private final List<Button> moreMenuButtons = new ArrayList<>();
+    private final List<Button> reorderButtons = new ArrayList<>();
     private int selectedProfileIndex;
     private int listScroll;
     private int detailScroll;
     private boolean moreMenuOpen;
     private boolean restarting;
     private boolean cancelingPendingApply;
+    private int draggingProfileIndex = -1;
+    private int dragTargetIndex = -1;
+    private double dragStartY;
+    private boolean draggingProfile;
     private String dateFormatterLanguage;
     private DateTimeFormatter dateFormatter;
 
@@ -274,6 +281,7 @@ public final class ProfileListScreen extends Screen {
     private void rebuildButtons() {
         clearWidgets();
         moreMenuButtons.clear();
+        reorderButtons.clear();
         int firstRow = firstVisibleRow();
         int lastRow = lastVisibleRowExclusive();
         for (int index = firstRow; index < lastRow; index++) {
@@ -287,15 +295,13 @@ public final class ProfileListScreen extends Screen {
                 continue;
             }
             Button profileButton = new ProfileCardButton(cardX(), clippedTop, cardWidth(),
-                    clippedBottom - clippedTop, narration, button -> {
-                selectedProfileIndex = profileIndex;
-                detailScroll = 0;
-                moreMenuOpen = false;
-                rebuildButtons();
-            });
+                    clippedBottom - clippedTop, narration, button -> selectProfile(profileIndex));
             // The empty visual label avoids duplicating the custom two-line card. Narration still announces the
             // profile name, so keyboard and screen-reader users receive the same selection context.
             addRenderableWidget(profileButton);
+            if (fullCardY >= listTop() && fullCardY + CARD_HEIGHT <= listBottom()) {
+                addReorderButtons(profileIndex, fullCardY);
+            }
         }
 
         ProfileSummary selected = selectedProfile();
@@ -349,12 +355,14 @@ public final class ProfileListScreen extends Screen {
                 .bounds(x, y, width, BUTTON_HEIGHT).build());
         addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.open_folder"), button -> openProfileDirectory())
                 .bounds(x, y + BUTTON_HEIGHT + MENU_ITEM_GAP, width, BUTTON_HEIGHT).build());
-        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
+        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.rename"), button -> rename(path))
                 .bounds(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 2, width, BUTTON_HEIGHT).build());
-        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.backups"), button -> openBackups())
+        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
                 .bounds(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 3, width, BUTTON_HEIGHT).build());
-        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
+        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.backups"), button -> openBackups())
                 .bounds(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 4, width, BUTTON_HEIGHT).build());
+        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
+                .bounds(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 5, width, BUTTON_HEIGHT).build());
     }
 
     private void openBackups() {
@@ -366,10 +374,71 @@ public final class ProfileListScreen extends Screen {
         addRenderableWidget(button);
     }
 
+    private void addReorderButtons(int profileIndex, int cardY) {
+        int x = cardX() + cardWidth() - REORDER_BUTTON_WIDTH - 4;
+        int y = cardY + 3;
+        Button upButton = Button.builder(Component.literal("↑"), button -> moveProfile(profileIndex, profileIndex - 1))
+                .createNarration(ignored -> Component.translatable("screen.universal_config.move_up"))
+                .bounds(x, y, REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT).build();
+        upButton.active = profileIndex > 0;
+        Button downButton = Button.builder(Component.literal("↓"), button -> moveProfile(profileIndex, profileIndex + 1))
+                .createNarration(ignored -> Component.translatable("screen.universal_config.move_down"))
+                .bounds(x, y + REORDER_BUTTON_HEIGHT + 1, REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT).build();
+        downButton.active = profileIndex < profiles.size() - 1;
+        reorderButtons.add(upButton);
+        reorderButtons.add(downButton);
+        addRenderableWidget(upButton);
+        addRenderableWidget(downButton);
+    }
+
     private ProfileSummary selectedProfile() {
         return selectedProfileIndex >= 0 && selectedProfileIndex < profiles.size()
                 ? profiles.get(selectedProfileIndex)
                 : null;
+    }
+
+    private void selectProfile(int profileIndex) {
+        if (profileIndex < 0 || profileIndex >= profiles.size()) {
+            return;
+        }
+        selectedProfileIndex = profileIndex;
+        detailScroll = 0;
+        moreMenuOpen = false;
+        rebuildButtons();
+    }
+
+    private void rename(Path path) {
+        ProfileSummary summary = profiles.stream()
+                .filter(profile -> profile.path().equals(path))
+                .findFirst()
+                .orElse(null);
+        String currentName = summary == null ? translation("screen.universal_config.this_profile")
+                : profileName(summary.manifest());
+        moreMenuOpen = false;
+        minecraft.setScreen(new ProfileRenameScreen(this, path, currentName, () -> {
+            status = Component.empty();
+            reload();
+            rebuildButtons();
+        }));
+    }
+
+    private void moveProfile(int sourceIndex, int targetIndex) {
+        if (sourceIndex < 0 || sourceIndex >= profiles.size()
+                || targetIndex < 0 || targetIndex >= profiles.size()
+                || sourceIndex == targetIndex) {
+            return;
+        }
+        Path path = profiles.get(sourceIndex).path();
+        try {
+            ScreenUtil.service().moveProfile(ScreenUtil.instancePath(), path, targetIndex);
+            status = Component.empty();
+            moreMenuOpen = false;
+            reload();
+            selectedProfileIndex = indexOfPath(path);
+            rebuildButtons();
+        } catch (UniversalConfigException | RuntimeException ex) {
+            handleActionFailure(ex, "screen.universal_config.reorder_failed");
+        }
     }
 
     private void openConfirm(Path path) {
@@ -594,7 +663,93 @@ public final class ProfileListScreen extends Screen {
             moreMenuOpen = false;
             rebuildButtons();
         }
+        if (button == 0) {
+            int profileIndex = profileIndexAt(mouseX, mouseY);
+            int reorderDelta = reorderDeltaAt(mouseX, mouseY);
+            if (profileIndex >= 0 && reorderDelta != 0) {
+                moveProfile(profileIndex, profileIndex + reorderDelta);
+                return true;
+            }
+            if (profileIndex >= 0 && !insideReorderControls(mouseX, mouseY)) {
+                draggingProfileIndex = profileIndex;
+                dragTargetIndex = profileIndex;
+                dragStartY = mouseY;
+                draggingProfile = false;
+                return true;
+            }
+        }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (button == 0 && draggingProfileIndex >= 0) {
+            if (!draggingProfile && Math.abs(mouseY - dragStartY) > 3) {
+                draggingProfile = true;
+            }
+            if (draggingProfile) {
+                dragTargetIndex = dropIndexAt(mouseY);
+                return true;
+            }
+        }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && draggingProfileIndex >= 0) {
+            int sourceIndex = draggingProfileIndex;
+            int targetIndex = dragTargetIndex;
+            boolean wasDragging = draggingProfile;
+            draggingProfileIndex = -1;
+            dragTargetIndex = -1;
+            draggingProfile = false;
+            if (wasDragging) {
+                moveProfile(sourceIndex, targetIndex);
+            } else if (profileIndexAt(mouseX, mouseY) == sourceIndex) {
+                selectProfile(sourceIndex);
+            }
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private int profileIndexAt(double mouseX, double mouseY) {
+        if (mouseX < cardX() || mouseX >= cardX() + cardWidth()
+                || mouseY < listTop() || mouseY >= listBottom()) {
+            return -1;
+        }
+        int relativeY = (int) mouseY - listTop() + listScroll;
+        int index = relativeY / CARD_STEP;
+        int rowOffset = relativeY % CARD_STEP;
+        return index >= 0 && index < profiles.size() && rowOffset < CARD_HEIGHT ? index : -1;
+    }
+
+    private boolean insideReorderControls(double mouseX, double mouseY) {
+        return reorderDeltaAt(mouseX, mouseY) != 0;
+    }
+
+    private int reorderDeltaAt(double mouseX, double mouseY) {
+        int index = profileIndexAt(mouseX, mouseY);
+        if (index < 0) {
+            return 0;
+        }
+        int x = cardX() + cardWidth() - REORDER_BUTTON_WIDTH - 4;
+        int y = cardY(index) + 3;
+        if (inside(mouseX, mouseY, x, y, REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT)) {
+            return -1;
+        }
+        return inside(mouseX, mouseY, x, y + REORDER_BUTTON_HEIGHT + 1,
+                REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT) ? 1 : 0;
+    }
+
+    private int dropIndexAt(double mouseY) {
+        if (profiles.isEmpty()) {
+            return -1;
+        }
+        int relativeY = (int) mouseY - listTop() + listScroll - CARD_HEIGHT / 2;
+        int index = relativeY / CARD_STEP;
+        return Math.max(0, Math.min(profiles.size() - 1, index));
     }
 
     private boolean inside(double mouseX, double mouseY, int x, int y, int width, int height) {
@@ -611,6 +766,8 @@ public final class ProfileListScreen extends Screen {
         drawDetailContent(context);
         ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
         drawProfileCards(context, mouseX, mouseY);
+        drawDragIndicator(context);
+        drawReorderButtons(context, mouseX, mouseY, delta);
         drawScrollbar(context);
         drawDetailScrollbar(context);
         drawStatus(context);
@@ -704,6 +861,9 @@ public final class ProfileListScreen extends Screen {
         y += 3;
         drawTrimmed(context, updatedSummary(manifest), x, y, contentWidth, MUTED_TEXT_COLOR);
         y += 18;
+        // 表示名とは別に、共有ファイルを識別できるよう実際の .ucp ファイル名を表示する。
+        drawTrimmed(context, profileFileName(selected), x, y, contentWidth, MUTED_TEXT_COLOR);
+        y += 14;
         context.fill(x, y, x + contentWidth, y + 1, DIVIDER_COLOR);
         context.drawString(font, Component.translatable("screen.universal_config.included_settings"),
                 x, y + 9, SECONDARY_TEXT_COLOR);
@@ -726,6 +886,7 @@ public final class ProfileListScreen extends Screen {
     private int detailContentHeight(ProfileManifest manifest) {
         int includeLines = Math.max(1, includedSettingCount(manifest));
         return 8 + 31 + descriptionLines(manifest).size() * DETAIL_LINE_HEIGHT + 3 + 18 + 25
+                + 14
                 + includeLines * 15;
     }
 
@@ -747,6 +908,13 @@ public final class ProfileListScreen extends Screen {
 
     private String updatedSummary(ProfileManifest manifest) {
         return formatDate(manifest.updatedAt);
+    }
+
+    private String profileFileName(ProfileSummary summary) {
+        if (summary == null || summary.path() == null || summary.path().getFileName() == null) {
+            return "";
+        }
+        return summary.path().getFileName().toString();
     }
 
     private String loaderSummary(ProfileManifest manifest) {
@@ -843,7 +1011,7 @@ public final class ProfileListScreen extends Screen {
             int iconY = y + (CARD_HEIGHT - PROFILE_ICON_SIZE) / 2;
             drawProfileIcon(context, iconX, iconY, PROFILE_ICON_SIZE, manifest.icon);
             int textX = iconX + PROFILE_ICON_SIZE + 9;
-            int textWidth = cardX() + cardWidth() - textX - 7;
+            int textWidth = cardX() + cardWidth() - textX - REORDER_BUTTON_WIDTH - 12;
             int nameWidth = textWidth;
             if (isDefaultProfile(summary.path())) {
                 String marker = translation("screen.universal_config.default_marker");
@@ -859,6 +1027,22 @@ public final class ProfileListScreen extends Screen {
             drawTrimmed(context, version + " " + environment[1], textX, y + 23, textWidth, SECONDARY_TEXT_COLOR);
         }
         context.disableScissor();
+    }
+
+    private void drawDragIndicator(GuiGraphics context) {
+        if (!draggingProfile || dragTargetIndex < 0 || dragTargetIndex == draggingProfileIndex) {
+            return;
+        }
+        int y = dragTargetIndex > draggingProfileIndex
+                ? cardY(dragTargetIndex) + CARD_HEIGHT - 1
+                : cardY(dragTargetIndex) - 1;
+        context.fill(cardX(), y, cardX() + cardWidth(), y + 2, SELECTED_BORDER_COLOR);
+    }
+
+    private void drawReorderButtons(GuiGraphics context, int mouseX, int mouseY, float delta) {
+        for (Button button : reorderButtons) {
+            button.render(context, mouseX, mouseY, delta);
+        }
     }
 
     private void drawProfileIcon(GuiGraphics context, int x, int y, int size, String iconId) {

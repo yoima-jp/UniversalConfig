@@ -4,6 +4,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public final class ZipSecurity {
+    /** Maximum uncompressed size accepted for one profile or backup entry. */
+    public static final long MAX_ENTRY_UNCOMPRESSED_BYTES = 32L * 1024L * 1024L;
+
+    /** Maximum combined uncompressed size accepted for one archive. */
+    public static final long MAX_TOTAL_UNCOMPRESSED_BYTES = 256L * 1024L * 1024L;
+
+    /** Maximum declared expansion ratio accepted for a non-empty entry. */
+    public static final long MAX_COMPRESSION_RATIO = 1_000L;
+
     private ZipSecurity() {
     }
 
@@ -43,5 +52,43 @@ public final class ZipSecurity {
             throw new UniversalConfigException("ZIP entry escapes destination: " + entryName);
         }
         return resolved;
+    }
+
+    /**
+     * Validates central-directory size metadata before any archive payload is read.
+     * The returned value is the accumulated uncompressed size for the archive.
+     */
+    public static long validateEntrySizes(
+            String entryName,
+            long uncompressedSize,
+            long compressedSize,
+            long currentTotal
+    ) throws UniversalConfigException {
+        if (uncompressedSize < 0 || compressedSize < 0) {
+            throw new UniversalConfigException("ZIP entry size metadata is missing: " + entryName);
+        }
+        long total = validateUncompressedSize(entryName, uncompressedSize, currentTotal);
+        if (uncompressedSize > 0
+                && (compressedSize == 0 || uncompressedSize / compressedSize > MAX_COMPRESSION_RATIO)) {
+            throw new UniversalConfigException("ZIP entry compression ratio is unsafe: " + entryName);
+        }
+        return total;
+    }
+
+    public static long validateUncompressedSize(
+            String entryName,
+            long uncompressedSize,
+            long currentTotal
+    ) throws UniversalConfigException {
+        if (uncompressedSize < 0) {
+            throw new UniversalConfigException("ZIP entry size is invalid: " + entryName);
+        }
+        if (uncompressedSize > MAX_ENTRY_UNCOMPRESSED_BYTES) {
+            throw new UniversalConfigException("ZIP entry exceeds the uncompressed size limit: " + entryName);
+        }
+        if (currentTotal < 0 || currentTotal > MAX_TOTAL_UNCOMPRESSED_BYTES - uncompressedSize) {
+            throw new UniversalConfigException("ZIP archive exceeds the total uncompressed size limit.");
+        }
+        return currentTotal + uncompressedSize;
     }
 }

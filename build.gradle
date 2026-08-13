@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'com.example.universalconfig'
-version = '1.0.0'
+version = '1.1.0'
 
 // The root project intentionally owns no Java source set. Every Minecraft version is a standalone
 // Gradle project with its own wrapper, sources, tests, resources, dependencies, and distribution Jar.
