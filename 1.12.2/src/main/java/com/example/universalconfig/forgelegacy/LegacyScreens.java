@@ -341,10 +341,22 @@ public final class LegacyScreens {
             Path path = profiles.get(sourceIndex).path();
             try {
                 service().moveProfile(LegacyPlatform.gameDirectory(), path, targetIndex);
-                selected = targetIndex;
                 initGui();
+                selectProfile(path);
             } catch (Exception ex) {
                 fail("screen.universal_config.action_failed", ex);
+            }
+        }
+
+        private void selectProfile(Path path) {
+            // 並び替え前のインデックスは再読込後には別プロフィールを指す場合がある。
+            // 操作対象を維持するため、安定したファイルパスで移動元を選択し直す。
+            for (int i = 0; i < profiles.size(); i++) {
+                if (profiles.get(i).path().equals(path)) {
+                    selected = i;
+                    updateButtons();
+                    return;
+                }
             }
         }
 
