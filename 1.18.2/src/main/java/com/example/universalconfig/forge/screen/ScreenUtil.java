@@ -10,6 +10,8 @@ import com.example.universalconfig.forge.ForgeEnvironmentDetector;
 import com.example.universalconfig.forge.MinecraftOptionsReloader;
 import com.example.universalconfig.forge.UniversalConfigMod;
 import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.screens.Screen;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.network.chat.Component;
@@ -65,7 +67,7 @@ final class ScreenUtil {
         }
     }
 
-    private static ItemStack iconStack(String iconId) {
+    static ItemStack iconStack(String iconId) {
         return switch (ProfileIcon.normalize(iconId)) {
             case ProfileIcon.CRAFTING_TABLE -> new ItemStack(Blocks.CRAFTING_TABLE);
             case ProfileIcon.BOOKSHELF -> new ItemStack(Blocks.BOOKSHELF);
@@ -90,6 +92,12 @@ final class ScreenUtil {
 
     static void disableScissor() {
         RenderSystem.disableScissor();
+    }
+
+    static void renderWidgets(Screen screen, PoseStack context, int mouseX, int mouseY, float delta) {
+        for (net.minecraft.client.gui.components.Widget renderable : screen.renderables) {
+            renderable.render(context, mouseX, mouseY, delta);
+        }
     }
 
     static void reloadMinecraftOptionsFromDisk() throws UniversalConfigException {

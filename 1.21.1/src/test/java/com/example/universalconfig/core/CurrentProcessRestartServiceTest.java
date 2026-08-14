@@ -5,12 +5,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,29 +20,19 @@ class CurrentProcessRestartServiceTest {
     Path temporaryDirectory;
 
     @Test
-    void loaderResolvedClasspathBypassesProtectionDomainDiscovery() throws Exception {
-        Path modJar = Files.createFile(temporaryDirectory.resolve("universal-config-forge.jar"));
-
-        assertEquals(modJar.toAbsolutePath().normalize(),
-                CurrentProcessRestartService.helperClasspathEntry(modJar));
-    }
-
-    @Test
     void forgeUnionLocationResolvesToThePhysicalDistributionJar() throws Exception {
         Path distributionJar = temporaryDirectory.resolve("mods with spaces").resolve("universal-config.jar");
-        URI unionLocation = URI.create("union:" + distributionJar.toUri().getRawPath() + "%23127!/");
-
+        URI location = URI.create("union:" + distributionJar.toUri().getRawPath() + "%23127!/");
         assertEquals(distributionJar.toAbsolutePath().normalize(),
-                CurrentProcessRestartService.helperClasspathEntry(unionLocation));
+                CurrentProcessRestartService.helperClasspathEntry(location));
     }
 
     @Test
     void jarLocationResolvesToThePhysicalDistributionJar() throws Exception {
         Path distributionJar = temporaryDirectory.resolve("universal-config.jar");
-        URI jarLocation = URI.create("jar:" + distributionJar.toUri() + "!/com/example/RestartHelper.class");
-
+        URI location = URI.create("jar:" + distributionJar.toUri() + "!/com/example/RestartHelper.class");
         assertEquals(distributionJar.toAbsolutePath().normalize(),
-                CurrentProcessRestartService.helperClasspathEntry(jarLocation));
+                CurrentProcessRestartService.helperClasspathEntry(location));
     }
 
     @Test
@@ -129,53 +118,18 @@ class CurrentProcessRestartServiceTest {
     }
 
     @Test
-    void prismLauncherRestartRejectsMismatchedInstanceEnvironment() throws Exception {
-        Path instanceDirectory = temporaryDirectory.resolve("PrismLauncher").resolve("instances").resolve("safe");
-        Path minecraftDirectory = instanceDirectory.resolve("minecraft");
+    void prismLauncherRestartRejectsMismatchedInstanceEnvironment() {
+        Path minecraftDirectory = Path.of("C:\\PrismLauncher\\instances\\safe\\minecraft");
         Map<String, String> environment = Map.of(
                 "INST_ID", "other",
-                "INST_DIR", instanceDirectory.toString(),
+                "INST_DIR", "C:\\PrismLauncher\\instances\\safe",
                 "INST_MC_DIR", minecraftDirectory.toString()
         );
-
-        Files.createDirectories(minecraftDirectory);
-        Files.writeString(instanceDirectory.resolve("instance.cfg"), "[General]");
 
         assertTrue(CurrentProcessRestartService.prismLauncherCommand(
                 environment,
                 minecraftDirectory,
                 List.of("C:\\Program Files\\PrismLauncher\\prismlauncher.exe")
-        ).isEmpty());
-    }
-
-    @Test
-    void prismLauncherRestartUsesValidatedInstanceLayoutWhenEnvironmentIsNotExported() throws Exception {
-        Path instanceDirectory = temporaryDirectory.resolve("PrismLauncher").resolve("instances")
-                .resolve("1.18.2(1)");
-        Path minecraftDirectory = instanceDirectory.resolve("minecraft");
-        Path launcherExecutable = temporaryDirectory.resolve("prismlauncher.exe");
-        Files.createDirectories(minecraftDirectory);
-        Files.writeString(instanceDirectory.resolve("instance.cfg"), "[General]");
-
-        CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.prismLauncherCommand(
-                Map.of(),
-                minecraftDirectory,
-                List.of(launcherExecutable.toString())
-        ).orElseThrow();
-
-        assertEquals(launcherExecutable.toString(), command.executable());
-        assertEquals(List.of("--launch", "1.18.2(1)"), command.arguments());
-    }
-
-    @Test
-    void prismLauncherRestartRejectsAnUnmarkedMinecraftDirectoryWithoutEnvironment() throws Exception {
-        Path minecraftDirectory = temporaryDirectory.resolve("instances").resolve("not-prism").resolve("minecraft");
-        Files.createDirectories(minecraftDirectory);
-
-        assertTrue(CurrentProcessRestartService.prismLauncherCommand(
-                Map.of(),
-                minecraftDirectory,
-                List.of(temporaryDirectory.resolve("prismlauncher.exe").toString())
         ).isEmpty());
     }
 
@@ -258,24 +212,15 @@ class CurrentProcessRestartServiceTest {
     }
 
     @Test
-    void gdLauncherReusesTheResolvedJavaCommandForCarbonInstances() throws Exception {
-        Path instanceDirectory = temporaryDirectory.resolve("data").resolve("instances").resolve("fabric 1.20.1");
-        Path gameDirectory = instanceDirectory.resolve("instance");
-        Files.createDirectories(gameDirectory);
-        Files.writeString(instanceDirectory.resolve("instance.json"), "{}");
+    void unsupportedLauncherUsesLoaderResolvedArguments() {
         String javaExecutable = "C:\\Program Files\\Java\\bin\\java.exe";
         List<String> javaArguments = List.of(
                 "-cp", "C:\\game libraries\\client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient",
-                "--gameDir", gameDirectory.toString());
+                "--gameDir", "C:\\instances\\fabric 1.20.1\\instance");
 
-        CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.gdLauncherCommand(
-                gameDirectory,
-                List.of(
-                        new CurrentProcessRestartService.ProcessCommand("C:\\GDLauncher\\core_module.exe", List.of()),
-                        new CurrentProcessRestartService.ProcessCommand("C:\\GDLauncher\\GDLauncher.exe", List.of())
-                ),
+        CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.unsupportedLauncherCommand(
                 javaExecutable,
-                Optional.of(javaArguments)
+                javaArguments
         ).orElseThrow();
 
         assertEquals(javaExecutable, command.executable());
@@ -283,18 +228,31 @@ class CurrentProcessRestartServiceTest {
     }
 
     @Test
-    void gdLauncherRejectsAJavaProcessWithoutTheCarbonProcessTree() throws Exception {
-        Path instanceDirectory = temporaryDirectory.resolve("data").resolve("instances").resolve("fabric 1.20.1");
-        Path gameDirectory = instanceDirectory.resolve("instance");
-        Files.createDirectories(gameDirectory);
-        Files.writeString(instanceDirectory.resolve("instance.json"), "{}");
-
-        assertTrue(CurrentProcessRestartService.gdLauncherCommand(
-                gameDirectory,
-                List.of(new CurrentProcessRestartService.ProcessCommand("java.exe", List.of())),
+    void unsupportedLauncherDoesNotUseIncompleteArguments() {
+        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
                 "java.exe",
-                Optional.of(List.of("--gameDir", gameDirectory.toString()))
+                List.of("--gameDir", "C:\\instances\\fabric 1.20.1\\instance")
         ).isEmpty());
+        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
+                "java.exe",
+                List.of()
+        ).isEmpty());
+        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
+                "C:\\launchers\\launcher.exe",
+                List.of("-cp", "client.jar", "example.Main")
+        ).isEmpty());
+    }
+
+    @Test
+    void gdLauncherPathIsHandledByTheGenericUnsupportedLauncherPath() {
+        CurrentProcessRestartService.LaunchCommand command =
+                CurrentProcessRestartService.unsupportedLauncherCommand(
+                        "java.exe",
+                        List.of("-cp", "client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient")
+                ).orElseThrow();
+
+        assertEquals("java.exe", command.executable());
+        assertEquals("client.jar", command.arguments().get(1));
     }
 
     @Test

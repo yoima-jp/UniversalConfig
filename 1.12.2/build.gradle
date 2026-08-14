@@ -13,7 +13,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.0.0-mc1.12.2-forge'
+version = '1.1.0-mc1.12.2-forge'
 group = 'com.example.universalconfig'
 archivesBaseName = 'universal_config'
 
@@ -60,6 +60,7 @@ dependencies {
     // that the dep is a ForgeGradle 'patcher' dependency. And it's patches will be applied.
     // The userdev artifact is a special name and will get all sorts of transformations applied to it.
     minecraft 'net.minecraftforge:forge:1.12.2-14.23.5.2864'
+    testCompile 'junit:junit:4.13.2'
 
     // You may put jars on which you depend on in ./libs or you may define them like so..
     // compile "some.group:artifact:version:classifier"
@@ -134,4 +135,6 @@ jar {
         into 'META-INF'
         rename { 'LICENSE_universal_config' }
     }
+    from('NOTICE') { into 'META-INF' }
+    from('licenses') { into 'META-INF/licenses' }
 }

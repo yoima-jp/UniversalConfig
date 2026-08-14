@@ -1,10 +1,14 @@
 package com.example.universalconfig.core;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public final class UniversalConfigSettings {
     private Path rootDirectory;
     private Path defaultProfilePath;
+    private List<String> profileOrder = new ArrayList<String>();
 
     public UniversalConfigSettings(Path rootDirectory) {
         this.rootDirectory = rootDirectory;
@@ -24,5 +28,21 @@ public final class UniversalConfigSettings {
 
     public void setDefaultProfilePath(Path defaultProfilePath) {
         this.defaultProfilePath = defaultProfilePath;
+    }
+
+    public List<String> profileOrder() {
+        return Collections.unmodifiableList(profileOrder);
+    }
+
+    public void setProfileOrder(List<String> profileOrder) {
+        this.profileOrder = new ArrayList<String>();
+        if (profileOrder == null) {
+            return;
+        }
+        for (String profileKey : profileOrder) {
+            if (profileKey != null && !profileKey.trim().isEmpty() && !this.profileOrder.contains(profileKey)) {
+                this.profileOrder.add(profileKey);
+            }
+        }
     }
 }

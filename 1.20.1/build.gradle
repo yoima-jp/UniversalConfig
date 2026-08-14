@@ -48,10 +48,12 @@ tasks.named('test', Test) {
 }
 
 tasks.named('jar', Jar) {
-    from('LICENSE.txt') {
-        into 'META-INF'
-        rename { 'LICENSE_universal_config' }
-    }
+      from('LICENSE.txt') {
+          into 'META-INF'
+          rename { 'LICENSE_universal_config' }
+      }
+      from('NOTICE') { into 'META-INF' }
+      from('licenses') { into 'META-INF/licenses' }
     manifest {
         attributes(
                 'Specification-Title': mod_id,

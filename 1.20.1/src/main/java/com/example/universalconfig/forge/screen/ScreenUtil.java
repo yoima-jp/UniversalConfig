@@ -10,6 +10,9 @@ import com.example.universalconfig.forge.MinecraftOptionsReloader;
 import com.example.universalconfig.forge.UniversalConfigMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Renderable;
 
 import java.nio.file.Path;
 
@@ -37,6 +40,12 @@ final class ScreenUtil {
 
     static Component errorText(Exception ex) {
         return Component.translatable("screen.universal_config.load_failed");
+    }
+
+    static void renderWidgets(Screen screen, GuiGraphics context, int mouseX, int mouseY, float delta) {
+        for (Renderable renderable : screen.renderables) {
+            renderable.render(context, mouseX, mouseY, delta);
+        }
     }
 
     static void reloadMinecraftOptionsFromDisk() throws UniversalConfigException {

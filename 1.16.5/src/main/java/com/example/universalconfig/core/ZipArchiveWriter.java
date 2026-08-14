@@ -18,8 +18,11 @@ public final class ZipArchiveWriter {
         Files.createDirectories(path.getParent());
         FileOperationLogger.info("CREATE_DIRECTORY", path.getParent(), "zip parent");
         try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(path))) {
+            long totalUncompressedSize = 0;
             for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
                 ZipSecurity.validateRelativeEntryName(entry.getKey());
+                totalUncompressedSize = ZipSecurity.validateUncompressedSize(
+                        entry.getKey(), entry.getValue().length, totalUncompressedSize);
                 output.putNextEntry(new ZipEntry(entry.getKey()));
                 output.write(entry.getValue());
                 output.closeEntry();

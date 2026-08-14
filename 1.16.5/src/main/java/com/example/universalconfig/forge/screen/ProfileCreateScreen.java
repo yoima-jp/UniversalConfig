@@ -50,7 +50,7 @@ public final class ProfileCreateScreen extends Screen {
         String currentDescription = descriptionField == null ? "" : descriptionField.getValue();
         boolean includeKeybinds = keybindsCheckboxButton == null || keybindsCheckboxButton.selected();
         boolean includeClientOptions = clientOptionsCheckboxButton == null || clientOptionsCheckboxButton.selected();
-        boolean includeModConfigs = modConfigsCheckboxButton == null || modConfigsCheckboxButton.selected();
+        boolean includeModConfigs = modConfigsCheckboxButton != null && modConfigsCheckboxButton.selected();
         int formLeft = width / 2 - FORM_LEFT_OFFSET;
         addButton(new BlockIconButton(formLeft, NAME_FIELD_Y, ICON_BUTTON_SIZE, ICON_BUTTON_SIZE,
                 new TranslationTextComponent("screen.universal_config.profile_icon_change", iconLabel(selectedIconId)),

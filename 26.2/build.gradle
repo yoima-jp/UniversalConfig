@@ -5,7 +5,7 @@ plugins {
     id 'net.minecraftforge.gradle' version '7.0.32'
 }
 
-version = '1.0.0-mc26.2-forge'
+version = '1.1.0-mc26.2-forge'
 group = 'com.example.universalconfig'
 base.archivesName = 'universal-config'
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
@@ -42,6 +42,8 @@ tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 tasks.named('test', Test) { useJUnitPlatform() }
 tasks.named('jar', Jar) {
     from('LICENSE.txt') { into 'META-INF'; rename { 'LICENSE_universal_config' } }
+    from('NOTICE') { into 'META-INF' }
+    from('licenses') { into 'META-INF/licenses' }
     manifest {
         attributes('Specification-Title': 'universal_config',
                 'Specification-Vendor': 'yoima-jp, tofuturu, tanzana7',

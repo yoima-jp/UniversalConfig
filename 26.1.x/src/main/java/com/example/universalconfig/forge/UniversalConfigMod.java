@@ -9,8 +9,6 @@ import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.UniversalConfigSettings;
 import com.example.universalconfig.forge.screen.ProfileListScreen;
 import com.example.universalconfig.forge.screen.ProfileIconRenderer;
-import com.mojang.blaze3d.platform.InputConstants;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -21,16 +19,14 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.RegisterPictureInPictureRendererEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
-import org.lwjgl.glfw.GLFW;
+import net.minecraftforge.internal.BrandingControl;
 
 import java.nio.file.Path;
 
@@ -39,40 +35,29 @@ public final class UniversalConfigMod {
     public static final String MOD_ID = UniversalConfigFormat.MOD_ID;
     private static final Identifier TITLE_SCREEN_BUTTON_TEXTURE =
             Identifier.fromNamespaceAndPath(MOD_ID, "title_screen_button.png");
-    private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(
-            Identifier.fromNamespaceAndPath(MOD_ID, "main"));
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
+    // title_screen_button.png の実寸。画像差し替え時は必ずこの定数と描画へ渡す実寸・UV領域を一致させること。
+    // 描画先サイズ（iconSize）とは独立で、ここはテクスチャ原本のピクセルサイズを表す。
+    private static final int TITLE_SCREEN_ICON_TEXTURE_SIZE = 15;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    private static final int TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE = 54;
+    private static final int TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET = 10;
+    private static final int TITLE_SCREEN_SYSTEM_TEXT_GAP = 2;
 
-    private static KeyMapping openKey;
     private boolean pendingImportLogged;
     private boolean startupChangedOptions;
 
     public UniversalConfigMod(FMLJavaModLoadingContext context) {
         runStartupImport();
-        RegisterKeyMappingsEvent.BUS.addListener(this::registerKeyMappings);
         // プロフィール一覧のアイコンを高解像度描画するPiPレンダラーを登録（modバス）。
         RegisterPictureInPictureRendererEvent.BUS.addListener(this::registerPictureInPictureRenderers);
         FMLClientSetupEvent.getBus(context.getModBusGroup()).addListener(this::clientSetup);
-        TickEvent.ClientTickEvent.Post.BUS.addListener(this::onClientTick);
         ScreenEvent.Init.Post.BUS.addListener(this::onScreenInit);
         MinecraftForge.registerConfigScreen((minecraft, parent) -> new ProfileListScreen(parent));
     }
 
     public static Minecraft client() {
         return Minecraft.getInstance();
-    }
-
-    private void registerKeyMappings(RegisterKeyMappingsEvent event) {
-        openKey = new KeyMapping(
-                "key.universal_config.open",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
-                KEY_CATEGORY
-        );
-        event.register(openKey);
     }
 
     private void registerPictureInPictureRenderers(RegisterPictureInPictureRendererEvent event) {
@@ -96,18 +81,6 @@ public final class UniversalConfigMod {
         });
     }
 
-    public void onClientTick(TickEvent.ClientTickEvent.Post event) {
-        if (openKey == null) {
-            return;
-        }
-        Minecraft minecraft = Minecraft.getInstance();
-        while (openKey.consumeClick()) {
-            if (minecraft.screen == null || minecraft.screen instanceof TitleScreen) {
-                minecraft.setScreen(new ProfileListScreen(minecraft.screen));
-            }
-        }
-    }
-
     public void onScreenInit(ScreenEvent.Init.Post event) {
         if (!(event.getScreen() instanceof TitleScreen)) {
             return;
@@ -115,12 +88,27 @@ public final class UniversalConfigMod {
         Minecraft minecraft = Minecraft.getInstance();
         reloadStartupOptionsAtTitleScreen();
         logPendingImportStateOnce();
+        if (event.getScreen().children().stream().anyMatch(IconButton.class::isInstance)) {
+            return;
+        }
         Component narration = Component.translatable("button.universal_config.open");
-        int y = event.getScreen().height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE;
+        int y = titleScreenButtonY(minecraft, event.getScreen().height);
         IconButton button = new IconButton(TITLE_SCREEN_BUTTON_MARGIN, y,
                 ignored -> minecraft.setScreen(new ProfileListScreen(event.getScreen())), narration);
         button.setTooltip(Tooltip.create(narration));
         event.addListener(button);
+    }
+
+    private static int titleScreenButtonY(Minecraft minecraft, int screenHeight) {
+        int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
+        int[] brandingLines = {0};
+        BrandingControl.forEachLine(true, false, (line, index) -> brandingLines[0]++);
+        int brandingStep = minecraft.font.lineHeight + 1;
+        // Forge draws line 0 at systemTextY. Only the intervals between lines belong above it; reserving one full
+        // extra line creates a conspicuous blank row between the icon and the highest branding line.
+        int topBrandingY = systemTextY - Math.max(0, brandingLines[0] - 1) * brandingStep;
+        return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                topBrandingY - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_SYSTEM_TEXT_GAP);
     }
 
     private void reloadStartupOptionsAtTitleScreen() {
@@ -208,7 +196,9 @@ public final class UniversalConfigMod {
             graphics.blit(RenderPipelines.GUI_TEXTURED, TITLE_SCREEN_BUTTON_TEXTURE,
                     getX() + TITLE_SCREEN_ICON_PADDING,
                     getY() + TITLE_SCREEN_ICON_PADDING,
-                    0.0F, 0.0F, iconSize, iconSize, 128, 128, 128, 128);
+                    0.0F, 0.0F, iconSize, iconSize,
+                    TITLE_SCREEN_ICON_TEXTURE_SIZE, TITLE_SCREEN_ICON_TEXTURE_SIZE,
+                    TITLE_SCREEN_ICON_TEXTURE_SIZE, TITLE_SCREEN_ICON_TEXTURE_SIZE);
         }
     }
 }

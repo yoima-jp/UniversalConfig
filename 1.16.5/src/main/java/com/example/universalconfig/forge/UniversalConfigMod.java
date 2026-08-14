@@ -8,11 +8,8 @@ import com.example.universalconfig.core.UniversalConfigFormat;
 import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.UniversalConfigSettings;
 import com.example.universalconfig.forge.screen.ProfileListScreen;
-import net.minecraft.client.util.InputMappings;
-import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.matrix.MatrixStack;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.widget.button.Button;
 import net.minecraft.client.gui.AbstractGui;
 import net.minecraft.client.gui.screen.MainMenuScreen;
@@ -22,11 +19,9 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.util.text.IFormattableTextComponent;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.fml.ExtensionPoint;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
@@ -35,7 +30,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
-import org.lwjgl.glfw.GLFW;
+import net.minecraftforge.fml.BrandingControl;
 
 import java.nio.file.Path;
 
@@ -47,9 +42,13 @@ public final class UniversalConfigMod {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    private static final int TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE = 54;
+    private static final int TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET = 10;
+    private static final int TITLE_SCREEN_SYSTEM_TEXT_GAP = 2;
+    // title_screen_button.png の実寸。画像を差し替える場合は描画APIへ渡す実寸・UV領域と
+    // この定数を必ず一致させる。ボタンの位置・サイズ・描画先サイズは変更しない。
+    private static final int TITLE_SCREEN_ICON_TEXTURE_WIDTH = 15;
+    private static final int TITLE_SCREEN_ICON_TEXTURE_HEIGHT = 15;
 
-    private static KeyBinding openKey;
     private boolean pendingImportLogged;
     private boolean startupChangedOptions;
 
@@ -69,18 +68,7 @@ public final class UniversalConfigMod {
         return Minecraft.getInstance();
     }
 
-    private void registerKeyBindings() {
-        openKey = new KeyBinding(
-                "key.universal_config.open",
-                InputMappings.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
-                "category.universal_config"
-        );
-        ClientRegistry.registerKeyBinding(openKey);
-    }
-
     private void clientSetup(FMLClientSetupEvent event) {
-        registerKeyBindings();
         if (!startupChangedOptions) {
             return;
         }
@@ -95,19 +83,6 @@ public final class UniversalConfigMod {
     }
 
     @SubscribeEvent
-    public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || openKey == null) {
-            return;
-        }
-        Minecraft minecraft = Minecraft.getInstance();
-        while (openKey.consumeClick()) {
-            if (minecraft.screen == null || minecraft.screen instanceof MainMenuScreen) {
-                minecraft.setScreen(new ProfileListScreen(minecraft.screen));
-            }
-        }
-    }
-
-    @SubscribeEvent
     public void onScreenInit(GuiScreenEvent.InitGuiEvent.Post event) {
         if (!(event.getGui() instanceof MainMenuScreen)) {
             return;
@@ -115,11 +90,30 @@ public final class UniversalConfigMod {
         Minecraft minecraft = Minecraft.getInstance();
         reloadStartupOptionsAtTitleScreen();
         logPendingImportStateOnce();
+        // Forge can re-run screen initialization after resize or resource reload. Reusing the same screen must not
+        // accumulate overlapping icon buttons.
+        for (net.minecraft.client.gui.widget.Widget widget : event.getWidgetList()) {
+            if (widget instanceof IconButton) {
+                return;
+            }
+        }
         ITextComponent narration = new TranslationTextComponent("button.universal_config.open");
-        int y = event.getGui().height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE;
+        int y = titleScreenButtonY(minecraft, event.getGui().height);
         IconButton button = new IconButton(TITLE_SCREEN_BUTTON_MARGIN, y,
                 ignored -> minecraft.setScreen(new ProfileListScreen(event.getGui())), narration);
         event.addWidget(button);
+    }
+
+    private static int titleScreenButtonY(Minecraft minecraft, int screenHeight) {
+        int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
+        int[] brandingLines = {0};
+        BrandingControl.forEachLine(true, false, (index, line) -> brandingLines[0]++);
+        int brandingStep = minecraft.font.lineHeight + 1;
+        // Forge draws line 0 at systemTextY. Only the intervals between lines belong above it; reserving one full
+        // extra line creates a conspicuous blank row between the icon and the highest branding line.
+        int topBrandingY = systemTextY - Math.max(0, brandingLines[0] - 1) * brandingStep;
+        return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                topBrandingY - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_SYSTEM_TEXT_GAP);
     }
 
     private void reloadStartupOptionsAtTitleScreen() {
@@ -212,7 +206,9 @@ public final class UniversalConfigMod {
                     x + TITLE_SCREEN_ICON_PADDING,
                     y + TITLE_SCREEN_ICON_PADDING,
                     iconSize, iconSize,
-                    0.0F, 0.0F, 128, 128, 128, 128);
+                    0.0F, 0.0F,
+                    TITLE_SCREEN_ICON_TEXTURE_WIDTH, TITLE_SCREEN_ICON_TEXTURE_HEIGHT,
+                    TITLE_SCREEN_ICON_TEXTURE_WIDTH, TITLE_SCREEN_ICON_TEXTURE_HEIGHT);
         }
 
         @Override
