@@ -46,7 +46,9 @@ public final class LegacyScreens {
     private static final int PROFILE_ICON_SIZE = 28;
     private static final int MORE_MENU_WIDTH = 132;
     private static final int MORE_MENU_ITEM_GAP = 2;
-    private static final int MORE_MENU_ITEM_COUNT = 5;
+    private static final int MORE_MENU_ITEM_COUNT = 6;
+    private static final int REORDER_BUTTON_WIDTH = 20;
+    private static final int REORDER_BUTTON_HEIGHT = 16;
     private static final int SCROLLBAR_WIDTH = 3;
     private static final int PANEL = 0xD0181818;
     private static final int PANEL_INNER = 0xB00B0B0B;
@@ -131,6 +133,10 @@ public final class LegacyScreens {
         private Path deleteConfirmationPath;
         private boolean draggingScrollbar;
         private int scrollbarDragOffset;
+        private int draggingProfileIndex = -1;
+        private int dragTargetIndex = -1;
+        private int dragStartY;
+        private boolean draggingProfile;
 
         public ProfileList(GuiScreen parent) {
             super(parent);
@@ -152,16 +158,23 @@ public final class LegacyScreens {
                     tr("screen.universal_config.use_profile")));
             buttonList.add(createButton(4, actionX + useWidth + 4, actionY, moreWidth, BUTTON_HEIGHT,
                     tr("screen.universal_config.more")));
+            // moreMenuの項目順序は main 側の ProfileListScreen に合わせる。
+            // default / open_folder / rename / duplicate / backups / delete の6項目。
             buttonList.add(createButton(30, moreMenuLeft(), moreMenuButtonY(0), moreMenuWidth(), BUTTON_HEIGHT, ""));
             buttonList.add(createButton(31, moreMenuLeft(), moreMenuButtonY(1), moreMenuWidth(), BUTTON_HEIGHT,
-                    tr("screen.universal_config.duplicate")));
-            buttonList.add(createButton(32, moreMenuLeft(), moreMenuButtonY(2), moreMenuWidth(), BUTTON_HEIGHT,
                     tr("screen.universal_config.open_folder")));
+            buttonList.add(createButton(32, moreMenuLeft(), moreMenuButtonY(2), moreMenuWidth(), BUTTON_HEIGHT,
+                    tr("screen.universal_config.rename")));
             buttonList.add(createButton(33, moreMenuLeft(), moreMenuButtonY(3), moreMenuWidth(), BUTTON_HEIGHT,
-                    tr("screen.universal_config.backups")));
+                    tr("screen.universal_config.duplicate")));
             buttonList.add(createButton(34, moreMenuLeft(), moreMenuButtonY(4), moreMenuWidth(), BUTTON_HEIGHT,
+                    tr("screen.universal_config.backups")));
+            buttonList.add(createButton(35, moreMenuLeft(), moreMenuButtonY(5), moreMenuWidth(), BUTTON_HEIGHT,
                     tr("screen.universal_config.delete")));
             buttonList.add(createButton(0, width - 28, 6, 20, BUTTON_HEIGHT, "×"));
+            // 並べ替えボタン（↑/↓）は表示行ごとに追加する。scroll 後の位置を再計算できるように
+            // initGui の末尾で構築し、cardWidth の右端に配置する（PR #43）。
+            addReorderButtons();
             if (pending) {
                 int y = HEADER_HEIGHT + 5;
                 buttonList.add(createButton(9, rightPanelRight() - 194, y, 92, BUTTON_HEIGHT,
@@ -282,7 +295,7 @@ public final class LegacyScreens {
             for (Object value : buttonList) {
                 GuiButton button = (GuiButton) value;
                 if (button.id == 2 || button.id == 4) button.enabled = has;
-                if (button.id >= 30 && button.id <= 34) {
+                if (button.id >= 30 && button.id <= 35) {
                     button.visible = moreMenuOpen;
                     button.enabled = has;
                 }
@@ -300,6 +313,51 @@ public final class LegacyScreens {
                 if (button.id == id) return button;
             }
             return null;
+        }
+
+        private void addReorderButtons() {
+            // 並べ替えボタン（ID 40=↑, 41=↓）は cardWidth の右端に配置し、
+            // 表示行ごとに初期化する。scroll 変化で位置を再計算するため initGui 末尾で呼ぶ（PR #43）。
+            for (int i = scroll; i < Math.min(profiles.size(), scroll + visibleRows()); i++) {
+                int y = listTop() + (i - scroll) * CARD_STEP;
+                int x = cardLeft() + cardWidth() - REORDER_BUTTON_WIDTH - 4;
+                GuiButton up = createButton(40, x, y + 3, REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT, "↑");
+                up.enabled = i > 0;
+                GuiButton down = createButton(41, x, y + 3 + REORDER_BUTTON_HEIGHT + 1,
+                        REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT, "↓");
+                down.enabled = i < profiles.size() - 1;
+                buttonList.add(up);
+                buttonList.add(down);
+            }
+        }
+
+        private void moveProfile(int sourceIndex, int targetIndex) {
+            // main 側の ProfileListScreen.moveProfile に合わせ、範囲外・同一インデックスは無視する。
+            if (sourceIndex < 0 || sourceIndex >= profiles.size()
+                    || targetIndex < 0 || targetIndex >= profiles.size()
+                    || sourceIndex == targetIndex) {
+                return;
+            }
+            Path path = profiles.get(sourceIndex).path();
+            try {
+                service().moveProfile(LegacyPlatform.gameDirectory(), path, targetIndex);
+                initGui();
+                selectProfile(path);
+            } catch (Exception ex) {
+                fail("screen.universal_config.action_failed", ex);
+            }
+        }
+
+        private void selectProfile(Path path) {
+            // 並び替え前のインデックスは再読込後には別プロフィールを指す場合がある。
+            // 操作対象を維持するため、安定したファイルパスで移動元を選択し直す。
+            for (int i = 0; i < profiles.size(); i++) {
+                if (profiles.get(i).path().equals(path)) {
+                    selected = i;
+                    updateButtons();
+                    return;
+                }
+            }
         }
 
         private int moreMenuWidth() {
@@ -354,29 +412,37 @@ public final class LegacyScreens {
                         }
                         break;
                     case 31:
+                        if (path != null) Desktop.getDesktop().browse(path.getParent().toUri());
+                        moreMenuOpen = false;
+                        break;
+                    case 32:
+                        if (path != null) {
+                            moreMenuOpen = false;
+                            mc.displayGuiScreen(new ProfileRename(this, path, profileName()));
+                        }
+                        break;
+                    case 33:
                         if (path != null) {
                             service().duplicateProfile(path);
                             moreMenuOpen = false;
                             initGui();
                         }
                         break;
-                    case 32:
-                        if (path != null) Desktop.getDesktop().browse(path.getParent().toUri());
-                        moreMenuOpen = false;
-                        break;
-                    case 33:
+                    case 34:
                         moreMenuOpen = false;
                         mc.displayGuiScreen(new Backups(this));
                         break;
-                    case 34:
+                    case 35:
                         if (path != null) {
                             deleteConfirmationPath = path;
                             moreMenuOpen = false;
                             mc.displayGuiScreen(new GuiYesNo(this,
                                     tr("screen.universal_config.delete_confirm", profileName()),
-                                    tr("screen.universal_config.delete_warning"), 34));
+                                    tr("screen.universal_config.delete_warning"), 35));
                         }
                         break;
+                    case 40: moveProfile(selected, selected - 1); break;
+                    case 41: moveProfile(selected, selected + 1); break;
                     case 9: restart(); break;
                     case 10: service().clearPendingImport(LegacyPlatform.gameDirectory()); initGui(); break;
                     default: break;
@@ -405,7 +471,7 @@ public final class LegacyScreens {
         @Override
         public void confirmClicked(boolean result, int id) {
             mc.displayGuiScreen(this);
-            if (result && id == 34 && deleteConfirmationPath != null) {
+            if (result && id == 35 && deleteConfirmationPath != null) {
                 try {
                     service().deleteProfile(LegacyPlatform.gameDirectory(), deleteConfirmationPath);
                     initGui();
@@ -418,7 +484,13 @@ public final class LegacyScreens {
 
         @Override
         public void handleMouseInput() {
+            int eventButton = Mouse.getEventButton();
+            boolean leftReleased = eventButton == 0 && !Mouse.getEventButtonState();
             try { super.handleMouseInput(); } catch (Exception ex) { fail("screen.universal_config.action_failed", ex); }
+            if (leftReleased && draggingProfileIndex >= 0) {
+                finishProfileDrag(Mouse.getEventX() * width / mc.displayWidth,
+                        height - Mouse.getEventY() * height / mc.displayHeight - 1);
+            }
             int wheel = Mouse.getEventDWheel();
             if (wheel != 0) {
                 scroll += wheel < 0 ? 1 : -1;
@@ -429,6 +501,8 @@ public final class LegacyScreens {
         @Override
         protected void mouseClicked(int mouseX, int mouseY, int mouseButton) {
             draggingScrollbar = false;
+            draggingProfileIndex = -1;
+            draggingProfile = false;
             if (mouseButton == 0 && hasScrollbar()
                     && mouseX >= scrollbarLeft() - 2 && mouseX < scrollbarLeft() + SCROLLBAR_WIDTH + 2
                     && mouseY >= listTop() && mouseY < listBottom()) {
@@ -452,15 +526,21 @@ public final class LegacyScreens {
                 moreMenuOpen = false;
                 updateButtons();
             }
-            try { super.mouseClicked(mouseX, mouseY, mouseButton); } catch (Exception ex) { fail("screen.universal_config.action_failed", ex); }
-            if (mouseX >= cardLeft() && mouseX < cardLeft() + cardWidth()
-                    && mouseY >= listTop() && mouseY < listBottom()) {
-                int index = scroll + (mouseY - listTop()) / CARD_STEP;
-                if (index >= 0 && index < profiles.size()) {
-                    selected = index;
-                    updateButtons();
+            if (mouseButton == 0) {
+                int profileIndex = profileIndexAt(mouseX, mouseY);
+                int reorderDelta = reorderDeltaAt(mouseX, mouseY);
+                if (profileIndex >= 0 && reorderDelta != 0) {
+                    moveProfile(profileIndex, profileIndex + reorderDelta);
+                    return;
+                }
+                if (profileIndex >= 0) {
+                    draggingProfileIndex = profileIndex;
+                    dragTargetIndex = profileIndex;
+                    dragStartY = mouseY;
+                    return;
                 }
             }
+            try { super.mouseClicked(mouseX, mouseY, mouseButton); } catch (Exception ex) { fail("screen.universal_config.action_failed", ex); }
         }
 
         @Override
@@ -469,11 +549,63 @@ public final class LegacyScreens {
                 scrollToThumbPosition(mouseY);
                 return;
             }
+            if (draggingProfileIndex >= 0 && clickedMouseButton == 0) {
+                if (!draggingProfile && Math.abs(mouseY - dragStartY) > 3) {
+                    draggingProfile = true;
+                }
+                if (draggingProfile) {
+                    dragTargetIndex = dropIndexAt(mouseY);
+                }
+                return;
+            }
             try {
                 super.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick);
             } catch (Exception ex) {
                 fail("screen.universal_config.action_failed", ex);
             }
+        }
+
+        private void finishProfileDrag(int mouseX, int mouseY) {
+            int sourceIndex = draggingProfileIndex;
+            int targetIndex = dragTargetIndex;
+            boolean wasDragging = draggingProfile;
+            draggingProfileIndex = -1;
+            dragTargetIndex = -1;
+            draggingProfile = false;
+            if (wasDragging) {
+                moveProfile(sourceIndex, targetIndex);
+            } else if (profileIndexAt(mouseX, mouseY) == sourceIndex) {
+                selected = sourceIndex;
+                updateButtons();
+            }
+        }
+
+        private int profileIndexAt(int mouseX, int mouseY) {
+            if (mouseX < cardLeft() || mouseX >= cardLeft() + cardWidth()
+                    || mouseY < listTop() || mouseY >= listBottom()) {
+                return -1;
+            }
+            int rowOffset = mouseY - listTop();
+            int index = scroll + rowOffset / CARD_STEP;
+            return index >= 0 && index < profiles.size() && rowOffset % CARD_STEP < CARD_HEIGHT ? index : -1;
+        }
+
+        private int reorderDeltaAt(int mouseX, int mouseY) {
+            int index = profileIndexAt(mouseX, mouseY);
+            if (index < 0) return 0;
+            int x = cardLeft() + cardWidth() - REORDER_BUTTON_WIDTH - 4;
+            int y = listTop() + (index - scroll) * CARD_STEP + 3;
+            if (mouseX >= x && mouseX < x + REORDER_BUTTON_WIDTH
+                    && mouseY >= y && mouseY < y + REORDER_BUTTON_HEIGHT) return -1;
+            int downY = y + REORDER_BUTTON_HEIGHT + 1;
+            return mouseX >= x && mouseX < x + REORDER_BUTTON_WIDTH
+                    && mouseY >= downY && mouseY < downY + REORDER_BUTTON_HEIGHT ? 1 : 0;
+        }
+
+        private int dropIndexAt(int mouseY) {
+            int relativeY = mouseY - listTop() - CARD_HEIGHT / 2;
+            int index = scroll + relativeY / CARD_STEP;
+            return Math.max(0, Math.min(profiles.size() - 1, index));
         }
 
         @Override
@@ -503,7 +635,7 @@ public final class LegacyScreens {
                 int iconY = y + (CARD_HEIGHT - PROFILE_ICON_SIZE) / 2;
                 LegacyVersionBridge.drawProfileIcon(mc, manifest.icon, iconX, iconY, PROFILE_ICON_SIZE);
                 int textX = iconX + PROFILE_ICON_SIZE + 8;
-                int textWidth = cardLeft() + cardWidth() - textX - 7;
+                int textWidth = cardLeft() + cardWidth() - textX - REORDER_BUTTON_WIDTH - 12;
                 if (isDefault(profiles.get(i).path())) {
                     String marker = tr("screen.universal_config.default_marker");
                     int markerWidth = Math.min(font().getStringWidth(marker), textWidth);
@@ -534,6 +666,11 @@ public final class LegacyScreens {
                         moreMenuBottom(), 0xFF181818);
             }
             super.drawScreen(mouseX, mouseY, partialTicks);
+            if (draggingProfile && dragTargetIndex >= 0 && dragTargetIndex != draggingProfileIndex) {
+                int indicatorY = listTop() + (dragTargetIndex - scroll) * CARD_STEP
+                        + (dragTargetIndex > draggingProfileIndex ? CARD_HEIGHT - 1 : -1);
+                drawRect(cardLeft(), indicatorY, cardLeft() + cardWidth(), indicatorY + 2, 0xFFD8E3FF);
+            }
             drawStatus();
         }
 
@@ -571,6 +708,10 @@ public final class LegacyScreens {
             drawString(font(), font().trimStringToWidth(tr("screen.universal_config.loader_summary", loader, loaderVersion),
                     contentWidth - PROFILE_ICON_SIZE - 8), infoX, line + 15, MUTED);
             line += 35;
+            // 詳細画面に .ucp ファイル名を表示し、複数プロファイルで実体を区別できるようにする（PR #43）。
+            String fileName = profiles.get(selected).path().getFileName().toString();
+            drawString(font(), font().trimStringToWidth(fileName, contentWidth), innerX, line, MUTED);
+            line += 12;
             String description = manifest.description == null || manifest.description.trim().isEmpty()
                     ? tr("screen.universal_config.description_none") : manifest.description;
             for (Object value : font().listFormattedStringToWidth(description, contentWidth)) {
@@ -581,18 +722,24 @@ public final class LegacyScreens {
             }
             if (manifest.includes != null) {
                 line += 5;
-                drawRect(innerX, line, innerX + contentWidth, line + 1, DIVIDER);
-                line += 8;
-                drawString(font(), tr("screen.universal_config.included_settings"), innerX, line, TEXT);
-                line += 14;
-                line = drawIncluded(manifest.includes.keybinds, "screen.universal_config.target_keybinds", innerX, line);
-                line = drawIncluded(manifest.includes.clientOptions, "screen.universal_config.target_client", innerX, line);
-                drawIncluded(manifest.includes.modConfigs, "screen.universal_config.target_mods", innerX, line);
+                if (line + font().FONT_HEIGHT < bottom) {
+                    drawRect(innerX, line, innerX + contentWidth, line + 1, DIVIDER);
+                    line += 8;
+                    drawString(font(), tr("screen.universal_config.included_settings"), innerX, line, TEXT);
+                    line += 14;
+                    line = drawIncluded(manifest.includes.keybinds, "screen.universal_config.target_keybinds",
+                            innerX, line, bottom);
+                    line = drawIncluded(manifest.includes.clientOptions, "screen.universal_config.target_client",
+                            innerX, line, bottom);
+                    drawIncluded(manifest.includes.modConfigs, "screen.universal_config.target_mods",
+                            innerX, line, bottom);
+                }
             }
         }
 
-        private int drawIncluded(boolean included, String key, int x, int y) {
-            if (included) {
+        private int drawIncluded(boolean included, String key, int x, int y, int bottom) {
+            // 小さいウィンドウでは詳細欄の下に操作ボタンがある。内容をボタン領域へ描画しない。
+            if (included && y + font().FONT_HEIGHT <= bottom) {
                 drawString(font(), "✓", x, y, 0x55FF55);
                 drawString(font(), tr(key), x + 14, y, TEXT);
                 return y + 14;
@@ -610,12 +757,96 @@ public final class LegacyScreens {
         }
     }
 
+    private static final class ProfileRename extends Base {
+        // main 側の ProfileRenameScreen を旧Forgeへ移植した画面。GuiTextField で新しい名前を入力し、
+        // ProfileService.renameProfile でマニフェストを更新する（PR #43）。
+        private static final int FORM_WIDTH = 300;
+        private static final int FIELD_Y = 64;
+        private final Path profilePath;
+        private GuiTextField nameField;
+
+        private ProfileRename(GuiScreen parent, Path profilePath, String initialName) {
+            super(parent);
+            this.profilePath = profilePath;
+        }
+
+        @Override
+        public void initGui() {
+            Keyboard.enableRepeatEvents(true);
+            buttonList.clear();
+            int left = (width - FORM_WIDTH) / 2;
+            nameField = LegacyVersionBridge.textField(100, font(), left, FIELD_Y, FORM_WIDTH, 20);
+            nameField.setMaxStringLength(128);
+            // 親画面から渡された名前を初期値とし、空の場合はそのままにする。
+            String initial = "";
+            try {
+                ProfileManifest manifest = service().readManifest(profilePath);
+                initial = manifest.name == null ? "" : manifest.name;
+            } catch (Exception ignored) {
+                // マニフェスト読み込み失敗時は空欄から始め、ユーザーが入力できるようにする。
+            }
+            nameField.setText(initial);
+            buttonList.add(createButton(1, width / 2 - 104, height - 32, 100, BUTTON_HEIGHT,
+                    tr("screen.universal_config.rename")));
+            buttonList.add(createButton(0, width / 2 + 4, height - 32, 100, BUTTON_HEIGHT,
+                    tr("screen.universal_config.back")));
+        }
+
+        private void rename() {
+            String value = nameField.getText();
+            if (value == null || value.trim().isEmpty()) {
+                status = tr("screen.universal_config.profile_name_required");
+                return;
+            }
+            try {
+                service().renameProfile(profilePath, value);
+                back();
+            } catch (Exception ex) {
+                fail("screen.universal_config.rename_failed", ex);
+            }
+        }
+
+        @Override
+        public void updateScreen() {
+            nameField.updateCursorCounter();
+        }
+
+        @Override
+        protected void actionPerformed(GuiButton button) {
+            if (button.id == 0) back();
+            if (button.id == 1) rename();
+        }
+
+        @Override
+        protected void keyTyped(char typedChar, int keyCode) {
+            if (keyCode == Keyboard.KEY_ESCAPE) { back(); return; }
+            nameField.textboxKeyTyped(typedChar, keyCode);
+        }
+
+        @Override
+        protected void mouseClicked(int mouseX, int mouseY, int mouseButton) {
+            try { super.mouseClicked(mouseX, mouseY, mouseButton); } catch (Exception ex) { fail("screen.universal_config.action_failed", ex); }
+            nameField.mouseClicked(mouseX, mouseY, mouseButton);
+        }
+
+        @Override
+        public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+            drawDefaultBackground();
+            drawCenteredString(font(), tr("screen.universal_config.profile_rename_title"), width / 2, 18, TEXT);
+            int left = (width - FORM_WIDTH) / 2;
+            drawString(font(), tr("screen.universal_config.profile_rename_label"), left, 44, MUTED);
+            nameField.drawTextBox();
+            super.drawScreen(mouseX, mouseY, partialTicks);
+            drawStatus();
+        }
+    }
+
     private static final class ProfileCreate extends Base {
         private GuiTextField name;
         private GuiTextField description;
         private boolean keybinds = true;
         private boolean client = true;
-        private boolean mods = true;
+        private boolean mods = false;
         private int iconIndex;
         private static final String[] ICONS = {ProfileIcon.GRASS_BLOCK, ProfileIcon.CRAFTING_TABLE, ProfileIcon.BOOKSHELF,
                 ProfileIcon.COBBLESTONE, ProfileIcon.TNT, ProfileIcon.CHEST, ProfileIcon.FURNACE, ProfileIcon.DIAMOND_BLOCK};

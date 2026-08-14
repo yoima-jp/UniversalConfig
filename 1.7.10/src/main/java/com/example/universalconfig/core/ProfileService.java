@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -172,12 +174,143 @@ public final class ProfileService {
                 }
             }
             summaries.sort(Comparator.comparing((ProfileSummary summary) -> safeUpdatedAt(summary.manifest())).reversed());
-            FileOperationLogger.info("LIST_PROFILES", profiles, "count=" + summaries.size());
-            return summaries;
+            List<ProfileSummary> ordered = applyProfileOrder(summaries);
+            FileOperationLogger.info("LIST_PROFILES", profiles, "count=" + ordered.size());
+            return ordered;
         } catch (IOException ex) {
             FileOperationLogger.failure("LIST_PROFILES", profiles, "failed", ex);
             throw new UniversalConfigException("Failed to list profiles.", ex);
         }
+    }
+
+    public void renameProfile(Path profilePath, String name) throws UniversalConfigException {
+        Path normalized = validateProfilePath(profilePath);
+        String requestedName = name == null ? "" : name.trim();
+        if (requestedName.trim().isEmpty()) {
+            throw new UniversalConfigException("Profile name is required.");
+        }
+        if (requestedName.length() > 128) {
+            throw new UniversalConfigException("Profile name is too long.");
+        }
+
+        try (ProfileDirectoryLock ignored = lockProfileDirectory()) {
+            ProfileManifest manifest = readManifest(normalized);
+            String uniqueName = uniqueProfileName(requestedName, normalized);
+            if (Objects.equals(manifest.name, uniqueName)) {
+                return;
+            }
+            rewriteProfileName(normalized, uniqueName);
+            FileOperationLogger.info("RENAME_PROFILE", normalized,
+                    "from=" + manifest.name + " to=" + uniqueName);
+        }
+    }
+
+    public void moveProfile(Path instancePath, Path profilePath, int targetIndex) throws UniversalConfigException {
+        Path normalized = validateProfilePath(profilePath);
+        try (ProfileDirectoryLock ignored = lockProfileDirectory()) {
+            List<ProfileSummary> summaries = listProfiles();
+            int currentIndex = indexOfProfile(summaries, normalized);
+            if (currentIndex < 0) {
+                throw new UniversalConfigException("The selected profile is unavailable.");
+            }
+            if (targetIndex < 0 || targetIndex >= summaries.size()) {
+                throw new UniversalConfigException("The selected profile position is invalid.");
+            }
+            if (currentIndex == targetIndex) {
+                return;
+            }
+
+            List<String> order = new ArrayList<String>();
+            for (ProfileSummary summary : summaries) {
+                String key = profileOrderKey(summary);
+                if (key != null) {
+                    order.add(key);
+                }
+            }
+            String movedKey = profileOrderKey(summaries.get(currentIndex));
+            order.remove(movedKey);
+            order.add(targetIndex, movedKey);
+            settings.setProfileOrder(order);
+            UniversalConfigPaths.saveSettings(instancePath, settings);
+            FileOperationLogger.info("MOVE_PROFILE", normalized, "targetIndex=" + targetIndex);
+        }
+    }
+
+    private List<ProfileSummary> applyProfileOrder(List<ProfileSummary> summaries) {
+        List<String> configuredOrder = settings.profileOrder();
+        if (configuredOrder.isEmpty()) {
+            return summaries;
+        }
+
+        Map<String, ProfileSummary> byKey = new HashMap<String, ProfileSummary>();
+        for (ProfileSummary summary : summaries) {
+            String key = profileOrderKey(summary);
+            if (key != null) {
+                byKey.putIfAbsent(key, summary);
+            }
+        }
+
+        // 過去バージョンで id ベースのキーを保存済みの設定との互換性のため、id も補助インデックスとして残す。
+        Map<String, ProfileSummary> byLegacyIdKey = new HashMap<String, ProfileSummary>();
+        for (ProfileSummary summary : summaries) {
+            String legacyIdKey = legacyProfileOrderKey(summary);
+            if (legacyIdKey != null) {
+                byLegacyIdKey.putIfAbsent(legacyIdKey, summary);
+            }
+        }
+
+        List<ProfileSummary> ordered = new ArrayList<ProfileSummary>(summaries.size());
+        Set<String> included = new HashSet<String>();
+        for (String key : configuredOrder) {
+            // ファイル名キーを優先し、無ければ旧 id キーで解決する。
+            ProfileSummary summary = byKey.get(key);
+            if (summary == null) {
+                summary = byLegacyIdKey.get(key);
+            }
+            if (summary != null) {
+                String fileKey = profileOrderKey(summary);
+                if (fileKey != null && included.add(fileKey)) {
+                    ordered.add(summary);
+                }
+            }
+        }
+        for (ProfileSummary summary : summaries) {
+            String key = profileOrderKey(summary);
+            if (key == null || included.add(key)) {
+                ordered.add(summary);
+            }
+        }
+        return ordered;
+    }
+
+    private int indexOfProfile(List<ProfileSummary> summaries, Path profilePath) {
+        for (int index = 0; index < summaries.size(); index++) {
+            if (summaries.get(index).path().toAbsolutePath().normalize().equals(profilePath)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    private String profileOrderKey(ProfileSummary summary) {
+        if (summary == null) {
+            return null;
+        }
+        // ファイル名を並び順キーに使う。manifest.id は複製が元 id を保持するため一意性が保証されず、
+        // id ベースの重複排除で複製が一覧から消える問題がある（PR #43 P1）。
+        // rename や duplicate でもファイル名は変化しないため、ファイル名は安定した識別子になる。
+        Path fileName = summary.path() == null ? null : summary.path().getFileName();
+        return fileName == null ? null : "file:" + fileName;
+    }
+
+    // 過去バージョンで settings.profileOrder に id ベースキーを保存していた設定との互換用。
+    // 新規保存では使わない。applyProfileOrder のフォールバック解決でのみ参照する。
+    private String legacyProfileOrderKey(ProfileSummary summary) {
+        if (summary == null || summary.manifest() == null) {
+            return null;
+        }
+        String id = summary.manifest().id;
+        return id == null || id.trim().isEmpty() ? null : "id:" + id;
     }
 
     public List<BackupSummary> listBackups() throws UniversalConfigException {

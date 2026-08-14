@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -18,8 +19,11 @@ public final class ZipArchiveWriter {
         Files.createDirectories(path.getParent());
         FileOperationLogger.info("CREATE_DIRECTORY", path.getParent(), "zip parent");
         try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(path))) {
+            long totalUncompressedSize = 0;
             for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
                 ZipSecurity.validateRelativeEntryName(entry.getKey());
+                totalUncompressedSize = ZipSecurity.validateUncompressedSize(
+                        entry.getKey(), entry.getValue().length, totalUncompressedSize);
                 output.putNextEntry(new ZipEntry(entry.getKey()));
                 output.write(entry.getValue());
                 output.closeEntry();
@@ -81,7 +85,7 @@ public final class ZipArchiveWriter {
                 output.write(buffer, 0, read);
                 digest.update(buffer, 0, read);
             }
-            return Checksums.toHex(digest.digest());
+            return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException ex) {
             throw new UniversalConfigException("SHA-256 is not available.", ex);
         }

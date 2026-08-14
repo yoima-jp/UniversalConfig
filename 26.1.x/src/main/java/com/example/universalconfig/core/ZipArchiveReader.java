@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -16,11 +15,23 @@ public final class ZipArchiveReader implements ProfileArchiveReader {
     public ZipArchiveReader(Path archivePath) throws IOException, UniversalConfigException {
         this.archivePath = archivePath;
         this.zipFile = new ZipFile(archivePath.toFile());
-        FileOperationLogger.info("OPEN_ZIP", archivePath, "read");
-        Enumeration<? extends ZipEntry> entries = zipFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
-            ZipSecurity.validateRelativeEntryName(entry.getName());
+        try {
+            FileOperationLogger.info("OPEN_ZIP", archivePath, "read");
+            long totalUncompressedSize = 0;
+            for (ZipEntry entry : zipFile.stream().toList()) {
+                ZipSecurity.validateRelativeEntryName(entry.getName());
+                if (!entry.isDirectory()) {
+                    totalUncompressedSize = ZipSecurity.validateEntrySizes(
+                            entry.getName(), entry.getSize(), entry.getCompressedSize(), totalUncompressedSize);
+                }
+            }
+        } catch (UniversalConfigException | RuntimeException ex) {
+            try {
+                zipFile.close();
+            } catch (IOException closeException) {
+                ex.addSuppressed(closeException);
+            }
+            throw ex;
         }
     }
 

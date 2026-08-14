@@ -8,8 +8,6 @@ import com.example.universalconfig.core.UniversalConfigFormat;
 import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.UniversalConfigSettings;
 import com.example.universalconfig.forge.screen.ProfileListScreen;
-import com.mojang.blaze3d.platform.InputConstants;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -24,7 +22,6 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.ConfigGuiHandler;
-import net.minecraftforge.client.ClientRegistry;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
@@ -36,7 +33,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
-import org.lwjgl.glfw.GLFW;
 
 import java.nio.file.Path;
 
@@ -48,9 +44,12 @@ public final class UniversalConfigMod {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    private static final int TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE = 54;
+    private static final int TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE = 42;
+    // title_screen_button.png の実寸。画像を差し替える場合は描画APIへ渡す実寸・UV領域と
+    // この定数を必ず一致させる。ボタンの位置・サイズ・描画先サイズは変更しない。
+    private static final int TITLE_SCREEN_ICON_TEXTURE_WIDTH = 15;
+    private static final int TITLE_SCREEN_ICON_TEXTURE_HEIGHT = 15;
 
-    private static KeyMapping openKey;
     private boolean pendingImportLogged;
     private boolean startupChangedOptions;
 
@@ -71,18 +70,7 @@ public final class UniversalConfigMod {
         return Minecraft.getInstance();
     }
 
-    private void registerKeyMappings() {
-        openKey = new KeyMapping(
-                "key.universal_config.open",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
-                "category.universal_config"
-        );
-        ClientRegistry.registerKeyBinding(openKey);
-    }
-
     private void clientSetup(FMLClientSetupEvent event) {
-        registerKeyMappings();
         if (!startupChangedOptions) {
             return;
         }
@@ -97,19 +85,6 @@ public final class UniversalConfigMod {
     }
 
     @SubscribeEvent
-    public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || openKey == null) {
-            return;
-        }
-        Minecraft minecraft = Minecraft.getInstance();
-        while (openKey.consumeClick()) {
-            if (minecraft.screen == null || minecraft.screen instanceof TitleScreen) {
-                minecraft.setScreen(new ProfileListScreen(minecraft.screen));
-            }
-        }
-    }
-
-    @SubscribeEvent
     public void onScreenInit(ScreenEvent.InitScreenEvent.Post event) {
         if (!(event.getScreen() instanceof TitleScreen)) {
             return;
@@ -117,7 +92,14 @@ public final class UniversalConfigMod {
         Minecraft minecraft = Minecraft.getInstance();
         reloadStartupOptionsAtTitleScreen();
         logPendingImportStateOnce();
+        // Forge may initialize the same title screen again after a resize or resource reload.
+        // Reuse of that screen must not accumulate overlapping buttons and click listeners.
+        if (event.getListenersList().stream().anyMatch(IconButton.class::isInstance)) {
+            return;
+        }
         Component narration = new TranslatableComponent("button.universal_config.open");
+        // Forge 1.18.2は左下に10px間隔で4行のブランド情報を描画する。最上段は下端から40pxの
+        // 位置で始まるため、ボタン下端との間に2pxだけ空けて接触して見えるのを防ぐ。
         int y = event.getScreen().height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE;
         IconButton button = new IconButton(TITLE_SCREEN_BUTTON_MARGIN, y,
                 ignored -> minecraft.setScreen(new ProfileListScreen(event.getScreen())), narration);
@@ -219,7 +201,9 @@ public final class UniversalConfigMod {
                     x + TITLE_SCREEN_ICON_PADDING,
                     y + TITLE_SCREEN_ICON_PADDING,
                     iconSize, iconSize,
-                    0.0F, 0.0F, 128, 128, 128, 128);
+                    0.0F, 0.0F,
+                    TITLE_SCREEN_ICON_TEXTURE_WIDTH, TITLE_SCREEN_ICON_TEXTURE_HEIGHT,
+                    TITLE_SCREEN_ICON_TEXTURE_WIDTH, TITLE_SCREEN_ICON_TEXTURE_HEIGHT);
         }
 
         @Override

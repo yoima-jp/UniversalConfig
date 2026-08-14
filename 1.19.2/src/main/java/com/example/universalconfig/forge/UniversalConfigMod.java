@@ -8,8 +8,6 @@ import com.example.universalconfig.core.UniversalConfigFormat;
 import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.UniversalConfigSettings;
 import com.example.universalconfig.forge.screen.ProfileListScreen;
-import com.mojang.blaze3d.platform.InputConstants;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -22,19 +20,14 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.ConfigScreenHandler;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLPaths;
-import org.lwjgl.glfw.GLFW;
 
 import java.nio.file.Path;
 
@@ -46,18 +39,19 @@ public final class UniversalConfigMod {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    private static final int TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE = 54;
+    // Forge 1.19.2の4行表示は最上段が画面下端から40pxで始まる。文字との間には2pxだけ空ける。
+    private static final int TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE = 42;
+    // title_screen_button.png の実寸。画像を差し替える場合は描画APIへ渡す実寸・UV領域と
+    // この定数を必ず一致させる。ボタンの位置・サイズ・描画先サイズは変更しない。
+    private static final int TITLE_SCREEN_ICON_TEXTURE_WIDTH = 15;
+    private static final int TITLE_SCREEN_ICON_TEXTURE_HEIGHT = 15;
 
-    private static KeyMapping openKey;
     private boolean pendingImportLogged;
     private boolean startupChangedOptions;
 
     public UniversalConfigMod() {
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             runStartupImport();
-            IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
-            modBus.addListener(this::registerKeyMappings);
-            modBus.addListener(this::clientSetup);
             MinecraftForge.EVENT_BUS.register(this);
             ModLoadingContext.get().registerExtensionPoint(
                     ConfigScreenHandler.ConfigScreenFactory.class,
@@ -70,43 +64,6 @@ public final class UniversalConfigMod {
         return Minecraft.getInstance();
     }
 
-    private void registerKeyMappings(RegisterKeyMappingsEvent event) {
-        openKey = new KeyMapping(
-                "key.universal_config.open",
-                InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN,
-                "category.universal_config"
-        );
-        event.register(openKey);
-    }
-
-    private void clientSetup(FMLClientSetupEvent event) {
-        if (!startupChangedOptions) {
-            return;
-        }
-        event.enqueueWork(() -> {
-            Path optionsPath = UniversalConfigPaths.optionsFile(FMLPaths.GAMEDIR.get());
-            try {
-                MinecraftOptionsReloader.reloadFromDisk(optionsPath);
-            } catch (RuntimeException ex) {
-                FileOperationLogger.failure("RELOAD_CLIENT_OPTIONS", optionsPath, "startup reload failed", ex);
-            }
-        });
-    }
-
-    @SubscribeEvent
-    public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || openKey == null) {
-            return;
-        }
-        Minecraft minecraft = Minecraft.getInstance();
-        while (openKey.consumeClick()) {
-            if (minecraft.screen == null || minecraft.screen instanceof TitleScreen) {
-                minecraft.setScreen(new ProfileListScreen(minecraft.screen));
-            }
-        }
-    }
-
     @SubscribeEvent
     public void onScreenInit(ScreenEvent.Init.Post event) {
         if (!(event.getScreen() instanceof TitleScreen)) {
@@ -115,6 +72,11 @@ public final class UniversalConfigMod {
         Minecraft minecraft = Minecraft.getInstance();
         reloadStartupOptionsAtTitleScreen();
         logPendingImportStateOnce();
+        // Forge may initialize the same title screen again after a resize or resource reload.
+        // Reuse of that screen must not accumulate overlapping buttons and click listeners.
+        if (event.getListenersList().stream().anyMatch(IconButton.class::isInstance)) {
+            return;
+        }
         Component narration = Component.translatable("button.universal_config.open");
         int y = event.getScreen().height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE;
         IconButton button = new IconButton(TITLE_SCREEN_BUTTON_MARGIN, y,
@@ -217,7 +179,9 @@ public final class UniversalConfigMod {
                     x + TITLE_SCREEN_ICON_PADDING,
                     y + TITLE_SCREEN_ICON_PADDING,
                     iconSize, iconSize,
-                    0.0F, 0.0F, 128, 128, 128, 128);
+                    0.0F, 0.0F,
+                    TITLE_SCREEN_ICON_TEXTURE_WIDTH, TITLE_SCREEN_ICON_TEXTURE_HEIGHT,
+                    TITLE_SCREEN_ICON_TEXTURE_WIDTH, TITLE_SCREEN_ICON_TEXTURE_HEIGHT);
         }
 
         @Override
