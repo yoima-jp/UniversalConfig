@@ -41,6 +41,10 @@ public final class UniversalConfigMod {
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
     // Forge 1.19.2の4行表示は最上段が画面下端から40pxで始まる。文字との間には2pxだけ空ける。
     private static final int TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE = 42;
+    // title_screen_button.png の実寸。画像を差し替える場合は描画APIへ渡す実寸・UV領域と
+    // この定数を必ず一致させる。ボタンの位置・サイズ・描画先サイズは変更しない。
+    private static final int TITLE_SCREEN_ICON_TEXTURE_WIDTH = 15;
+    private static final int TITLE_SCREEN_ICON_TEXTURE_HEIGHT = 15;
 
     private boolean pendingImportLogged;
     private boolean startupChangedOptions;
@@ -175,7 +179,9 @@ public final class UniversalConfigMod {
                     x + TITLE_SCREEN_ICON_PADDING,
                     y + TITLE_SCREEN_ICON_PADDING,
                     iconSize, iconSize,
-                    0.0F, 0.0F, 128, 128, 128, 128);
+                    0.0F, 0.0F,
+                    TITLE_SCREEN_ICON_TEXTURE_WIDTH, TITLE_SCREEN_ICON_TEXTURE_HEIGHT,
+                    TITLE_SCREEN_ICON_TEXTURE_WIDTH, TITLE_SCREEN_ICON_TEXTURE_HEIGHT);
         }
 
         @Override

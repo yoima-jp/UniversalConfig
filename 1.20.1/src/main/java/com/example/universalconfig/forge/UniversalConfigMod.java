@@ -40,6 +40,9 @@ public final class UniversalConfigMod {
             ResourceLocation.fromNamespaceAndPath(MOD_ID, "title_screen_button.png");
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
+    // title_screen_button.png の実寸。画像差し替え時は必ずこの定数と描画へ渡す実寸・UV領域を一致させること。
+    // 描画先サイズ（iconSize）とは独立で、ここはテクスチャ原本のピクセルサイズを表す。
+    private static final int TITLE_SCREEN_ICON_TEXTURE_SIZE = 15;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
     private static final int TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET = 10;
     private static final int TITLE_SCREEN_SYSTEM_TEXT_GAP = 2;
@@ -197,7 +200,9 @@ public final class UniversalConfigMod {
                     getX() + TITLE_SCREEN_ICON_PADDING,
                     getY() + TITLE_SCREEN_ICON_PADDING,
                     iconSize, iconSize,
-                    0.0F, 0.0F, 128, 128, 128, 128);
+                    0.0F, 0.0F,
+                    TITLE_SCREEN_ICON_TEXTURE_SIZE, TITLE_SCREEN_ICON_TEXTURE_SIZE,
+                    TITLE_SCREEN_ICON_TEXTURE_SIZE, TITLE_SCREEN_ICON_TEXTURE_SIZE);
         }
     }
 }

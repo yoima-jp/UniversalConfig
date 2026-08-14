@@ -19,6 +19,10 @@ public final class LegacyTitleButtonHandler {
     // 1.8.9のGuiMainMenuは height-10 の位置に文字列を描画するため、その上に最小限の間隔を確保する。
     private static final int SYSTEM_TEXT_BOTTOM_OFFSET = 10;
     private static final int SYSTEM_TEXT_GAP = 2;
+    // title_screen_button.png の実寸。画像を差し替える場合は描画APIへ渡す実寸・UV領域と
+    // この定数を必ず一致させる。ボタンの位置・サイズ・描画先サイズは変更しない。
+    private static final int ICON_TEXTURE_WIDTH = 15;
+    private static final int ICON_TEXTURE_HEIGHT = 15;
 
     @SubscribeEvent
     public void onInitGui(GuiScreenEvent.InitGuiEvent.Post event) {
@@ -69,7 +73,8 @@ public final class LegacyTitleButtonHandler {
             GL11.glEnable(GL11.GL_BLEND);
             GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
             Gui.drawScaledCustomSizeModalRect(xPosition + 2, yPosition + 2,
-                    0.0F, 0.0F, 128, 128, 16, 16, 128.0F, 128.0F);
+                    0.0F, 0.0F, ICON_TEXTURE_WIDTH, ICON_TEXTURE_HEIGHT, 16, 16,
+                    (float) ICON_TEXTURE_WIDTH, (float) ICON_TEXTURE_HEIGHT);
             GL11.glDisable(GL11.GL_BLEND);
         }
     }
