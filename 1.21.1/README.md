@@ -89,6 +89,15 @@ Universal Config intentionally does not include these folders:
 
 Profiles are for configuration sharing, not complete instance cloning.
 
+Before sharing a `.ucp` or `.ucbackup`, review its contents. Configuration files
+may contain server addresses, usernames, API keys, or third-party configuration
+data. Only share files that you have permission to redistribute. Generated
+archives enforce per-entry and total uncompressed-size limits when read.
+
+Universal Config logs replace known local roots with placeholders before writing
+diagnostic paths. Logs can still contain operation names, profile names, and
+error details, so review them before posting publicly.
+
 ## Development Layout
 
 - Persistent paths and profile archive entry names are defined in `UniversalConfigFormat`.

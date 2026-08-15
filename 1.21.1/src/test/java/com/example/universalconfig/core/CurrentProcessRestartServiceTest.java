@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -196,24 +195,15 @@ class CurrentProcessRestartServiceTest {
     }
 
     @Test
-    void gdLauncherReusesTheResolvedJavaCommandForCarbonInstances() throws Exception {
-        Path instanceDirectory = temporaryDirectory.resolve("data").resolve("instances").resolve("fabric 1.21.1");
-        Path gameDirectory = instanceDirectory.resolve("instance");
-        Files.createDirectories(gameDirectory);
-        Files.writeString(instanceDirectory.resolve("instance.json"), "{}");
+    void unsupportedLauncherUsesLoaderResolvedArguments() {
         String javaExecutable = "C:\\Program Files\\Java\\bin\\java.exe";
         List<String> javaArguments = List.of(
                 "-cp", "C:\\game libraries\\client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient",
-                "--gameDir", gameDirectory.toString());
+                "--gameDir", "C:\\instances\\fabric 1.21.1\\instance");
 
-        CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.gdLauncherCommand(
-                gameDirectory,
-                List.of(
-                        new CurrentProcessRestartService.ProcessCommand("C:\\GDLauncher\\core_module.exe", List.of()),
-                        new CurrentProcessRestartService.ProcessCommand("C:\\GDLauncher\\GDLauncher.exe", List.of())
-                ),
+        CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.unsupportedLauncherCommand(
                 javaExecutable,
-                Optional.of(javaArguments)
+                javaArguments
         ).orElseThrow();
 
         assertEquals(javaExecutable, command.executable());
@@ -221,18 +211,31 @@ class CurrentProcessRestartServiceTest {
     }
 
     @Test
-    void gdLauncherRejectsAJavaProcessWithoutTheCarbonProcessTree() throws Exception {
-        Path instanceDirectory = temporaryDirectory.resolve("data").resolve("instances").resolve("fabric 1.21.1");
-        Path gameDirectory = instanceDirectory.resolve("instance");
-        Files.createDirectories(gameDirectory);
-        Files.writeString(instanceDirectory.resolve("instance.json"), "{}");
-
-        assertTrue(CurrentProcessRestartService.gdLauncherCommand(
-                gameDirectory,
-                List.of(new CurrentProcessRestartService.ProcessCommand("java.exe", List.of())),
+    void unsupportedLauncherDoesNotUseIncompleteArguments() {
+        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
                 "java.exe",
-                Optional.of(List.of("--gameDir", gameDirectory.toString()))
+                List.of("--gameDir", "C:\\instances\\fabric 1.21.1\\instance")
         ).isEmpty());
+        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
+                "java.exe",
+                List.of()
+        ).isEmpty());
+        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
+                "C:\\launchers\\launcher.exe",
+                List.of("-cp", "client.jar", "example.Main")
+        ).isEmpty());
+    }
+
+    @Test
+    void gdLauncherPathIsHandledByTheGenericUnsupportedLauncherPath() {
+        CurrentProcessRestartService.LaunchCommand command =
+                CurrentProcessRestartService.unsupportedLauncherCommand(
+                        "java.exe",
+                        List.of("-cp", "client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient")
+                ).orElseThrow();
+
+        assertEquals("java.exe", command.executable());
+        assertEquals("client.jar", command.arguments().get(1));
     }
 
     @Test

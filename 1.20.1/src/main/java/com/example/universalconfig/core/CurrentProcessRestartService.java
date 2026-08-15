@@ -38,8 +38,8 @@ public final class CurrentProcessRestartService {
     }
 
     /**
-     * Schedules the current Minecraft process to be replaced, using loader-provided arguments when the operating
-     * system does not expose the current process arguments through {@link ProcessHandle}.
+     * Schedules the current Minecraft process to be replaced. Unsupported launchers use the loader-resolved Java
+     * arguments supplied by the loader adapter instead of reconstructing a command line from process metadata.
      */
     public static void scheduleRestartAfterCurrentProcessExit(
             Path workingDirectory,
@@ -52,20 +52,55 @@ public final class CurrentProcessRestartService {
                 .orElseThrow(() -> new UniversalConfigException("Could not determine the current Java executable."));
         Path normalizedWorkingDirectory = normalizeWorkingDirectory(workingDirectory);
         List<ProcessCommand> ancestors = ancestorCommands(current);
-        Optional<List<String>> currentArguments = currentJavaArguments(processInfo, loaderResolvedArguments);
         // Modrinth's documented launch URL requires a database-only internal ID that is not inherited by the game.
         // Guessing it from the folder name could launch the wrong profile, so only self-identifying launchers are used.
         LaunchCommand replacement = prismFamilyLauncherCommand(System.getenv(), normalizedWorkingDirectory, ancestors)
                 .or(() -> atLauncherCommand(normalizedWorkingDirectory, ancestors))
-                .or(() -> gdLauncherCommand(
-                        normalizedWorkingDirectory, ancestors, executable, currentArguments))
-                .orElseGet(() -> currentArguments
-                        .map(values -> new LaunchCommand(executable, values))
+                .orElseGet(() -> unsupportedLauncherCommand(executable, loaderResolvedArguments)
                         .orElse(null));
         if (replacement == null) {
             throw new UniversalConfigException("Could not determine how to restart this launcher instance.");
         }
         scheduleJavaHelper(current.pid(), executable, replacement, normalizedWorkingDirectory);
+    }
+
+    /**
+     * Builds the default restart command for a launcher without a dedicated integration.
+     *
+     * <p>The launcher is intentionally not inspected here. Every launcher that is not recognized by a dedicated
+     * detector follows this path, including GDLauncher and the official launcher.</p>
+     */
+    static Optional<LaunchCommand> unsupportedLauncherCommand(
+            String currentExecutable,
+            List<String> loaderResolvedArguments
+    ) {
+        if (!isJavaExecutable(currentExecutable)) {
+            return Optional.empty();
+        }
+        return validJavaLaunchArguments(loaderResolvedArguments)
+                .map(arguments -> new LaunchCommand(currentExecutable, arguments));
+    }
+
+    private static Optional<List<String>> validJavaLaunchArguments(List<String> arguments) {
+        if (arguments == null || arguments.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            List<String> copied = List.copyOf(arguments);
+            if (copied.stream().anyMatch(value -> value == null || value.isBlank())) {
+                return Optional.empty();
+            }
+            for (int index = 0; index + 2 < copied.size(); index++) {
+                if (("-cp".equals(copied.get(index)) || "-classpath".equals(copied.get(index)))
+                        && !copied.get(index + 1).isBlank()
+                        && !copied.get(index + 2).startsWith("-")) {
+                    return Optional.of(copied);
+                }
+            }
+            return Optional.empty();
+        } catch (RuntimeException ex) {
+            return Optional.empty();
+        }
     }
 
     /**
@@ -89,24 +124,6 @@ public final class CurrentProcessRestartService {
             arguments.add(mainClass);
             arguments.addAll(applicationArguments);
             return List.copyOf(arguments);
-        } catch (RuntimeException ex) {
-            throw new UniversalConfigException("Could not determine the current Java arguments.", ex);
-        }
-    }
-
-    private static Optional<List<String>> currentJavaArguments(
-            ProcessHandle.Info processInfo,
-            List<String> loaderResolvedArguments
-    ) throws UniversalConfigException {
-        try {
-            Optional<List<String>> processArguments = processInfo.arguments().map(List::of);
-            if (processArguments.isPresent()) {
-                return processArguments;
-            }
-            if (loaderResolvedArguments == null || loaderResolvedArguments.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(List.copyOf(loaderResolvedArguments));
         } catch (RuntimeException ex) {
             throw new UniversalConfigException("Could not determine the current Java arguments.", ex);
         }
@@ -279,42 +296,6 @@ public final class CurrentProcessRestartService {
         return Optional.empty();
     }
 
-    static Optional<LaunchCommand> gdLauncherCommand(
-            Path workingDirectory,
-            List<ProcessCommand> ancestorCommands,
-            String currentExecutable,
-            Optional<List<String>> currentArguments
-    ) {
-        if (!isGdLauncherGameDirectory(workingDirectory)
-                || !ancestorCommands.stream().anyMatch(command -> isGdLauncherExecutable(command.executable()))
-                || !ancestorCommands.stream().anyMatch(command -> isGdCoreModuleExecutable(command.executable()))
-                || !isJavaExecutable(currentExecutable)) {
-            return Optional.empty();
-        }
-
-        // Carbon does not provide a stable command-line launch interface for an instance. The core module supervises
-        // the Java child, so reusing the already resolved Java command is the only way to preserve the selected
-        // loader, natives, assets, account, and instance-specific arguments without guessing launcher internals.
-        return currentArguments.map(arguments -> new LaunchCommand(currentExecutable, arguments));
-    }
-
-    private static boolean isGdLauncherGameDirectory(Path workingDirectory) {
-        try {
-            Path gameDirectory = workingDirectory.toAbsolutePath().normalize();
-            Path instanceDirectory = gameDirectory.getParent();
-            Path instancesDirectory = instanceDirectory == null ? null : instanceDirectory.getParent();
-            return gameDirectory.getFileName() != null
-                    && gameDirectory.getFileName().toString().equalsIgnoreCase("instance")
-                    && instanceDirectory != null
-                    && Files.isRegularFile(instanceDirectory.resolve("instance.json"))
-                    && instancesDirectory != null
-                    && instancesDirectory.getFileName() != null
-                    && instancesDirectory.getFileName().toString().equalsIgnoreCase("instances");
-        } catch (RuntimeException ex) {
-            return false;
-        }
-    }
-
     private static Optional<List<String>> atLauncherJarArguments(
             List<String> ancestorArguments,
             List<String> launchArguments
@@ -433,16 +414,6 @@ public final class CurrentProcessRestartService {
     private static boolean isAtLauncherExecutable(String command) {
         String fileName = fileName(command);
         return fileName.equalsIgnoreCase("atlauncher.exe") || fileName.equalsIgnoreCase("atlauncher");
-    }
-
-    private static boolean isGdLauncherExecutable(String command) {
-        String fileName = fileName(command);
-        return fileName.equalsIgnoreCase("gdlauncher.exe") || fileName.equalsIgnoreCase("gdlauncher");
-    }
-
-    private static boolean isGdCoreModuleExecutable(String command) {
-        String fileName = fileName(command);
-        return fileName.equalsIgnoreCase("core_module.exe") || fileName.equalsIgnoreCase("core_module");
     }
 
     private static boolean isJavaExecutable(String command) {

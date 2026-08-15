@@ -19,9 +19,9 @@ public final class FabricRestartService {
     public static void scheduleRestartAfterCurrentProcessExit() throws UniversalConfigException {
         try {
             FabricLoader loader = FabricLoader.getInstance();
-            // GDLauncher does not expose Java arguments through ProcessHandle on Windows. Fabric retains the original
-            // application arguments as an array, while RuntimeMXBean retains JVM argument boundaries. Combining these
-            // sources avoids parsing a quoted command line and preserves paths containing spaces and account tokens.
+            // Fabric retains the original application arguments as an array, while RuntimeMXBean retains JVM
+            // argument boundaries. Combining these sources avoids parsing a quoted command line and preserves paths
+            // containing spaces and account tokens for both supported and unsupported launchers.
             List<String> javaArguments = CurrentProcessRestartService.buildJavaLaunchArguments(
                     ManagementFactory.getRuntimeMXBean().getInputArguments(),
                     System.getProperty("java.class.path", ""),

@@ -49,7 +49,9 @@ public final class ProfileCreateScreen extends Screen {
         String currentDescription = descriptionField == null ? "" : descriptionField.getText();
         boolean includeKeybinds = keybindsCheckbox == null || keybindsCheckbox.isChecked();
         boolean includeClientOptions = clientOptionsCheckbox == null || clientOptionsCheckbox.isChecked();
-        boolean includeModConfigs = modConfigsCheckbox == null || modConfigsCheckbox.isChecked();
+        // configには環境固有の値が含まれることがあるため、保存範囲の広い項目は初期状態で任意選択にする。
+        // 画面再初期化時は、すでに選択された状態を引き続き保持する。
+        boolean includeModConfigs = modConfigsCheckbox != null && modConfigsCheckbox.isChecked();
         int formLeft = width / 2 - FORM_LEFT_OFFSET;
         addDrawableChild(new BlockIconButton(formLeft, NAME_FIELD_Y, ICON_BUTTON_SIZE, ICON_BUTTON_SIZE,
                 Text.translatable("screen.universal_config.profile_icon_change", iconLabel(selectedIconId)),

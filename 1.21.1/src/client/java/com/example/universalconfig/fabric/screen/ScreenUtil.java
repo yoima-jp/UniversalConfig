@@ -43,7 +43,7 @@ final class ScreenUtil {
 
     /**
      * 1.21.1のScreen.renderBackgroundはワールド中では暗い半透明レイヤーだけを描くため、
-     * 画面遷移直後の前フレームが透けないよう、1.20.1相当の不透明背景を描画する。
+     * 画面遷移直後の前フレームが透けないよう、明示的に不透明背景を描画する。
      */
     static void renderBackground(Screen screen, DrawContext context, int mouseX, int mouseY, float delta) {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -52,8 +52,6 @@ final class ScreenUtil {
         } else {
             screen.renderBackground(context, mouseX, mouseY, delta);
         }
-        // Screen.renderBackground in 1.21.1 intentionally uses translucent darkening. Clear the
-        // whole framebuffer after it so a screen that was replaced cannot remain visible behind us.
         context.fill(0, 0, screen.width, screen.height, OPAQUE_BACKGROUND_COLOR);
     }
 

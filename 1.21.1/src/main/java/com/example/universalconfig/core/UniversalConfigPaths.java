@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.List;
 
 public final class UniversalConfigPaths {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -39,14 +40,16 @@ public final class UniversalConfigPaths {
                     UniversalConfigSettings settings = new UniversalConfigSettings(Path.of(dto.rootDirectory));
                     boolean invalidDefaultProfilePath = hasInvalidDefaultProfilePath(dto.defaultProfilePath);
                     settings.setDefaultProfilePath(parseDefaultProfilePath(dto.defaultProfilePath));
+                    settings.setProfileOrder(dto.profileOrder);
                     ensureDirectories(settings);
-                    FileOperationLogger.configure(settings);
+                    FileOperationLogger.configure(settings, minecraftRunDirectory);
                     Path sharedSettingsFile = rootSettingsFile(settings);
                     if (Files.isRegularFile(sharedSettingsFile)) {
                         SettingsDto sharedDto = readSettingsDto(sharedSettingsFile);
                         invalidDefaultProfilePath = hasInvalidDefaultProfilePath(sharedDto == null ? null : sharedDto.defaultProfilePath);
                         settings.setDefaultProfilePath(parseDefaultProfilePath(
                                 sharedDto == null ? null : sharedDto.defaultProfilePath));
+                        settings.setProfileOrder(sharedDto == null ? null : sharedDto.profileOrder);
                     } else {
                         // Older versions stored the default only inside one instance. Migrate it to the shared root.
                         saveRootSettings(settings);
@@ -64,12 +67,13 @@ public final class UniversalConfigPaths {
 
         UniversalConfigSettings settings = new UniversalConfigSettings(defaultRootDirectory());
         ensureDirectories(settings);
-        FileOperationLogger.configure(settings);
+        FileOperationLogger.configure(settings, minecraftRunDirectory);
         Path sharedSettingsFile = rootSettingsFile(settings);
         if (Files.isRegularFile(sharedSettingsFile)) {
             SettingsDto sharedDto = readSettingsDto(sharedSettingsFile);
             settings.setDefaultProfilePath(parseDefaultProfilePath(
                     sharedDto == null ? null : sharedDto.defaultProfilePath));
+            settings.setProfileOrder(sharedDto == null ? null : sharedDto.profileOrder);
         }
         saveSettings(minecraftRunDirectory, settings);
         return settings;
@@ -84,6 +88,7 @@ public final class UniversalConfigPaths {
             dto.defaultProfilePath = settings.defaultProfilePath() == null
                     ? null
                     : settings.defaultProfilePath().toAbsolutePath().normalize().toString();
+            dto.profileOrder = settings.profileOrder();
             try (Writer writer = Files.newBufferedWriter(localSettings, StandardCharsets.UTF_8)) {
                 GSON.toJson(dto, writer);
             }
@@ -159,6 +164,7 @@ public final class UniversalConfigPaths {
     private static final class SettingsDto {
         String rootDirectory;
         String defaultProfilePath;
+        List<String> profileOrder;
     }
 
     private static SettingsDto readSettingsDto(Path path) throws UniversalConfigException {
@@ -178,6 +184,7 @@ public final class UniversalConfigPaths {
             dto.defaultProfilePath = settings.defaultProfilePath() == null
                     ? null
                     : settings.defaultProfilePath().toAbsolutePath().normalize().toString();
+            dto.profileOrder = settings.profileOrder();
             try (Writer writer = Files.newBufferedWriter(rootSettings, StandardCharsets.UTF_8)) {
                 GSON.toJson(dto, writer);
             }
