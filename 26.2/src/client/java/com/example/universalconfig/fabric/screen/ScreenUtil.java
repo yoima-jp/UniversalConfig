@@ -10,9 +10,11 @@ import com.example.universalconfig.fabric.UniversalConfigMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ItemLike;
+import com.example.universalconfig.core.ProfileIcon;
+import net.minecraft.resources.Identifier;
 
 import java.nio.file.Path;
 
@@ -51,15 +53,25 @@ final class ScreenUtil {
     }
 
     /**
-     * Item components are bound after the client registries finish loading.
-     * Screens can be opened while the loading overlay is still unwinding, so
-     * do not construct an ItemStack until the registry holder is ready.
+     * Draw profile icons through the 26.2 GUI texture pipeline. This avoids
+     * ItemStack component binding during world-free screens while keeping the
+     * icon rendering independent of item-model extraction.
      */
-    static ItemStack itemStackIfReady(ItemLike item) {
-        if (!item.asItem().builtInRegistryHolder().areComponentsBound()) {
-            return ItemStack.EMPTY;
-        }
-        return new ItemStack(item);
+    static void drawIcon(GuiGraphicsExtractor context, String iconId, int x, int y, int size) {
+        String normalized = ProfileIcon.normalize(iconId);
+        Identifier texture = switch (normalized) {
+            case ProfileIcon.CRAFTING_TABLE -> Identifier.withDefaultNamespace("textures/block/crafting_table_side.png");
+            case ProfileIcon.BOOKSHELF -> Identifier.withDefaultNamespace("textures/block/bookshelf.png");
+            case ProfileIcon.COBBLESTONE -> Identifier.withDefaultNamespace("textures/block/cobblestone.png");
+            case ProfileIcon.TNT -> Identifier.withDefaultNamespace("textures/block/tnt_side.png");
+            case ProfileIcon.CHEST -> Identifier.withDefaultNamespace("textures/entity/chest/normal.png");
+            case ProfileIcon.FURNACE -> Identifier.withDefaultNamespace("textures/block/furnace_side.png");
+            case ProfileIcon.DIAMOND_BLOCK -> Identifier.withDefaultNamespace("textures/block/diamond_block.png");
+            default -> Identifier.withDefaultNamespace("textures/block/grass_block_side.png");
+        };
+        int textureSize = ProfileIcon.CHEST.equals(normalized) ? 64 : 16;
+        context.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0.0F, 0.0F,
+                size, size, textureSize, textureSize, -1);
     }
 
     static void reloadMinecraftOptionsFromDisk() throws UniversalConfigException {

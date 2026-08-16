@@ -17,8 +17,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.ItemLike;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.network.chat.Component;
@@ -1054,25 +1052,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private void drawProfileIcon(GuiGraphicsExtractor context, int x, int y, int size, String iconId) {
-        ItemLike item = switch (ProfileIcon.normalize(iconId)) {
-            case ProfileIcon.CRAFTING_TABLE -> Blocks.CRAFTING_TABLE;
-            case ProfileIcon.BOOKSHELF -> Blocks.BOOKSHELF;
-            case ProfileIcon.COBBLESTONE -> Blocks.COBBLESTONE;
-            case ProfileIcon.TNT -> Blocks.TNT;
-            case ProfileIcon.CHEST -> Blocks.CHEST;
-            case ProfileIcon.FURNACE -> Blocks.FURNACE;
-            case ProfileIcon.DIAMOND_BLOCK -> Blocks.DIAMOND_BLOCK;
-            default -> Blocks.GRASS_BLOCK;
-        };
-        ItemStack stack = ScreenUtil.itemStackIfReady(item);
-        if (stack.isEmpty()) {
-            return;
-        }
         float scale = size / 16.0F;
         context.pose().pushMatrix();
         context.pose().translate(x, y);
         context.pose().scale(scale, scale);
-        context.item(stack, 0, 0);
+        ScreenUtil.drawIcon(context, iconId, 0, 0, 16);
         context.pose().popMatrix();
     }
 

@@ -9,9 +9,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ItemLike;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
@@ -126,24 +123,7 @@ public final class ProfileCreateScreen extends Screen {
         int statusY = Math.min(STATUS_PREFERRED_Y, height - 32 - STATUS_FOOTER_GAP);
         context.text(font, status, formLeft, statusY, 0xFF7777);
         super.extractRenderState(context, mouseX, mouseY, delta);
-        ItemStack stack = iconStack(selectedIconId);
-        if (!stack.isEmpty()) {
-            context.item(stack, formLeft + 2, NAME_FIELD_Y + 2);
-        }
-    }
-
-    private ItemStack iconStack(String iconId) {
-        ItemLike item = switch (ProfileIcon.normalize(iconId)) {
-            case ProfileIcon.CRAFTING_TABLE -> Blocks.CRAFTING_TABLE;
-            case ProfileIcon.BOOKSHELF -> Blocks.BOOKSHELF;
-            case ProfileIcon.COBBLESTONE -> Blocks.COBBLESTONE;
-            case ProfileIcon.TNT -> Blocks.TNT;
-            case ProfileIcon.CHEST -> Blocks.CHEST;
-            case ProfileIcon.FURNACE -> Blocks.FURNACE;
-            case ProfileIcon.DIAMOND_BLOCK -> Blocks.DIAMOND_BLOCK;
-            default -> Blocks.GRASS_BLOCK;
-        };
-        return ScreenUtil.itemStackIfReady(item);
+        ScreenUtil.drawIcon(context, selectedIconId, formLeft + 2, NAME_FIELD_Y + 2, 16);
     }
 
     /**

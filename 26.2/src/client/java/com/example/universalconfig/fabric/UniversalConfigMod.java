@@ -58,8 +58,6 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 );
                 openButton.setTooltip(Tooltip.create(buttonLabel));
                 Screens.getWidgets(screen).add(openButton);
-                ScreenEvents.afterExtract(screen).register((currentScreen, context, mouseX, mouseY, delta) ->
-                        openButton.extractIcon(context));
             }
         });
     }
@@ -104,11 +102,8 @@ public final class UniversalConfigMod implements ClientModInitializer {
         protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
             // バニラのボタン背景とホバー状態をそのまま使い、タイトル画面の他ボタンと見た目を揃える。
             extractDefaultSprite(context);
-        }
-
-        private void extractIcon(GuiGraphicsExtractor context) {
-            // 26.2では u/v の直後が描画サイズ、その後がテクスチャ全体の実寸になる。
-            // ここにソース矩形の左上を追加すると、描画領域が0x0になりアイコンが消える。
+            // アイコンもWidget自身の抽出処理に追加する。画面全体のafterExtractイベントに依存すると、
+            // 画面遷移やWidgetレイヤーの順序変更で、ボタン背景だけが残る可能性がある。
             int iconSize = TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_ICON_PADDING * 2;
             context.blit(RenderPipelines.GUI_TEXTURED, TITLE_SCREEN_BUTTON_TEXTURE,
                     getX() + TITLE_SCREEN_ICON_PADDING,
