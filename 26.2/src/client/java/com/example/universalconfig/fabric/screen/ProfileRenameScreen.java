@@ -29,6 +29,11 @@ public final class ProfileRenameScreen extends Screen {
     }
 
     @Override
+    public void onClose() {
+        ScreenUtil.setScreen(minecraft, parent);
+    }
+
+    @Override
     protected void init() {
         int left = (width - FORM_WIDTH) / 2;
         nameField = new EditBox(font, left, FIELD_Y, FORM_WIDTH, 20,
@@ -38,7 +43,7 @@ public final class ProfileRenameScreen extends Screen {
         addRenderableWidget(nameField);
         addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.rename"), button -> rename())
                 .bounds(width / 2 - 104, height - 32, 100, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> minecraft.gui.setScreen(parent))
+        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> ScreenUtil.setScreen(minecraft, parent))
                 .bounds(width / 2 + 4, height - 32, 100, 20).build());
         nameField.setFocused(true);
         setInitialFocus(nameField);
@@ -53,7 +58,7 @@ public final class ProfileRenameScreen extends Screen {
             ProfileService service = ScreenUtil.service();
             service.renameProfile(profilePath, nameField.getValue());
             onRenamed.run();
-            minecraft.gui.setScreen(parent);
+            ScreenUtil.setScreen(minecraft, parent);
         } catch (UniversalConfigException ex) {
             status = Component.translatable("screen.universal_config.rename_failed");
         }

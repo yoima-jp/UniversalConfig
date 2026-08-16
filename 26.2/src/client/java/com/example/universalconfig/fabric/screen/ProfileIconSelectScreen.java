@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ItemLike;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Component;
 
@@ -52,12 +53,12 @@ final class ProfileIconSelectScreen extends Screen {
     private void select(String iconId) {
         selectedIconId = iconId;
         selectionConsumer.accept(iconId);
-        minecraft.gui.setScreen(parent);
+        ScreenUtil.setScreen(minecraft, parent);
     }
 
     @Override
     public void onClose() {
-        minecraft.gui.setScreen(parent);
+        ScreenUtil.setScreen(minecraft, parent);
     }
 
     @Override
@@ -71,7 +72,10 @@ final class ProfileIconSelectScreen extends Screen {
         for (int index = 0; index < ICON_IDS.length; index++) {
             int x = left + index % COLUMNS * (BUTTON_SIZE + BUTTON_GAP);
             int y = top + index / COLUMNS * (BUTTON_SIZE + BUTTON_GAP);
-            context.item(iconStack(ICON_IDS[index]), x + 9, y + 9);
+            ItemStack stack = iconStack(ICON_IDS[index]);
+            if (!stack.isEmpty()) {
+                context.item(stack, x + 9, y + 9);
+            }
         }
         int selectedIndex = Arrays.asList(ICON_IDS).indexOf(selectedIconId);
         if (selectedIndex >= 0) {
@@ -87,16 +91,17 @@ final class ProfileIconSelectScreen extends Screen {
     }
 
     private ItemStack iconStack(String iconId) {
-        return switch (ProfileIcon.normalize(iconId)) {
-            case ProfileIcon.CRAFTING_TABLE -> new ItemStack(Blocks.CRAFTING_TABLE);
-            case ProfileIcon.BOOKSHELF -> new ItemStack(Blocks.BOOKSHELF);
-            case ProfileIcon.COBBLESTONE -> new ItemStack(Blocks.COBBLESTONE);
-            case ProfileIcon.TNT -> new ItemStack(Blocks.TNT);
-            case ProfileIcon.CHEST -> new ItemStack(Blocks.CHEST);
-            case ProfileIcon.FURNACE -> new ItemStack(Blocks.FURNACE);
-            case ProfileIcon.DIAMOND_BLOCK -> new ItemStack(Blocks.DIAMOND_BLOCK);
-            default -> new ItemStack(Blocks.GRASS_BLOCK);
+        ItemLike item = switch (ProfileIcon.normalize(iconId)) {
+            case ProfileIcon.CRAFTING_TABLE -> Blocks.CRAFTING_TABLE;
+            case ProfileIcon.BOOKSHELF -> Blocks.BOOKSHELF;
+            case ProfileIcon.COBBLESTONE -> Blocks.COBBLESTONE;
+            case ProfileIcon.TNT -> Blocks.TNT;
+            case ProfileIcon.CHEST -> Blocks.CHEST;
+            case ProfileIcon.FURNACE -> Blocks.FURNACE;
+            case ProfileIcon.DIAMOND_BLOCK -> Blocks.DIAMOND_BLOCK;
+            default -> Blocks.GRASS_BLOCK;
         };
+        return ScreenUtil.itemStackIfReady(item);
     }
 
     private static final class IconButton extends Button {

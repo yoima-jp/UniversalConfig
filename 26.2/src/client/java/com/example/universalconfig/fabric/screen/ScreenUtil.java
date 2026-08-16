@@ -9,7 +9,10 @@ import com.example.universalconfig.fabric.FabricEnvironmentDetector;
 import com.example.universalconfig.fabric.UniversalConfigMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ItemLike;
 
 import java.nio.file.Path;
 
@@ -41,6 +44,22 @@ final class ScreenUtil {
             current = current.getCause();
         }
         return Component.literal(current.getMessage() == null ? ex.toString() : current.getMessage());
+    }
+
+    static void setScreen(Minecraft minecraft, Screen screen) {
+        UniversalConfigMod.scheduleScreen(minecraft, screen);
+    }
+
+    /**
+     * Item components are bound after the client registries finish loading.
+     * Screens can be opened while the loading overlay is still unwinding, so
+     * do not construct an ItemStack until the registry holder is ready.
+     */
+    static ItemStack itemStackIfReady(ItemLike item) {
+        if (!item.asItem().builtInRegistryHolder().areComponentsBound()) {
+            return ItemStack.EMPTY;
+        }
+        return new ItemStack(item);
     }
 
     static void reloadMinecraftOptionsFromDisk() throws UniversalConfigException {

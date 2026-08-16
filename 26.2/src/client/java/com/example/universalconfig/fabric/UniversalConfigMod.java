@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.Button;
@@ -29,8 +30,8 @@ public final class UniversalConfigMod implements ClientModInitializer {
     private static final int TITLE_SCREEN_SYSTEM_TEXT_GAP = 4;
     // title_screen_button.png はボタン専用の15x15画像を使用する。drawTexture には
     // テクスチャ全体のピクセル幅・高さを渡す必要があるため、画像差し替え時はここも一致させる。
-    // FabricのGuiGraphicsExtractor#drawTexture は (u,v)-(uRegion,vRegion) をテクスチャ全体で正規化するため、
-    // 実寸を正しく指定しないと画像の左上一部分しか描画されない。
+    // GuiGraphicsExtractor#blit は u/v の後に描画サイズとテクスチャ全体の実寸を受け取るため、
+    // 画像差し替え時はテクスチャ全体の幅・高さも一致させる。
     private static final int TITLE_SCREEN_TEXTURE_WIDTH = 15;
     private static final int TITLE_SCREEN_TEXTURE_HEIGHT = 15;
 
@@ -52,16 +53,24 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 IconButton openButton = new IconButton(
                         TITLE_SCREEN_BUTTON_MARGIN,
                         titleScreenButtonY(client, screen.height),
-                        // setScreenAndShow renders synchronously in 26.2. The profile screen performs
-                        // archive and settings reads while initializing, so install it for the next frame
-                        // instead of re-entering rendering from the title-screen button callback.
-                        button -> client.gui.setScreen(new ProfileListScreen(screen)),
+                        button -> scheduleScreen(client, new ProfileListScreen(screen)),
                         buttonLabel
                 );
                 openButton.setTooltip(Tooltip.create(buttonLabel));
                 Screens.getWidgets(screen).add(openButton);
+                ScreenEvents.afterExtract(screen).register((currentScreen, context, mouseX, mouseY, delta) ->
+                        openButton.extractIcon(context));
             }
         });
+    }
+
+    /**
+     * Screen callbacks run while the current screen is processing input. Queue
+     * the replacement so Fabric's per-screen event state is fully unwound
+     * before the next screen is initialized.
+     */
+    public static void scheduleScreen(Minecraft client, Screen screen) {
+        client.schedule(() -> client.gui.setScreen(screen));
     }
 
     private static int titleScreenButtonY(Minecraft client, int screenHeight) {
@@ -95,17 +104,17 @@ public final class UniversalConfigMod implements ClientModInitializer {
         protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
             // バニラのボタン背景とホバー状態をそのまま使い、タイトル画面の他ボタンと見た目を揃える。
             extractDefaultSprite(context);
-            // 26.2のGuiGraphicsExtractorでは、非パイプライン版のblitは正規化UVを受け取る一方、
-            // テクスチャ画像のピクセル範囲を明示するにはGUIテクスチャ用パイプラインを使う。
-            // 旧シグネチャへ1.0のUVを渡すと、26.2のRenderState抽出時に画像が正しく解決されず、
-            // ボタン背景だけが描画されるため、ソース範囲とテクスチャ実寸を明示する。
+        }
+
+        private void extractIcon(GuiGraphicsExtractor context) {
+            // 26.2では u/v の直後が描画サイズ、その後がテクスチャ全体の実寸になる。
+            // ここにソース矩形の左上を追加すると、描画領域が0x0になりアイコンが消える。
             int iconSize = TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_ICON_PADDING * 2;
             context.blit(RenderPipelines.GUI_TEXTURED, TITLE_SCREEN_BUTTON_TEXTURE,
                     getX() + TITLE_SCREEN_ICON_PADDING,
                     getY() + TITLE_SCREEN_ICON_PADDING,
                     0.0F, 0.0F,
                     iconSize, iconSize,
-                    0, 0,
                     TITLE_SCREEN_TEXTURE_WIDTH, TITLE_SCREEN_TEXTURE_HEIGHT,
                     -1);
         }
