@@ -65,7 +65,9 @@ final class ScreenUtil {
      * reject the registry holder, so use a patched component map containing the
      * vanilla common defaults and this item's model id for a read-only GUI
      * preview. The resulting stack still goes through the normal item model
-     * resolver and GuiGraphicsExtractor item render state.
+     * resolver and GuiGraphicsExtractor item render state. Use the regular
+     * item submission method so the same owner/context-sensitive path as
+     * vanilla inventory widgets is used when a client player is available.
      */
     static void drawIcon(GuiGraphicsExtractor context, String iconId, int x, int y, int size) {
         String itemId = switch (ProfileIcon.normalize(iconId)) {
@@ -95,14 +97,14 @@ final class ScreenUtil {
             stack = ItemStackAccessor.universalConfig$create(item, 1, previewComponents);
         }
         if (size == 16) {
-            context.fakeItem(stack, x, y);
+            context.item(stack, x, y);
             return;
         }
         float scale = size / 16.0F;
         context.pose().pushMatrix();
         context.pose().translate(x, y);
         context.pose().scale(scale, scale);
-        context.fakeItem(stack, 0, 0);
+        context.item(stack, 0, 0);
         context.pose().popMatrix();
     }
 
