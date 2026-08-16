@@ -55,7 +55,7 @@ public final class ProfileCreateScreen extends Screen {
         int formLeft = width / 2 - FORM_LEFT_OFFSET;
         addRenderableWidget(new BlockIconButton(formLeft, NAME_FIELD_Y, ICON_BUTTON_SIZE, ICON_BUTTON_SIZE,
                 Component.translatable("screen.universal_config.profile_icon_change", iconLabel(selectedIconId)),
-                button -> minecraft.setScreenAndShow(new ProfileIconSelectScreen(this, selectedIconId,
+                button -> minecraft.gui.setScreen(new ProfileIconSelectScreen(this, selectedIconId,
                         iconId -> selectedIconId = iconId))));
         nameField = new EditBox(font,
                 formLeft + ICON_BUTTON_SIZE + FIELD_GAP, NAME_FIELD_Y,
@@ -80,7 +80,7 @@ public final class ProfileCreateScreen extends Screen {
         addRenderableWidget(modConfigsCheckbox);
         addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.save"), button -> create())
                 .bounds(width / 2 - 104, height - 32, 100, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> minecraft.setScreenAndShow(parent))
+        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> minecraft.gui.setScreen(parent))
                 .bounds(width / 2 + 4, height - 32, 100, 20).build());
     }
 
@@ -99,7 +99,7 @@ public final class ProfileCreateScreen extends Screen {
             options.includeModConfigs = modConfigsCheckbox.selected();
             ProfileService service = ScreenUtil.service();
             service.createProfile(ScreenUtil.instancePath(), options, ScreenUtil.environment());
-            minecraft.setScreenAndShow(parent);
+            minecraft.gui.setScreen(parent);
         } catch (UniversalConfigException ex) {
             status = ScreenUtil.errorText(ex);
         }

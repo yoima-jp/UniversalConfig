@@ -14,6 +14,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -51,7 +52,10 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 IconButton openButton = new IconButton(
                         TITLE_SCREEN_BUTTON_MARGIN,
                         titleScreenButtonY(client, screen.height),
-                        button -> client.setScreenAndShow(new ProfileListScreen(screen)),
+                        // setScreenAndShow renders synchronously in 26.2. The profile screen performs
+                        // archive and settings reads while initializing, so install it for the next frame
+                        // instead of re-entering rendering from the title-screen button callback.
+                        button -> client.gui.setScreen(new ProfileListScreen(screen)),
                         buttonLabel
                 );
                 openButton.setTooltip(Tooltip.create(buttonLabel));
@@ -91,16 +95,19 @@ public final class UniversalConfigMod implements ClientModInitializer {
         protected void extractContents(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
             // バニラのボタン背景とホバー状態をそのまま使い、タイトル画面の他ボタンと見た目を揃える。
             extractDefaultSprite(context);
-            // ボタン専用の15px画像全体を縮小描画する。TexturedButton では左上1枠が
-            // 等倍で切り抜かれるため、本実装では drawTexture でテクスチャ全体をボタン内に収める。
-            // 画像を差し替えた際は TITLE_SCREEN_TEXTURE_WIDTH/HEIGHT と実寸を一致させること。
+            // 26.2のGuiGraphicsExtractorでは、非パイプライン版のblitは正規化UVを受け取る一方、
+            // テクスチャ画像のピクセル範囲を明示するにはGUIテクスチャ用パイプラインを使う。
+            // 旧シグネチャへ1.0のUVを渡すと、26.2のRenderState抽出時に画像が正しく解決されず、
+            // ボタン背景だけが描画されるため、ソース範囲とテクスチャ実寸を明示する。
             int iconSize = TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_ICON_PADDING * 2;
-            context.blit(TITLE_SCREEN_BUTTON_TEXTURE,
+            context.blit(RenderPipelines.GUI_TEXTURED, TITLE_SCREEN_BUTTON_TEXTURE,
                     getX() + TITLE_SCREEN_ICON_PADDING,
                     getY() + TITLE_SCREEN_ICON_PADDING,
-                    iconSize,
-                    iconSize,
-                    0.0F, 0.0F, 1.0F, 1.0F);
+                    0.0F, 0.0F,
+                    iconSize, iconSize,
+                    0, 0,
+                    TITLE_SCREEN_TEXTURE_WIDTH, TITLE_SCREEN_TEXTURE_HEIGHT,
+                    -1);
         }
     }
 

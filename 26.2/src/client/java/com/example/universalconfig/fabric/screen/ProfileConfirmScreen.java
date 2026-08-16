@@ -55,7 +55,7 @@ public final class ProfileConfirmScreen extends Screen {
 
     @Override
     public void onClose() {
-        minecraft.setScreenAndShow(parent);
+        minecraft.gui.setScreen(parent);
     }
 
     private void loadDiff() {
@@ -169,7 +169,7 @@ public final class ProfileConfirmScreen extends Screen {
         }
         try {
             ScreenUtil.service().scheduleApplyOnNextStart(ScreenUtil.instancePath(), profilePath, ScreenUtil.environment());
-            minecraft.setScreenAndShow(new ApplyScheduledScreen(parent));
+            minecraft.gui.setScreen(new ApplyScheduledScreen(parent));
         } catch (UniversalConfigException | RuntimeException ex) {
             status = ex instanceof UniversalConfigException universalConfigException
                     ? ScreenUtil.errorText(universalConfigException)

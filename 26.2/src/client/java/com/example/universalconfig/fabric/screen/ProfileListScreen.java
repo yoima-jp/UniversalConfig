@@ -114,7 +114,7 @@ public final class ProfileListScreen extends Screen {
 
     @Override
     public void onClose() {
-        minecraft.setScreenAndShow(parent);
+        minecraft.gui.setScreen(parent);
     }
 
     private void reload() {
@@ -323,7 +323,7 @@ public final class ProfileListScreen extends Screen {
         }
 
         addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.save_current"),
-                        button -> minecraft.setScreenAndShow(new ProfileCreateScreen(this)))
+                        button -> minecraft.gui.setScreen(new ProfileCreateScreen(this)))
                 .bounds(contentLeft(), footerButtonY(), contentWidth(), BUTTON_HEIGHT).build());
 
         if (pendingImport != null) {
@@ -410,7 +410,7 @@ public final class ProfileListScreen extends Screen {
         String currentName = summary == null ? translation("screen.universal_config.this_profile")
                 : profileName(summary.manifest());
         moreMenuOpen = false;
-        minecraft.setScreenAndShow(new ProfileRenameScreen(this, path, currentName, () -> {
+        minecraft.gui.setScreen(new ProfileRenameScreen(this, path, currentName, () -> {
             status = Component.empty();
             reload();
             rebuildButtons();
@@ -438,7 +438,7 @@ public final class ProfileListScreen extends Screen {
 
     private void openConfirm(Path path) {
         try {
-            minecraft.setScreenAndShow(new ProfileConfirmScreen(this, path));
+            minecraft.gui.setScreen(new ProfileConfirmScreen(this, path));
         } catch (RuntimeException ex) {
             FileOperationLogger.failure("OPEN_PROFILE_CONFIRM", path, "failed", ex);
             status = Component.translatable("screen.universal_config.open_confirm_failed");
@@ -449,11 +449,11 @@ public final class ProfileListScreen extends Screen {
         try {
             ProfileManifest manifest = ScreenUtil.service().readManifest(source);
             String name = profileName(manifest);
-            minecraft.setScreenAndShow(new ConfirmScreen(confirmed -> {
+            minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
                 if (confirmed) {
                     importProfile(source);
                 } else {
-                    minecraft.setScreenAndShow(this);
+                    minecraft.gui.setScreen(this);
                 }
             }, Component.translatable("screen.universal_config.import_confirm", name),
                     Component.translatable("screen.universal_config.import_warning")));
@@ -478,7 +478,7 @@ public final class ProfileListScreen extends Screen {
             FileOperationLogger.failure("IMPORT_PROFILE_FROM_DROP", source, "failed", ex);
             status = Component.translatable("screen.universal_config.import_failed");
         }
-        minecraft.setScreenAndShow(this);
+        minecraft.gui.setScreen(this);
     }
 
     private void duplicate(Path path) {
@@ -497,11 +497,11 @@ public final class ProfileListScreen extends Screen {
         ProfileSummary summary = profiles.stream().filter(profile -> profile.path().equals(path)).findFirst().orElse(null);
         String name = summary == null ? translation("screen.universal_config.this_profile") : profileName(summary.manifest());
         try {
-            minecraft.setScreenAndShow(new ConfirmScreen(confirmed -> {
+            minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
                 if (confirmed) {
                     delete(path);
                 } else {
-                    minecraft.setScreenAndShow(this);
+                    minecraft.gui.setScreen(this);
                 }
             }, Component.translatable("screen.universal_config.delete_confirm", name),
                     Component.translatable("screen.universal_config.delete_warning")));
@@ -519,10 +519,10 @@ public final class ProfileListScreen extends Screen {
             moreMenuOpen = false;
             reload();
             rebuildButtons();
-            minecraft.setScreenAndShow(this);
+            minecraft.gui.setScreen(this);
         } catch (UniversalConfigException | RuntimeException ex) {
             handleActionFailure(ex, "screen.universal_config.delete_failed");
-            minecraft.setScreenAndShow(this);
+            minecraft.gui.setScreen(this);
         }
     }
 
@@ -594,7 +594,7 @@ public final class ProfileListScreen extends Screen {
         } catch (UniversalConfigException | RuntimeException ex) {
             FileOperationLogger.failure("RESTART_FOR_PENDING_APPLY", pendingPath, "failed", ex);
             restarting = false;
-            minecraft.setScreenAndShow(ApplyScheduledScreen.restartFailed(this));
+            minecraft.gui.setScreen(ApplyScheduledScreen.restartFailed(this));
         }
     }
 

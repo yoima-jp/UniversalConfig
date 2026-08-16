@@ -38,7 +38,7 @@ public final class ProfileRenameScreen extends Screen {
         addRenderableWidget(nameField);
         addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.rename"), button -> rename())
                 .bounds(width / 2 - 104, height - 32, 100, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> minecraft.setScreenAndShow(parent))
+        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> minecraft.gui.setScreen(parent))
                 .bounds(width / 2 + 4, height - 32, 100, 20).build());
         nameField.setFocused(true);
         setInitialFocus(nameField);
@@ -53,7 +53,7 @@ public final class ProfileRenameScreen extends Screen {
             ProfileService service = ScreenUtil.service();
             service.renameProfile(profilePath, nameField.getValue());
             onRenamed.run();
-            minecraft.setScreenAndShow(parent);
+            minecraft.gui.setScreen(parent);
         } catch (UniversalConfigException ex) {
             status = Component.translatable("screen.universal_config.rename_failed");
         }

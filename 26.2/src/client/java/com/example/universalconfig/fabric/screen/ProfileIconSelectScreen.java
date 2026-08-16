@@ -52,12 +52,12 @@ final class ProfileIconSelectScreen extends Screen {
     private void select(String iconId) {
         selectedIconId = iconId;
         selectionConsumer.accept(iconId);
-        minecraft.setScreenAndShow(parent);
+        minecraft.gui.setScreen(parent);
     }
 
     @Override
     public void onClose() {
-        minecraft.setScreenAndShow(parent);
+        minecraft.gui.setScreen(parent);
     }
 
     @Override

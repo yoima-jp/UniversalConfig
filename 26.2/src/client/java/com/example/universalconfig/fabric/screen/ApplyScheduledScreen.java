@@ -147,7 +147,7 @@ public final class ApplyScheduledScreen extends Screen {
 
     @Override
     public void onClose() {
-        minecraft.setScreenAndShow(parent);
+        minecraft.gui.setScreen(parent);
     }
 
     @Override
@@ -212,7 +212,7 @@ public final class ApplyScheduledScreen extends Screen {
             // from launcher detection so the user is sent back to create a new reservation instead of quitting.
             FileOperationLogger.failure("RESTART_AFTER_SCHEDULE", pendingPath, "pending import invalid", ex);
             restarting = false;
-            minecraft.setScreenAndShow(new ApplyScheduledScreen(parent, State.PENDING_INVALID));
+            minecraft.gui.setScreen(new ApplyScheduledScreen(parent, State.PENDING_INVALID));
             return;
         }
 
@@ -223,7 +223,7 @@ public final class ApplyScheduledScreen extends Screen {
         } catch (UniversalConfigException | RuntimeException ex) {
             FileOperationLogger.failure("RESTART_AFTER_SCHEDULE", pendingPath, "failed", ex);
             restarting = false;
-            minecraft.setScreenAndShow(new ApplyScheduledScreen(this, State.RESTART_FAILED));
+            minecraft.gui.setScreen(new ApplyScheduledScreen(this, State.RESTART_FAILED));
         }
     }
 
