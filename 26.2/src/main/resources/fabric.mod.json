@@ -18,6 +18,9 @@
   "license": "MIT",
   "icon": "assets/universal_config/icon.png",
   "environment": "client",
+  "mixins": [
+    "universal_config.mixins.json"
+  ],
   "entrypoints": {
     "preLaunch": [
       "com.example.universalconfig.fabric.UniversalConfigPreLaunch"

@@ -22,6 +22,11 @@ public final class BackupListScreen extends Screen {
     }
 
     @Override
+    public void onClose() {
+        ScreenUtil.setScreen(minecraft, parent);
+    }
+
+    @Override
     protected void init() {
         reload();
         rebuildButtons();
@@ -43,7 +48,7 @@ public final class BackupListScreen extends Screen {
             reload();
             rebuildButtons();
         }).bounds(width - 118, 8, 52, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> minecraft.gui.setScreen(parent))
+        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> ScreenUtil.setScreen(minecraft, parent))
                 .bounds(width - 60, 8, 52, 20).build());
 
         int y = 42;

@@ -9,7 +9,18 @@ import com.example.universalconfig.fabric.FabricEnvironmentDetector;
 import com.example.universalconfig.fabric.UniversalConfigMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import com.example.universalconfig.core.ProfileIcon;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.component.PatchedDataComponentMap;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import com.example.universalconfig.fabric.mixin.ItemStackAccessor;
 
 import java.nio.file.Path;
 
@@ -41,6 +52,60 @@ final class ScreenUtil {
             current = current.getCause();
         }
         return Component.literal(current.getMessage() == null ? ex.toString() : current.getMessage());
+    }
+
+    static void setScreen(Minecraft minecraft, Screen screen) {
+        UniversalConfigMod.scheduleScreen(minecraft, screen);
+    }
+
+    /**
+     * Draw profile icons through Minecraft's 26.2 item-model extraction path.
+     * Title screens are rendered before the client binds the item component
+     * prototypes. In that state the public ItemStack constructors intentionally
+     * reject the registry holder, so use a patched component map containing the
+     * vanilla common defaults and this item's model id for a read-only GUI
+     * preview. The resulting stack still goes through the normal item model
+     * resolver and GuiGraphicsExtractor item render state. Use the regular
+     * item submission method so the same owner/context-sensitive path as
+     * vanilla inventory widgets is used when a client player is available.
+     */
+    static void drawIcon(GuiGraphicsExtractor context, String iconId, int x, int y, int size) {
+        String itemId = switch (ProfileIcon.normalize(iconId)) {
+            case ProfileIcon.CRAFTING_TABLE -> "crafting_table";
+            case ProfileIcon.BOOKSHELF -> "bookshelf";
+            case ProfileIcon.COBBLESTONE -> "cobblestone";
+            case ProfileIcon.TNT -> "tnt";
+            case ProfileIcon.CHEST -> "chest";
+            case ProfileIcon.FURNACE -> "furnace";
+            case ProfileIcon.DIAMOND_BLOCK -> "diamond_block";
+            default -> "grass_block";
+        };
+        Holder.Reference<Item> item = BuiltInRegistries.ITEM
+                .get(Identifier.withDefaultNamespace(itemId))
+                .orElse(null);
+        if (item == null) {
+            return;
+        }
+        ItemStack stack;
+        if (item.areComponentsBound()) {
+            stack = new ItemStack(item);
+        } else {
+            PatchedDataComponentMap previewComponents =
+                    new PatchedDataComponentMap(DataComponents.COMMON_ITEM_COMPONENTS);
+            previewComponents.set(DataComponents.ITEM_MODEL,
+                    Identifier.withDefaultNamespace(itemId));
+            stack = ItemStackAccessor.universalConfig$create(item, 1, previewComponents);
+        }
+        if (size == 16) {
+            context.item(stack, x, y);
+            return;
+        }
+        float scale = size / 16.0F;
+        context.pose().pushMatrix();
+        context.pose().translate(x, y);
+        context.pose().scale(scale, scale);
+        context.item(stack, 0, 0);
+        context.pose().popMatrix();
     }
 
     static void reloadMinecraftOptionsFromDisk() throws UniversalConfigException {

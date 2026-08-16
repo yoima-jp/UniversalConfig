@@ -17,7 +17,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.network.chat.Component;
@@ -114,7 +113,7 @@ public final class ProfileListScreen extends Screen {
 
     @Override
     public void onClose() {
-        minecraft.gui.setScreen(parent);
+        ScreenUtil.setScreen(minecraft, parent);
     }
 
     private void reload() {
@@ -323,7 +322,7 @@ public final class ProfileListScreen extends Screen {
         }
 
         addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.save_current"),
-                        button -> minecraft.gui.setScreen(new ProfileCreateScreen(this)))
+                        button -> ScreenUtil.setScreen(minecraft, new ProfileCreateScreen(this)))
                 .bounds(contentLeft(), footerButtonY(), contentWidth(), BUTTON_HEIGHT).build());
 
         if (pendingImport != null) {
@@ -410,7 +409,7 @@ public final class ProfileListScreen extends Screen {
         String currentName = summary == null ? translation("screen.universal_config.this_profile")
                 : profileName(summary.manifest());
         moreMenuOpen = false;
-        minecraft.gui.setScreen(new ProfileRenameScreen(this, path, currentName, () -> {
+        ScreenUtil.setScreen(minecraft, new ProfileRenameScreen(this, path, currentName, () -> {
             status = Component.empty();
             reload();
             rebuildButtons();
@@ -438,7 +437,7 @@ public final class ProfileListScreen extends Screen {
 
     private void openConfirm(Path path) {
         try {
-            minecraft.gui.setScreen(new ProfileConfirmScreen(this, path));
+            ScreenUtil.setScreen(minecraft, new ProfileConfirmScreen(this, path));
         } catch (RuntimeException ex) {
             FileOperationLogger.failure("OPEN_PROFILE_CONFIRM", path, "failed", ex);
             status = Component.translatable("screen.universal_config.open_confirm_failed");
@@ -449,11 +448,11 @@ public final class ProfileListScreen extends Screen {
         try {
             ProfileManifest manifest = ScreenUtil.service().readManifest(source);
             String name = profileName(manifest);
-            minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+            ScreenUtil.setScreen(minecraft, new ConfirmScreen(confirmed -> {
                 if (confirmed) {
                     importProfile(source);
                 } else {
-                    minecraft.gui.setScreen(this);
+                    ScreenUtil.setScreen(minecraft, this);
                 }
             }, Component.translatable("screen.universal_config.import_confirm", name),
                     Component.translatable("screen.universal_config.import_warning")));
@@ -478,7 +477,7 @@ public final class ProfileListScreen extends Screen {
             FileOperationLogger.failure("IMPORT_PROFILE_FROM_DROP", source, "failed", ex);
             status = Component.translatable("screen.universal_config.import_failed");
         }
-        minecraft.gui.setScreen(this);
+        ScreenUtil.setScreen(minecraft, this);
     }
 
     private void duplicate(Path path) {
@@ -497,11 +496,11 @@ public final class ProfileListScreen extends Screen {
         ProfileSummary summary = profiles.stream().filter(profile -> profile.path().equals(path)).findFirst().orElse(null);
         String name = summary == null ? translation("screen.universal_config.this_profile") : profileName(summary.manifest());
         try {
-            minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+            ScreenUtil.setScreen(minecraft, new ConfirmScreen(confirmed -> {
                 if (confirmed) {
                     delete(path);
                 } else {
-                    minecraft.gui.setScreen(this);
+                    ScreenUtil.setScreen(minecraft, this);
                 }
             }, Component.translatable("screen.universal_config.delete_confirm", name),
                     Component.translatable("screen.universal_config.delete_warning")));
@@ -519,10 +518,10 @@ public final class ProfileListScreen extends Screen {
             moreMenuOpen = false;
             reload();
             rebuildButtons();
-            minecraft.gui.setScreen(this);
+            ScreenUtil.setScreen(minecraft, this);
         } catch (UniversalConfigException | RuntimeException ex) {
             handleActionFailure(ex, "screen.universal_config.delete_failed");
-            minecraft.gui.setScreen(this);
+            ScreenUtil.setScreen(minecraft, this);
         }
     }
 
@@ -594,7 +593,7 @@ public final class ProfileListScreen extends Screen {
         } catch (UniversalConfigException | RuntimeException ex) {
             FileOperationLogger.failure("RESTART_FOR_PENDING_APPLY", pendingPath, "failed", ex);
             restarting = false;
-            minecraft.gui.setScreen(ApplyScheduledScreen.restartFailed(this));
+            ScreenUtil.setScreen(minecraft, ApplyScheduledScreen.restartFailed(this));
         }
     }
 
@@ -1053,21 +1052,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private void drawProfileIcon(GuiGraphicsExtractor context, int x, int y, int size, String iconId) {
-        ItemStack stack = switch (ProfileIcon.normalize(iconId)) {
-            case ProfileIcon.CRAFTING_TABLE -> new ItemStack(Blocks.CRAFTING_TABLE);
-            case ProfileIcon.BOOKSHELF -> new ItemStack(Blocks.BOOKSHELF);
-            case ProfileIcon.COBBLESTONE -> new ItemStack(Blocks.COBBLESTONE);
-            case ProfileIcon.TNT -> new ItemStack(Blocks.TNT);
-            case ProfileIcon.CHEST -> new ItemStack(Blocks.CHEST);
-            case ProfileIcon.FURNACE -> new ItemStack(Blocks.FURNACE);
-            case ProfileIcon.DIAMOND_BLOCK -> new ItemStack(Blocks.DIAMOND_BLOCK);
-            default -> new ItemStack(Blocks.GRASS_BLOCK);
-        };
         float scale = size / 16.0F;
         context.pose().pushMatrix();
         context.pose().translate(x, y);
         context.pose().scale(scale, scale);
-        context.item(stack, 0, 0);
+        ScreenUtil.drawIcon(context, iconId, 0, 0, 16);
         context.pose().popMatrix();
     }
 

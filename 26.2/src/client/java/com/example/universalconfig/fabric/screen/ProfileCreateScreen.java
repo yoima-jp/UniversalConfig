@@ -9,8 +9,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
@@ -42,6 +40,11 @@ public final class ProfileCreateScreen extends Screen {
     }
 
     @Override
+    public void onClose() {
+        ScreenUtil.setScreen(minecraft, parent);
+    }
+
+    @Override
     protected void init() {
         String currentName = nameField == null ? "Survival Main" : nameField.getValue();
         // 説明は利用者が入力した内容だけを保存する。翻訳済みの初期文を入れると、
@@ -55,7 +58,7 @@ public final class ProfileCreateScreen extends Screen {
         int formLeft = width / 2 - FORM_LEFT_OFFSET;
         addRenderableWidget(new BlockIconButton(formLeft, NAME_FIELD_Y, ICON_BUTTON_SIZE, ICON_BUTTON_SIZE,
                 Component.translatable("screen.universal_config.profile_icon_change", iconLabel(selectedIconId)),
-                button -> minecraft.gui.setScreen(new ProfileIconSelectScreen(this, selectedIconId,
+                button -> ScreenUtil.setScreen(minecraft, new ProfileIconSelectScreen(this, selectedIconId,
                         iconId -> selectedIconId = iconId))));
         nameField = new EditBox(font,
                 formLeft + ICON_BUTTON_SIZE + FIELD_GAP, NAME_FIELD_Y,
@@ -80,7 +83,7 @@ public final class ProfileCreateScreen extends Screen {
         addRenderableWidget(modConfigsCheckbox);
         addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.save"), button -> create())
                 .bounds(width / 2 - 104, height - 32, 100, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> minecraft.gui.setScreen(parent))
+        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> ScreenUtil.setScreen(minecraft, parent))
                 .bounds(width / 2 + 4, height - 32, 100, 20).build());
     }
 
@@ -99,7 +102,7 @@ public final class ProfileCreateScreen extends Screen {
             options.includeModConfigs = modConfigsCheckbox.selected();
             ProfileService service = ScreenUtil.service();
             service.createProfile(ScreenUtil.instancePath(), options, ScreenUtil.environment());
-            minecraft.gui.setScreen(parent);
+            ScreenUtil.setScreen(minecraft, parent);
         } catch (UniversalConfigException ex) {
             status = ScreenUtil.errorText(ex);
         }
@@ -120,20 +123,7 @@ public final class ProfileCreateScreen extends Screen {
         int statusY = Math.min(STATUS_PREFERRED_Y, height - 32 - STATUS_FOOTER_GAP);
         context.text(font, status, formLeft, statusY, 0xFF7777);
         super.extractRenderState(context, mouseX, mouseY, delta);
-        context.item(iconStack(selectedIconId), formLeft + 2, NAME_FIELD_Y + 2);
-    }
-
-    private ItemStack iconStack(String iconId) {
-        return switch (ProfileIcon.normalize(iconId)) {
-            case ProfileIcon.CRAFTING_TABLE -> new ItemStack(Blocks.CRAFTING_TABLE);
-            case ProfileIcon.BOOKSHELF -> new ItemStack(Blocks.BOOKSHELF);
-            case ProfileIcon.COBBLESTONE -> new ItemStack(Blocks.COBBLESTONE);
-            case ProfileIcon.TNT -> new ItemStack(Blocks.TNT);
-            case ProfileIcon.CHEST -> new ItemStack(Blocks.CHEST);
-            case ProfileIcon.FURNACE -> new ItemStack(Blocks.FURNACE);
-            case ProfileIcon.DIAMOND_BLOCK -> new ItemStack(Blocks.DIAMOND_BLOCK);
-            default -> new ItemStack(Blocks.GRASS_BLOCK);
-        };
+        ScreenUtil.drawIcon(context, selectedIconId, formLeft + 2, NAME_FIELD_Y + 2, 16);
     }
 
     /**

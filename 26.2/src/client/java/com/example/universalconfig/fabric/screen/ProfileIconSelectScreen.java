@@ -1,11 +1,9 @@
 package com.example.universalconfig.fabric.screen;
 
 import com.example.universalconfig.core.ProfileIcon;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Component;
 
@@ -52,12 +50,12 @@ final class ProfileIconSelectScreen extends Screen {
     private void select(String iconId) {
         selectedIconId = iconId;
         selectionConsumer.accept(iconId);
-        minecraft.gui.setScreen(parent);
+        ScreenUtil.setScreen(minecraft, parent);
     }
 
     @Override
     public void onClose() {
-        minecraft.gui.setScreen(parent);
+        ScreenUtil.setScreen(minecraft, parent);
     }
 
     @Override
@@ -71,7 +69,7 @@ final class ProfileIconSelectScreen extends Screen {
         for (int index = 0; index < ICON_IDS.length; index++) {
             int x = left + index % COLUMNS * (BUTTON_SIZE + BUTTON_GAP);
             int y = top + index / COLUMNS * (BUTTON_SIZE + BUTTON_GAP);
-            context.item(iconStack(ICON_IDS[index]), x + 9, y + 9);
+            ScreenUtil.drawIcon(context, ICON_IDS[index], x + 9, y + 9, 16);
         }
         int selectedIndex = Arrays.asList(ICON_IDS).indexOf(selectedIconId);
         if (selectedIndex >= 0) {
@@ -84,19 +82,6 @@ final class ProfileIconSelectScreen extends Screen {
 
     private Component iconLabel(String iconId) {
         return Component.translatable("screen.universal_config.profile_icon_" + iconId);
-    }
-
-    private ItemStack iconStack(String iconId) {
-        return switch (ProfileIcon.normalize(iconId)) {
-            case ProfileIcon.CRAFTING_TABLE -> new ItemStack(Blocks.CRAFTING_TABLE);
-            case ProfileIcon.BOOKSHELF -> new ItemStack(Blocks.BOOKSHELF);
-            case ProfileIcon.COBBLESTONE -> new ItemStack(Blocks.COBBLESTONE);
-            case ProfileIcon.TNT -> new ItemStack(Blocks.TNT);
-            case ProfileIcon.CHEST -> new ItemStack(Blocks.CHEST);
-            case ProfileIcon.FURNACE -> new ItemStack(Blocks.FURNACE);
-            case ProfileIcon.DIAMOND_BLOCK -> new ItemStack(Blocks.DIAMOND_BLOCK);
-            default -> new ItemStack(Blocks.GRASS_BLOCK);
-        };
     }
 
     private static final class IconButton extends Button {
