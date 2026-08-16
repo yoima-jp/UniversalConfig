@@ -11,10 +11,16 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import com.example.universalconfig.core.ProfileIcon;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.component.PatchedDataComponentMap;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import com.example.universalconfig.fabric.mixin.ItemStackAccessor;
 
 import java.nio.file.Path;
 
@@ -53,25 +59,51 @@ final class ScreenUtil {
     }
 
     /**
-     * Draw profile icons through the 26.2 GUI texture pipeline. This avoids
-     * ItemStack component binding during world-free screens while keeping the
-     * icon rendering independent of item-model extraction.
+     * Draw profile icons through Minecraft's 26.2 item-model extraction path.
+     * Title screens are rendered before the client binds the item component
+     * prototypes. In that state the public ItemStack constructors intentionally
+     * reject the registry holder, so use a patched component map containing the
+     * vanilla common defaults and this item's model id for a read-only GUI
+     * preview. The resulting stack still goes through the normal item model
+     * resolver and GuiGraphicsExtractor item render state.
      */
     static void drawIcon(GuiGraphicsExtractor context, String iconId, int x, int y, int size) {
-        String normalized = ProfileIcon.normalize(iconId);
-        Identifier texture = switch (normalized) {
-            case ProfileIcon.CRAFTING_TABLE -> Identifier.withDefaultNamespace("textures/block/crafting_table_side.png");
-            case ProfileIcon.BOOKSHELF -> Identifier.withDefaultNamespace("textures/block/bookshelf.png");
-            case ProfileIcon.COBBLESTONE -> Identifier.withDefaultNamespace("textures/block/cobblestone.png");
-            case ProfileIcon.TNT -> Identifier.withDefaultNamespace("textures/block/tnt_side.png");
-            case ProfileIcon.CHEST -> Identifier.withDefaultNamespace("textures/entity/chest/normal.png");
-            case ProfileIcon.FURNACE -> Identifier.withDefaultNamespace("textures/block/furnace_side.png");
-            case ProfileIcon.DIAMOND_BLOCK -> Identifier.withDefaultNamespace("textures/block/diamond_block.png");
-            default -> Identifier.withDefaultNamespace("textures/block/grass_block_side.png");
+        String itemId = switch (ProfileIcon.normalize(iconId)) {
+            case ProfileIcon.CRAFTING_TABLE -> "crafting_table";
+            case ProfileIcon.BOOKSHELF -> "bookshelf";
+            case ProfileIcon.COBBLESTONE -> "cobblestone";
+            case ProfileIcon.TNT -> "tnt";
+            case ProfileIcon.CHEST -> "chest";
+            case ProfileIcon.FURNACE -> "furnace";
+            case ProfileIcon.DIAMOND_BLOCK -> "diamond_block";
+            default -> "grass_block";
         };
-        int textureSize = ProfileIcon.CHEST.equals(normalized) ? 64 : 16;
-        context.blit(RenderPipelines.GUI_TEXTURED, texture, x, y, 0.0F, 0.0F,
-                size, size, textureSize, textureSize, -1);
+        Holder.Reference<Item> item = BuiltInRegistries.ITEM
+                .get(Identifier.withDefaultNamespace(itemId))
+                .orElse(null);
+        if (item == null) {
+            return;
+        }
+        ItemStack stack;
+        if (item.areComponentsBound()) {
+            stack = new ItemStack(item);
+        } else {
+            PatchedDataComponentMap previewComponents =
+                    new PatchedDataComponentMap(DataComponents.COMMON_ITEM_COMPONENTS);
+            previewComponents.set(DataComponents.ITEM_MODEL,
+                    Identifier.withDefaultNamespace(itemId));
+            stack = ItemStackAccessor.universalConfig$create(item, 1, previewComponents);
+        }
+        if (size == 16) {
+            context.fakeItem(stack, x, y);
+            return;
+        }
+        float scale = size / 16.0F;
+        context.pose().pushMatrix();
+        context.pose().translate(x, y);
+        context.pose().scale(scale, scale);
+        context.fakeItem(stack, 0, 0);
+        context.pose().popMatrix();
     }
 
     static void reloadMinecraftOptionsFromDisk() throws UniversalConfigException {
