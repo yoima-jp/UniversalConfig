@@ -63,6 +63,11 @@ tasks.withType(JavaCompile).configureEach {
 
 test {
     useJUnitPlatform()
+    // Unit tests use Gradle's testRuntimeClasspath; Loom's Fabric classpath
+    // grouping is for game launch tasks and cannot resolve test output here.
+    doFirst {
+        systemProperties.remove("fabric.classPathGroups")
+    }
 }
 
 java {
