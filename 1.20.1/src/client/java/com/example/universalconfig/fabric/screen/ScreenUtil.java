@@ -36,6 +36,13 @@ final class ScreenUtil {
     }
 
     static Text errorText(Exception ex) {
+        if (ex instanceof UniversalConfigException ucex && ucex.translationKey() != null) {
+            Object[] args = ucex.translationArgs();
+            return args == null || args.length == 0
+                    ? Text.translatable(ucex.translationKey())
+                    : Text.translatable(ucex.translationKey(), args);
+        }
+
         Throwable current = ex;
         while (current.getCause() != null) {
             current = current.getCause();
@@ -52,7 +59,10 @@ final class ScreenUtil {
             FileOperationLogger.info("RELOAD_CLIENT_OPTIONS", UniversalConfigPaths.optionsFile(instancePath()), "load/updateKeysByCode/write");
         } catch (RuntimeException ex) {
             FileOperationLogger.failure("RELOAD_CLIENT_OPTIONS", UniversalConfigPaths.optionsFile(instancePath()), "failed", ex);
-            throw new UniversalConfigException("Minecraftの設定再読み込みに失敗しました。再起動前に設定が戻る可能性があります。", ex);
+            throw new UniversalConfigException(
+                    "Failed to reload Minecraft options; settings may revert before restart.",
+                    "message.universal_config.reload_options_failed",
+                    ex);
         }
     }
 }

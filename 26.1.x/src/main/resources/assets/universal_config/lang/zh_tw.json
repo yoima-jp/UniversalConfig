@@ -137,5 +137,6 @@
   "screen.universal_config.target_mods": "模組",
   "screen.universal_config.include_toggle": "%s：%s",
   "screen.universal_config.include_enabled": "包含",
-  "screen.universal_config.include_disabled": "排除"
+  "screen.universal_config.include_disabled": "排除",
+  "message.universal_config.reload_options_failed": "無法重新載入 Minecraft 設定。重新啟動前設定可能會還原。"
 }

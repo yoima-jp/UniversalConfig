@@ -137,5 +137,6 @@
   "screen.universal_config.target_mods": "Mods",
   "screen.universal_config.include_toggle": "%s: %s",
   "screen.universal_config.include_enabled": "Include",
-  "screen.universal_config.include_disabled": "Exclude"
+  "screen.universal_config.include_disabled": "Exclude",
+  "message.universal_config.reload_options_failed": "Failed to reload Minecraft settings. They may revert before you restart."
 }

@@ -137,5 +137,6 @@
   "screen.universal_config.target_mods": "MOD設定",
   "screen.universal_config.include_toggle": "%s: %s",
   "screen.universal_config.include_enabled": "含める",
-  "screen.universal_config.include_disabled": "含めない"
+  "screen.universal_config.include_disabled": "含めない",
+  "message.universal_config.reload_options_failed": "Minecraftの設定再読み込みに失敗しました。再起動前に設定が戻る可能性があります。"
 }

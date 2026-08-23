@@ -137,5 +137,6 @@
   "screen.universal_config.target_mods": "모드 설정",
   "screen.universal_config.include_toggle": "%s: %s",
   "screen.universal_config.include_enabled": "포함",
-  "screen.universal_config.include_disabled": "제외"
+  "screen.universal_config.include_disabled": "제외",
+  "message.universal_config.reload_options_failed": "Minecraft 설정을 다시 불러오지 못했습니다. 재시작 전에 설정이 되돌아갈 수 있습니다."
 }
