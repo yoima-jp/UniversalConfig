@@ -21,8 +21,7 @@ import net.minecraft.util.Identifier;
 public final class UniversalConfigMod implements ClientModInitializer {
     public static final String MOD_ID = UniversalConfigFormat.MOD_ID;
     private static final Identifier TITLE_SCREEN_BUTTON_TEXTURE = new Identifier(MOD_ID, "title_screen_button.png");
-    private static final int TITLE_SCREEN_BUTTON_SIZE_NORMAL = 28;
-    private static final int TITLE_SCREEN_BUTTON_SIZE_SMALL = 24;
+    private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
     private static final int TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET = 10;
@@ -48,12 +47,10 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 Text buttonLabel = Text.translatable("button.universal_config.open");
                 // バニラの左下システム文字列の描画位置を基準に、最小限の間隔を確保する。
                 // 文字ボタンではなくModアイコンだけを表示し、タイトル画面への視覚的な干渉を抑える。
-                int buttonSize = titleScreenButtonSize(screen.width, screen.height);
                 Screens.getButtons(screen).removeIf(button -> button instanceof IconButtonWidget);
                 IconButtonWidget openButton = new IconButtonWidget(
                         TITLE_SCREEN_BUTTON_MARGIN,
-                        titleScreenButtonY(client, screen.height, buttonSize),
-                        buttonSize,
+                        titleScreenButtonY(client, screen.height),
                         button -> client.setScreen(new ProfileListScreen(screen)),
                         buttonLabel
                 );
@@ -62,18 +59,12 @@ public final class UniversalConfigMod implements ClientModInitializer {
         });
     }
 
-    private static int titleScreenButtonSize(int screenWidth, int screenHeight) {
-        return screenWidth >= 460 && screenHeight >= 270
-                ? TITLE_SCREEN_BUTTON_SIZE_NORMAL
-                : TITLE_SCREEN_BUTTON_SIZE_SMALL;
-    }
-
-    private static int titleScreenButtonY(MinecraftClient client, int screenHeight, int buttonSize) {
+    private static int titleScreenButtonY(MinecraftClient client, int screenHeight) {
         int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
         int reservedTextHeight = client.textRenderer.fontHeight + TITLE_SCREEN_SYSTEM_TEXT_GAP;
         return Math.max(
                 TITLE_SCREEN_BUTTON_MARGIN,
-                systemTextY - reservedTextHeight - buttonSize
+                systemTextY - reservedTextHeight - TITLE_SCREEN_BUTTON_SIZE
         );
     }
 
@@ -84,12 +75,9 @@ public final class UniversalConfigMod implements ClientModInitializer {
     private static final class IconButtonWidget extends ButtonWidget {
         private final Text narrationMessage;
 
-        private final int buttonSize;
-
-        private IconButtonWidget(int x, int y, int buttonSize, PressAction onPress, Text narrationMessage) {
-            super(x, y, buttonSize, buttonSize,
+        private IconButtonWidget(int x, int y, PressAction onPress, Text narrationMessage) {
+            super(x, y, TITLE_SCREEN_BUTTON_SIZE, TITLE_SCREEN_BUTTON_SIZE,
                     Text.empty(), onPress);
-            this.buttonSize = buttonSize;
             this.narrationMessage = narrationMessage;
         }
 
@@ -105,7 +93,7 @@ public final class UniversalConfigMod implements ClientModInitializer {
             // ボタン専用の15px画像全体を縮小描画する。TexturedButtonWidget では左上1枠が
             // 等倍で切り抜かれるため、本実装では drawTexture でテクスチャ全体をボタン内に収める。
             // 画像を差し替えた際は TITLE_SCREEN_TEXTURE_WIDTH/HEIGHT と実寸を一致させること。
-            int iconSize = buttonSize - TITLE_SCREEN_ICON_PADDING * 2;
+            int iconSize = TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_ICON_PADDING * 2;
             MinecraftClient.getInstance().getTextureManager().bindTexture(TITLE_SCREEN_BUTTON_TEXTURE);
             DrawableHelper.drawTexture(context,
                     x + TITLE_SCREEN_ICON_PADDING,
