@@ -21,7 +21,9 @@ import net.minecraft.util.Identifier;
 public final class UniversalConfigMod implements ClientModInitializer {
     public static final String MOD_ID = UniversalConfigFormat.MOD_ID;
     private static final Identifier TITLE_SCREEN_BUTTON_TEXTURE = new Identifier(MOD_ID, "title_screen_button.png");
-    private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
+    // 1.19.2's title screen is commonly viewed at a smaller logical GUI size; keep the icon
+    // comfortably clickable and visually comparable to the later Fabric targets.
+    private static final int TITLE_SCREEN_BUTTON_SIZE = 24;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
     private static final int TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET = 10;

@@ -38,28 +38,39 @@ public final class ProfileListScreen extends Screen {
     private static final int MAX_CONTENT_WIDTH = 760;
     private static final int COLUMN_GAP = 8;
     private static final int HEADER_HEIGHT = 46;
+    private static final int COMPACT_HEADER_HEIGHT = 40;
     private static final int PENDING_HEIGHT = 30;
+    private static final int COMPACT_PENDING_HEIGHT = 26;
     private static final int PANEL_GAP = 8;
+    private static final int COMPACT_PANEL_GAP = 6;
     private static final int PANEL_HEADER_HEIGHT = 24;
+    private static final int COMPACT_PANEL_HEADER_HEIGHT = 20;
     private static final int PANEL_PADDING = 10;
+    private static final int COMPACT_PANEL_PADDING = 8;
     private static final int FOOTER_HEIGHT = 30;
+    private static final int COMPACT_FOOTER_HEIGHT = 26;
     private static final int BUTTON_HEIGHT = 20;
+    private static final int COMPACT_BUTTON_HEIGHT = 18;
     private static final int PRIMARY_BUTTON_HEIGHT = 24;
+    private static final int COMPACT_PRIMARY_BUTTON_HEIGHT = 20;
     private static final int CARD_HEIGHT = 40;
+    private static final int COMPACT_CARD_HEIGHT = 36;
     private static final int CARD_GAP = 3;
-    private static final int CARD_STEP = CARD_HEIGHT + CARD_GAP;
+    private static final int COMPACT_CARD_GAP = 2;
     private static final int LIST_SCROLL_STEP = 18;
     private static final int DETAIL_SCROLL_STEP = 18;
     private static final int DETAIL_LINE_HEIGHT = 12;
     private static final int PROFILE_ICON_SIZE = 28;
+    private static final int COMPACT_PROFILE_ICON_SIZE = 24;
     private static final int SCROLLBAR_WIDTH = 3;
     private static final int REORDER_BUTTON_WIDTH = 16;
+    private static final int COMPACT_REORDER_BUTTON_WIDTH = 14;
     private static final int REORDER_BUTTON_HEIGHT = 16;
+    private static final int COMPACT_REORDER_BUTTON_HEIGHT = 14;
     private static final int MORE_BUTTON_WIDTH = 34;
     private static final int MENU_WIDTH = 132;
     private static final int MENU_ITEM_GAP = 2;
     private static final int MENU_ITEM_COUNT = 5;
-    private static final int MENU_HEIGHT = MENU_ITEM_COUNT * BUTTON_HEIGHT + (MENU_ITEM_COUNT - 1) * MENU_ITEM_GAP + 8;
     private static final int CLOSE_BUTTON_SIZE = 20;
     private static final String SAFE_DATE_PATTERN = "yyyy/MM/dd HH:mm";
 
@@ -162,17 +173,95 @@ public final class ProfileListScreen extends Screen {
         return (width - contentWidth()) / 2;
     }
 
+    /**
+     * 1.19.2 commonly runs with a smaller logical viewport at the same physical resolution.
+     * Keep the compact layout in logical GUI coordinates so GUI scale changes affect every
+     * dependent position together instead of mixing physical-pixel assumptions into widgets.
+     */
+    private boolean compactLayout() {
+        return width < 560 || height < 330;
+    }
+
+    private int headerHeight() {
+        return compactLayout() ? COMPACT_HEADER_HEIGHT : HEADER_HEIGHT;
+    }
+
+    private int pendingHeight() {
+        return compactLayout() ? COMPACT_PENDING_HEIGHT : PENDING_HEIGHT;
+    }
+
+    private int panelGap() {
+        return compactLayout() ? COMPACT_PANEL_GAP : PANEL_GAP;
+    }
+
+    private int panelHeaderHeight() {
+        return compactLayout() ? COMPACT_PANEL_HEADER_HEIGHT : PANEL_HEADER_HEIGHT;
+    }
+
+    private int panelPadding() {
+        return compactLayout() ? COMPACT_PANEL_PADDING : PANEL_PADDING;
+    }
+
+    private int footerHeight() {
+        return compactLayout() ? COMPACT_FOOTER_HEIGHT : FOOTER_HEIGHT;
+    }
+
+    private int buttonHeight() {
+        return compactLayout() ? COMPACT_BUTTON_HEIGHT : BUTTON_HEIGHT;
+    }
+
+    private int primaryButtonHeight() {
+        return compactLayout() ? COMPACT_PRIMARY_BUTTON_HEIGHT : PRIMARY_BUTTON_HEIGHT;
+    }
+
+    private int cardHeight() {
+        return compactLayout() ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
+    }
+
+    private int cardGap() {
+        return compactLayout() ? COMPACT_CARD_GAP : CARD_GAP;
+    }
+
+    private int cardStep() {
+        return cardHeight() + cardGap();
+    }
+
+    private int profileIconSize() {
+        return compactLayout() ? COMPACT_PROFILE_ICON_SIZE : PROFILE_ICON_SIZE;
+    }
+
+    private int reorderButtonWidth() {
+        return compactLayout() ? COMPACT_REORDER_BUTTON_WIDTH : REORDER_BUTTON_WIDTH;
+    }
+
+    private int reorderButtonHeight() {
+        return compactLayout() ? COMPACT_REORDER_BUTTON_HEIGHT : REORDER_BUTTON_HEIGHT;
+    }
+
+    private int menuHeight() {
+        return MENU_ITEM_COUNT * buttonHeight() + (MENU_ITEM_COUNT - 1) * MENU_ITEM_GAP + 8;
+    }
+
+    private int moreButtonWidth() {
+        return compactLayout() ? 30 : MORE_BUTTON_WIDTH;
+    }
+
+    private int menuWidth() {
+        return compactLayout() ? Math.min(MENU_WIDTH, Math.max(1, detailWidth())) : MENU_WIDTH;
+    }
+
     private int mainTop() {
-        return HEADER_HEIGHT + (pendingImport == null ? 0 : PENDING_HEIGHT + PANEL_GAP);
+        return headerHeight() + (pendingImport == null ? 0 : pendingHeight() + panelGap());
     }
 
     private int mainBottom() {
-        return height - FOOTER_HEIGHT - PANEL_GAP;
+        return height - footerHeight() - panelGap();
     }
 
     private int leftPanelWidth() {
         int available = contentWidth() - COLUMN_GAP;
-        return Math.max(142, available * 49 / 100);
+        int minimum = Math.min(142, Math.max(1, available / 2));
+        return Math.max(minimum, available * 49 / 100);
     }
 
     private int leftPanelRight() {
@@ -188,11 +277,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int listTop() {
-        return mainTop() + PANEL_HEADER_HEIGHT + PANEL_PADDING;
+        return mainTop() + panelHeaderHeight() + panelPadding();
     }
 
     private int listBottom() {
-        return mainBottom() - PANEL_PADDING;
+        return mainBottom() - panelPadding();
     }
 
     private int listViewportHeight() {
@@ -200,48 +289,48 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int maxListScroll() {
-        int contentHeight = profiles.isEmpty() ? 0 : profiles.size() * CARD_STEP - CARD_GAP;
+        int contentHeight = profiles.isEmpty() ? 0 : profiles.size() * cardStep() - cardGap();
         return Math.max(0, contentHeight - listViewportHeight());
     }
 
     private int firstVisibleRow() {
-        return Math.min(profiles.size(), listScroll / CARD_STEP);
+        return Math.min(profiles.size(), listScroll / cardStep());
     }
 
     private int lastVisibleRowExclusive() {
-        return Math.min(profiles.size(), (listScroll + listViewportHeight() + CARD_STEP - 1) / CARD_STEP);
+        return Math.min(profiles.size(), (listScroll + listViewportHeight() + cardStep() - 1) / cardStep());
     }
 
     private int cardX() {
-        return contentLeft() + PANEL_PADDING;
+        return contentLeft() + panelPadding();
     }
 
     private int cardWidth() {
-        return leftPanelWidth() - PANEL_PADDING * 2 - SCROLLBAR_WIDTH - 5;
+        return Math.max(1, leftPanelWidth() - panelPadding() * 2 - SCROLLBAR_WIDTH - 5);
     }
 
     private int cardY(int profileIndex) {
-        return listTop() + profileIndex * CARD_STEP - listScroll;
+        return listTop() + profileIndex * cardStep() - listScroll;
     }
 
     private int detailX() {
-        return rightPanelLeft() + PANEL_PADDING;
+        return rightPanelLeft() + panelPadding();
     }
 
     private int detailWidth() {
-        return rightPanelRight() - rightPanelLeft() - PANEL_PADDING * 2;
+        return Math.max(1, rightPanelRight() - rightPanelLeft() - panelPadding() * 2);
     }
 
     private int primaryButtonY() {
-        return mainBottom() - PANEL_PADDING - PRIMARY_BUTTON_HEIGHT;
+        return mainBottom() - panelPadding() - primaryButtonHeight();
     }
 
     private int detailViewportTop() {
-        return mainTop() + PANEL_HEADER_HEIGHT + 7;
+        return mainTop() + panelHeaderHeight() + (compactLayout() ? 5 : 7);
     }
 
     private int detailViewportBottom() {
-        return primaryButtonY() - 7;
+        return primaryButtonY() - (compactLayout() ? 5 : 7);
     }
 
     private int detailContentWidth() {
@@ -259,11 +348,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int footerButtonY() {
-        return height - FOOTER_HEIGHT + 2;
+        return height - footerHeight() + (compactLayout() ? 1 : 2);
     }
 
     private int pendingTop() {
-        return HEADER_HEIGHT;
+        return headerHeight();
     }
 
     private int pendingButtonWidth(Text label) {
@@ -271,11 +360,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int menuX() {
-        return rightPanelRight() - PANEL_PADDING - MENU_WIDTH;
+        return rightPanelRight() - panelPadding() - menuWidth();
     }
 
     private int menuY() {
-        return primaryButtonY() - MENU_HEIGHT - 4;
+        return primaryButtonY() - menuHeight() - 4;
     }
 
     private void rebuildButtons() {
@@ -290,7 +379,7 @@ public final class ProfileListScreen extends Screen {
             MutableText narration = Text.literal(profileName(profile.manifest()));
             int fullCardY = cardY(index);
             int clippedTop = Math.max(listTop(), fullCardY);
-            int clippedBottom = Math.min(listBottom(), fullCardY + CARD_HEIGHT);
+            int clippedBottom = Math.min(listBottom(), fullCardY + cardHeight());
             if (clippedBottom <= clippedTop) {
                 continue;
             }
@@ -299,7 +388,7 @@ public final class ProfileListScreen extends Screen {
             // The empty visual label avoids duplicating the custom two-line card. Narration still announces the
             // profile name, so keyboard and screen-reader users receive the same selection context.
             addDrawableChild(profileButton);
-            if (fullCardY >= listTop() && fullCardY + CARD_HEIGHT <= listBottom()) {
+            if (fullCardY >= listTop() && fullCardY + cardHeight() <= listBottom()) {
                 addReorderButtons(profileIndex, fullCardY);
             }
         }
@@ -307,13 +396,13 @@ public final class ProfileListScreen extends Screen {
         ProfileSummary selected = selectedProfile();
         if (selected != null) {
             Path path = selected.path();
-            int actionWidth = detailWidth() - MORE_BUTTON_WIDTH - 6;
+            int actionWidth = Math.max(1, detailWidth() - moreButtonWidth() - 6);
             addDrawableChild(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.use_profile"), button -> openConfirm(path))
-                    .dimensions(detailX(), primaryButtonY(), actionWidth, PRIMARY_BUTTON_HEIGHT).build());
+                    .dimensions(detailX(), primaryButtonY(), actionWidth, primaryButtonHeight()).build());
             addDrawableChild(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.more"), button -> {
                 moreMenuOpen = !moreMenuOpen;
                 rebuildButtons();
-            }).dimensions(detailX() + actionWidth + 6, primaryButtonY(), MORE_BUTTON_WIDTH, PRIMARY_BUTTON_HEIGHT).build());
+            }).dimensions(detailX() + actionWidth + 6, primaryButtonY(), moreButtonWidth(), primaryButtonHeight()).build());
             if (moreMenuOpen) {
                 addMoreMenuButtons(path);
             }
@@ -323,7 +412,7 @@ public final class ProfileListScreen extends Screen {
 
         addDrawableChild(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.save_current"),
                         button -> client.setScreen(new ProfileCreateScreen(this)))
-                .dimensions(contentLeft(), footerButtonY(), contentWidth(), BUTTON_HEIGHT).build());
+                        .dimensions(contentLeft(), footerButtonY(), contentWidth(), buttonHeight()).build());
 
         if (pendingImport != null) {
             Text restartLabel = Text.translatable("screen.universal_config.restart_now");
@@ -332,9 +421,9 @@ public final class ProfileListScreen extends Screen {
             int cancelWidth = pendingButtonWidth(cancelLabel);
             int right = rightPanelRight() - 6;
             addDrawableChild(ScreenUtil.buttonBuilder(cancelLabel, button -> cancelPendingApply())
-                    .dimensions(right - cancelWidth, pendingTop() + 5, cancelWidth, BUTTON_HEIGHT).build());
+                    .dimensions(right - cancelWidth, pendingTop() + 4, cancelWidth, buttonHeight()).build());
             addDrawableChild(ScreenUtil.buttonBuilder(restartLabel, button -> restartForPendingApply())
-                    .dimensions(right - cancelWidth - 6 - restartWidth, pendingTop() + 5, restartWidth, BUTTON_HEIGHT).build());
+                    .dimensions(right - cancelWidth - 6 - restartWidth, pendingTop() + 4, restartWidth, buttonHeight()).build());
         }
 
         MutableText closeNarration = Text.translatable("screen.universal_config.close");
@@ -347,20 +436,20 @@ public final class ProfileListScreen extends Screen {
     private void addMoreMenuButtons(Path path) {
         int x = menuX() + 4;
         int y = menuY() + 4;
-        int width = MENU_WIDTH - 8;
+        int width = Math.max(1, menuWidth() - 8);
         Text defaultLabel = Text.translatable(isDefaultProfile(path)
                 ? "screen.universal_config.clear_default"
                 : "screen.universal_config.set_default");
         addMoreMenuButton(ScreenUtil.buttonBuilder(defaultLabel, button -> toggleDefault(path))
-                .dimensions(x, y, width, BUTTON_HEIGHT).build());
+                .dimensions(x, y, width, buttonHeight()).build());
         addMoreMenuButton(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.open_folder"), button -> openProfileDirectory())
-                .dimensions(x, y + BUTTON_HEIGHT + MENU_ITEM_GAP, width, BUTTON_HEIGHT).build());
+                .dimensions(x, y + buttonHeight() + MENU_ITEM_GAP, width, buttonHeight()).build());
         addMoreMenuButton(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.rename"), button -> rename(path))
-                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 2, width, BUTTON_HEIGHT).build());
+                .dimensions(x, y + (buttonHeight() + MENU_ITEM_GAP) * 2, width, buttonHeight()).build());
         addMoreMenuButton(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
-                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 3, width, BUTTON_HEIGHT).build());
+                .dimensions(x, y + (buttonHeight() + MENU_ITEM_GAP) * 3, width, buttonHeight()).build());
         addMoreMenuButton(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
-                .dimensions(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 4, width, BUTTON_HEIGHT).build());
+                .dimensions(x, y + (buttonHeight() + MENU_ITEM_GAP) * 4, width, buttonHeight()).build());
     }
 
     private void addMoreMenuButton(ButtonWidget button) {
@@ -369,15 +458,15 @@ public final class ProfileListScreen extends Screen {
     }
 
     private void addReorderButtons(int profileIndex, int cardY) {
-        int x = cardX() + cardWidth() - REORDER_BUTTON_WIDTH - 4;
+        int x = cardX() + cardWidth() - reorderButtonWidth() - 4;
         int y = cardY + 3;
         ButtonWidget upButton = ScreenUtil.buttonBuilder(Text.literal("↑"), button -> moveProfile(profileIndex, profileIndex - 1))
                 .narrationSupplier(ignored -> Text.translatable("screen.universal_config.move_up"))
-                .dimensions(x, y, REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT).build();
+                .dimensions(x, y, reorderButtonWidth(), reorderButtonHeight()).build();
         upButton.active = profileIndex > 0;
         ButtonWidget downButton = ScreenUtil.buttonBuilder(Text.literal("↓"), button -> moveProfile(profileIndex, profileIndex + 1))
                 .narrationSupplier(ignored -> Text.translatable("screen.universal_config.move_down"))
-                .dimensions(x, y + REORDER_BUTTON_HEIGHT + 1, REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT).build();
+                .dimensions(x, y + reorderButtonHeight() + 1, reorderButtonWidth(), reorderButtonHeight()).build();
         downButton.active = profileIndex < profiles.size() - 1;
         reorderButtons.add(upButton);
         reorderButtons.add(downButton);
@@ -651,9 +740,9 @@ public final class ProfileListScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (moreMenuOpen && !inside(mouseX, mouseY, menuX(), menuY(), MENU_WIDTH, MENU_HEIGHT)
-                && !inside(mouseX, mouseY, detailX() + detailWidth() - MORE_BUTTON_WIDTH, primaryButtonY(),
-                MORE_BUTTON_WIDTH, PRIMARY_BUTTON_HEIGHT)) {
+        if (moreMenuOpen && !inside(mouseX, mouseY, menuX(), menuY(), menuWidth(), menuHeight())
+                && !inside(mouseX, mouseY, detailX() + detailWidth() - moreButtonWidth(), primaryButtonY(),
+                moreButtonWidth(), primaryButtonHeight())) {
             moreMenuOpen = false;
             rebuildButtons();
         }
@@ -714,9 +803,9 @@ public final class ProfileListScreen extends Screen {
             return -1;
         }
         int relativeY = (int) mouseY - listTop() + listScroll;
-        int index = relativeY / CARD_STEP;
-        int rowOffset = relativeY % CARD_STEP;
-        return index >= 0 && index < profiles.size() && rowOffset < CARD_HEIGHT ? index : -1;
+        int index = relativeY / cardStep();
+        int rowOffset = relativeY % cardStep();
+        return index >= 0 && index < profiles.size() && rowOffset < cardHeight() ? index : -1;
     }
 
     private boolean insideReorderControls(double mouseX, double mouseY) {
@@ -728,21 +817,21 @@ public final class ProfileListScreen extends Screen {
         if (index < 0) {
             return 0;
         }
-        int x = cardX() + cardWidth() - REORDER_BUTTON_WIDTH - 4;
+        int x = cardX() + cardWidth() - reorderButtonWidth() - 4;
         int y = cardY(index) + 3;
-        if (inside(mouseX, mouseY, x, y, REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT)) {
+        if (inside(mouseX, mouseY, x, y, reorderButtonWidth(), reorderButtonHeight())) {
             return -1;
         }
-        return inside(mouseX, mouseY, x, y + REORDER_BUTTON_HEIGHT + 1,
-                REORDER_BUTTON_WIDTH, REORDER_BUTTON_HEIGHT) ? 1 : 0;
+        return inside(mouseX, mouseY, x, y + reorderButtonHeight() + 1,
+                reorderButtonWidth(), reorderButtonHeight()) ? 1 : 0;
     }
 
     private int dropIndexAt(double mouseY) {
         if (profiles.isEmpty()) {
             return -1;
         }
-        int relativeY = (int) mouseY - listTop() + listScroll - CARD_HEIGHT / 2;
-        int index = relativeY / CARD_STEP;
+        int relativeY = (int) mouseY - listTop() + listScroll - cardHeight() / 2;
+        int index = relativeY / cardStep();
         return Math.max(0, Math.min(profiles.size() - 1, index));
     }
 
@@ -770,13 +859,13 @@ public final class ProfileListScreen extends Screen {
     }
 
     private void drawHeader(MatrixStack context) {
-        ScreenUtil.fill(context, 0, 0, width, HEADER_HEIGHT, 0xB0101010);
+        ScreenUtil.fill(context, 0, 0, width, headerHeight(), 0xB0101010);
         ScreenUtil.drawCenteredTextWithShadow(context, textRenderer, title, width / 2, 10, 0xFFFFFFFF);
         ScreenUtil.drawCenteredTextWithShadow(context, textRenderer, Text.translatable("screen.universal_config.subtitle"),
                 width / 2, 25, MUTED_TEXT_COLOR);
         if (pendingImport != null) {
             int top = pendingTop();
-            drawBorderedRect(context, contentLeft(), top, rightPanelRight(), top + PENDING_HEIGHT,
+            drawBorderedRect(context, contentLeft(), top, rightPanelRight(), top + pendingHeight(),
                     PENDING_COLOR, PENDING_BORDER_COLOR, PANEL_BORDER_DARK);
             int actionWidth = pendingButtonWidth(Text.translatable("screen.universal_config.restart_now"))
                     + pendingButtonWidth(Text.translatable("screen.universal_config.apply_scheduled_cancel")) + 6;
@@ -829,7 +918,7 @@ public final class ProfileListScreen extends Screen {
         drawPanelHeader(context, rightPanelLeft(), rightPanelRight(), heading);
         int innerTop = detailViewportTop();
         int innerBottom = detailViewportBottom();
-        ScreenUtil.fill(context, detailX(), innerTop, rightPanelRight() - PANEL_PADDING, innerBottom, PANEL_INNER_COLOR);
+        ScreenUtil.fill(context, detailX(), innerTop, rightPanelRight() - panelPadding(), innerBottom, PANEL_INNER_COLOR);
         if (selected == null) {
             drawTrimmed(context, translation("screen.universal_config.select_profile"), detailX() + 8, innerTop + 12,
                     detailWidth() - 16, MUTED_TEXT_COLOR);
@@ -839,9 +928,9 @@ public final class ProfileListScreen extends Screen {
         int x = detailX() + 10;
         int contentWidth = detailContentWidth();
         int y = innerTop + 8 - detailScroll;
-        ScreenUtil.enableScissor(detailX(), innerTop, rightPanelRight() - PANEL_PADDING, innerBottom);
-        drawProfileIcon(context, x, y, PROFILE_ICON_SIZE, manifest.icon);
-        int infoX = x + PROFILE_ICON_SIZE + 10;
+        ScreenUtil.enableScissor(detailX(), innerTop, rightPanelRight() - panelPadding(), innerBottom);
+        drawProfileIcon(context, x, y, profileIconSize(), manifest.icon);
+        int infoX = x + profileIconSize() + 10;
         int infoWidth = Math.max(0, x + contentWidth - infoX);
         drawTrimmed(context, environmentSummary(manifest), infoX, y + 1, infoWidth, 0xFFFFFFFF);
         drawTrimmed(context, loaderSummary(manifest), infoX, y + 15, infoWidth, MUTED_TEXT_COLOR);
@@ -985,9 +1074,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private void drawPanelHeader(MatrixStack context, int left, int right, Text heading) {
-        ScreenUtil.fill(context, left + 2, mainTop() + 2, right - 2, mainTop() + PANEL_HEADER_HEIGHT, PANEL_HEADER_COLOR);
-        ScreenUtil.drawTextWithShadow(context, textRenderer, heading, left + PANEL_PADDING, mainTop() + 8, 0xFFFFFFFF);
-        ScreenUtil.fill(context, left + 2, mainTop() + PANEL_HEADER_HEIGHT - 1, right - 2, mainTop() + PANEL_HEADER_HEIGHT, DIVIDER_COLOR);
+        int headerHeight = panelHeaderHeight();
+        int textY = mainTop() + (compactLayout() ? 5 : 8);
+        ScreenUtil.fill(context, left + 2, mainTop() + 2, right - 2, mainTop() + headerHeight, PANEL_HEADER_COLOR);
+        ScreenUtil.drawTextWithShadow(context, textRenderer, heading, left + panelPadding(), textY, 0xFFFFFFFF);
+        ScreenUtil.fill(context, left + 2, mainTop() + headerHeight - 1, right - 2, mainTop() + headerHeight, DIVIDER_COLOR);
     }
 
     private void drawProfileCards(MatrixStack context, int mouseX, int mouseY) {
@@ -998,30 +1089,30 @@ public final class ProfileListScreen extends Screen {
         ScreenUtil.enableScissor(cardX(), listTop(), cardX() + cardWidth(), listBottom());
         for (int index = firstRow; index < lastRow; index++) {
             int y = cardY(index);
-            boolean hovered = inside(mouseX, mouseY, cardX(), y, cardWidth(), CARD_HEIGHT);
+            boolean hovered = inside(mouseX, mouseY, cardX(), y, cardWidth(), cardHeight());
             int fill = index == selectedProfileIndex ? SELECTED_CARD_COLOR : hovered ? CARD_HOVER_COLOR : CARD_COLOR;
             int border = index == selectedProfileIndex ? SELECTED_BORDER_COLOR : PANEL_BORDER_DARK;
-            drawBorderedRect(context, cardX(), y, cardX() + cardWidth(), y + CARD_HEIGHT, fill, border, PANEL_BORDER_DARK);
+            drawBorderedRect(context, cardX(), y, cardX() + cardWidth(), y + cardHeight(), fill, border, PANEL_BORDER_DARK);
             ProfileSummary summary = profiles.get(index);
             ProfileManifest manifest = summary.manifest();
             int iconX = cardX() + 7;
-            int iconY = y + (CARD_HEIGHT - PROFILE_ICON_SIZE) / 2;
-            drawProfileIcon(context, iconX, iconY, PROFILE_ICON_SIZE, manifest.icon);
-            int textX = iconX + PROFILE_ICON_SIZE + 9;
-            int textWidth = cardX() + cardWidth() - textX - REORDER_BUTTON_WIDTH - 12;
+            int iconY = y + (cardHeight() - profileIconSize()) / 2;
+            drawProfileIcon(context, iconX, iconY, profileIconSize(), manifest.icon);
+            int textX = iconX + profileIconSize() + (compactLayout() ? 7 : 9);
+            int textWidth = cardX() + cardWidth() - textX - reorderButtonWidth() - 12;
             int nameWidth = textWidth;
             if (isDefaultProfile(summary.path())) {
                 String marker = translation("screen.universal_config.default_marker");
                 int markerWidth = Math.min(textRenderer.getWidth(marker), textWidth);
                 int markerX = textX + textWidth - markerWidth;
                 nameWidth = Math.max(0, markerX - textX - 4);
-                drawTrimmed(context, marker, markerX, y + 7, markerWidth, SECONDARY_TEXT_COLOR);
+                drawTrimmed(context, marker, markerX, y + (compactLayout() ? 5 : 7), markerWidth, SECONDARY_TEXT_COLOR);
             }
-            drawTrimmed(context, profileName(manifest), textX, y + 7, nameWidth, 0xFFFFFFFF);
+            drawTrimmed(context, profileName(manifest), textX, y + (compactLayout() ? 5 : 7), nameWidth, 0xFFFFFFFF);
             String[] environment = environmentLines(manifest);
             String version = manifest.source == null ? translation("screen.universal_config.environment_unknown")
                     : safe(manifest.source.minecraftVersion);
-            drawTrimmed(context, version + " " + environment[1], textX, y + 23, textWidth, SECONDARY_TEXT_COLOR);
+            drawTrimmed(context, version + " " + environment[1], textX, y + (compactLayout() ? 20 : 23), textWidth, SECONDARY_TEXT_COLOR);
         }
         ScreenUtil.disableScissor();
     }
@@ -1031,7 +1122,7 @@ public final class ProfileListScreen extends Screen {
             return;
         }
         int y = dragTargetIndex > draggingProfileIndex
-                ? cardY(dragTargetIndex) + CARD_HEIGHT - 1
+                ? cardY(dragTargetIndex) + cardHeight() - 1
                 : cardY(dragTargetIndex) - 1;
         ScreenUtil.fill(context, cardX(), y, cardX() + cardWidth(), y + 2, SELECTED_BORDER_COLOR);
     }
@@ -1105,10 +1196,10 @@ public final class ProfileListScreen extends Screen {
         int trackTop = listTop();
         int trackBottom = listBottom();
         int trackHeight = trackBottom - trackTop;
-        int contentHeight = profiles.size() * CARD_STEP - CARD_GAP;
+        int contentHeight = profiles.size() * cardStep() - cardGap();
         int thumbHeight = Math.max(14, trackHeight * trackHeight / contentHeight);
         int thumbTop = trackTop + (trackHeight - thumbHeight) * listScroll / maxScroll;
-        int x = leftPanelRight() - PANEL_PADDING - SCROLLBAR_WIDTH;
+        int x = leftPanelRight() - panelPadding() - SCROLLBAR_WIDTH;
         ScreenUtil.fill(context, x, trackTop, x + SCROLLBAR_WIDTH, trackBottom, 0xFF303030);
         ScreenUtil.fill(context, x, thumbTop, x + SCROLLBAR_WIDTH, thumbTop + thumbHeight, 0xFFAAAAAA);
     }
@@ -1124,7 +1215,7 @@ public final class ProfileListScreen extends Screen {
         int contentHeight = detailContentHeight(selectedProfile().manifest());
         int thumbHeight = Math.max(14, trackHeight * trackHeight / contentHeight);
         int thumbTop = trackTop + (trackHeight - thumbHeight) * detailScroll / maxScroll;
-        int x = rightPanelRight() - PANEL_PADDING - SCROLLBAR_WIDTH;
+        int x = rightPanelRight() - panelPadding() - SCROLLBAR_WIDTH;
         ScreenUtil.fill(context, x, trackTop, x + SCROLLBAR_WIDTH, trackBottom, 0xFF303030);
         ScreenUtil.fill(context, x, thumbTop, x + SCROLLBAR_WIDTH, thumbTop + thumbHeight, 0xFFAAAAAA);
     }
@@ -1134,7 +1225,7 @@ public final class ProfileListScreen extends Screen {
         // prevents detail text and dividers from leaking over this temporary top-level surface.
         context.push();
         context.translate(0.0F, 0.0F, 300.0F);
-        drawBorderedRect(context, menuX(), menuY(), menuX() + MENU_WIDTH, menuY() + MENU_HEIGHT,
+        drawBorderedRect(context, menuX(), menuY(), menuX() + menuWidth(), menuY() + menuHeight(),
                 MENU_COLOR, PANEL_BORDER_LIGHT, PANEL_BORDER_DARK);
         for (ButtonWidget button : moreMenuButtons) {
             button.render(context, mouseX, mouseY, delta);
