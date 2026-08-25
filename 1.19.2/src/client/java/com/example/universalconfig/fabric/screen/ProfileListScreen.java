@@ -34,41 +34,10 @@ import java.util.List;
 import java.util.Locale;
 
 public final class ProfileListScreen extends Screen {
-    private static final int MIN_EDGE = 10;
     private static final int MAX_CONTENT_WIDTH = 760;
-    private static final int COLUMN_GAP = 8;
-    private static final int HEADER_HEIGHT = 46;
-    private static final int COMPACT_HEADER_HEIGHT = 40;
-    private static final int PENDING_HEIGHT = 30;
-    private static final int COMPACT_PENDING_HEIGHT = 26;
-    private static final int PANEL_GAP = 8;
-    private static final int COMPACT_PANEL_GAP = 6;
-    private static final int PANEL_HEADER_HEIGHT = 24;
-    private static final int COMPACT_PANEL_HEADER_HEIGHT = 20;
-    private static final int PANEL_PADDING = 10;
-    private static final int COMPACT_PANEL_PADDING = 8;
-    private static final int FOOTER_HEIGHT = 30;
-    private static final int COMPACT_FOOTER_HEIGHT = 26;
-    private static final int BUTTON_HEIGHT = 20;
-    private static final int COMPACT_BUTTON_HEIGHT = 18;
-    private static final int PRIMARY_BUTTON_HEIGHT = 24;
-    private static final int COMPACT_PRIMARY_BUTTON_HEIGHT = 20;
-    private static final int CARD_HEIGHT = 40;
-    private static final int COMPACT_CARD_HEIGHT = 36;
-    private static final int CARD_GAP = 3;
-    private static final int COMPACT_CARD_GAP = 2;
     private static final int LIST_SCROLL_STEP = 18;
     private static final int DETAIL_SCROLL_STEP = 18;
-    private static final int DETAIL_LINE_HEIGHT = 12;
-    private static final int PROFILE_ICON_SIZE = 28;
-    private static final int COMPACT_PROFILE_ICON_SIZE = 24;
     private static final int SCROLLBAR_WIDTH = 3;
-    private static final int REORDER_BUTTON_WIDTH = 16;
-    private static final int COMPACT_REORDER_BUTTON_WIDTH = 14;
-    private static final int REORDER_BUTTON_HEIGHT = 16;
-    private static final int COMPACT_REORDER_BUTTON_HEIGHT = 14;
-    private static final int MORE_BUTTON_WIDTH = 34;
-    private static final int MENU_WIDTH = 132;
     private static final int MENU_ITEM_GAP = 2;
     private static final int MENU_ITEM_COUNT = 5;
     private static final int CLOSE_BUTTON_SIZE = 20;
@@ -110,6 +79,114 @@ public final class ProfileListScreen extends Screen {
     private boolean draggingProfile;
     private String dateFormatterLanguage;
     private DateTimeFormatter dateFormatter;
+
+    private enum LayoutMode {
+        NORMAL,
+        MEDIUM,
+        SMALL
+    }
+
+    private static final class LayoutMetrics {
+        private final int outerMargin;
+        private final int columnGap;
+        private final int headerHeight;
+        private final int pendingHeight;
+        private final int panelGap;
+        private final int panelHeaderHeight;
+        private final int panelPadding;
+        private final int panelHeaderTextOffset;
+        private final int footerHeight;
+        private final int footerButtonOffset;
+        private final int buttonHeight;
+        private final int primaryButtonHeight;
+        private final int cardHeight;
+        private final int cardGap;
+        private final int cardPadding;
+        private final int cardTextGap;
+        private final int cardTextOffset;
+        private final int cardEnvironmentOffset;
+        private final int profileIconSize;
+        private final int reorderButtonWidth;
+        private final int reorderButtonHeight;
+        private final int reorderButtonOffset;
+        private final int moreButtonWidth;
+        private final int menuWidth;
+        private final int detailLineHeight;
+        private final int detailContentPadding;
+        private final int detailIntroHeight;
+        private final int detailDescriptionGap;
+        private final int detailUpdatedGap;
+        private final int detailFileGap;
+        private final int detailHeadingOffset;
+        private final int detailIncludeOffset;
+        private final int detailIncludeRowHeight;
+        private final int detailViewportTopGap;
+        private final int detailViewportBottomGap;
+
+        private LayoutMetrics(int outerMargin, int columnGap, int headerHeight, int pendingHeight, int panelGap,
+                              int panelHeaderHeight, int panelPadding, int panelHeaderTextOffset, int footerHeight,
+                              int footerButtonOffset, int buttonHeight, int primaryButtonHeight, int cardHeight,
+                              int cardGap, int cardPadding, int cardTextGap, int cardTextOffset, int cardEnvironmentOffset,
+                              int profileIconSize,
+                              int reorderButtonWidth, int reorderButtonHeight, int reorderButtonOffset,
+                              int moreButtonWidth, int menuWidth, int detailLineHeight, int detailContentPadding,
+                              int detailIntroHeight, int detailDescriptionGap, int detailUpdatedGap, int detailFileGap,
+                              int detailHeadingOffset, int detailIncludeOffset, int detailIncludeRowHeight,
+                              int detailViewportTopGap, int detailViewportBottomGap) {
+            this.outerMargin = outerMargin;
+            this.columnGap = columnGap;
+            this.headerHeight = headerHeight;
+            this.pendingHeight = pendingHeight;
+            this.panelGap = panelGap;
+            this.panelHeaderHeight = panelHeaderHeight;
+            this.panelPadding = panelPadding;
+            this.panelHeaderTextOffset = panelHeaderTextOffset;
+            this.footerHeight = footerHeight;
+            this.footerButtonOffset = footerButtonOffset;
+            this.buttonHeight = buttonHeight;
+            this.primaryButtonHeight = primaryButtonHeight;
+            this.cardHeight = cardHeight;
+            this.cardGap = cardGap;
+            this.cardPadding = cardPadding;
+            this.cardTextGap = cardTextGap;
+            this.cardTextOffset = cardTextOffset;
+            this.cardEnvironmentOffset = cardEnvironmentOffset;
+            this.profileIconSize = profileIconSize;
+            this.reorderButtonWidth = reorderButtonWidth;
+            this.reorderButtonHeight = reorderButtonHeight;
+            this.reorderButtonOffset = reorderButtonOffset;
+            this.moreButtonWidth = moreButtonWidth;
+            this.menuWidth = menuWidth;
+            this.detailLineHeight = detailLineHeight;
+            this.detailContentPadding = detailContentPadding;
+            this.detailIntroHeight = detailIntroHeight;
+            this.detailDescriptionGap = detailDescriptionGap;
+            this.detailUpdatedGap = detailUpdatedGap;
+            this.detailFileGap = detailFileGap;
+            this.detailHeadingOffset = detailHeadingOffset;
+            this.detailIncludeOffset = detailIncludeOffset;
+            this.detailIncludeRowHeight = detailIncludeRowHeight;
+            this.detailViewportTopGap = detailViewportTopGap;
+            this.detailViewportBottomGap = detailViewportBottomGap;
+        }
+
+        private static LayoutMetrics forMode(LayoutMode mode) {
+            return switch (mode) {
+                case NORMAL -> new LayoutMetrics(
+                        10, 8, 46, 30, 8, 24, 10, 8, 30, 2, 20, 24,
+                        40, 3, 7, 9, 7, 23, 28, 16, 16, 3, 34, 132, 12, 8,
+                        31, 3, 18, 14, 9, 25, 15, 7, 7);
+                case MEDIUM -> new LayoutMetrics(
+                        8, 6, 38, 26, 6, 21, 7, 6, 24, 1, 20, 20,
+                        32, 3, 6, 7, 5, 20, 22, 14, 14, 2, 32, 124, 11, 6,
+                        28, 2, 16, 13, 8, 23, 14, 6, 6);
+                case SMALL -> new LayoutMetrics(
+                        7, 5, 36, 24, 5, 19, 6, 5, 22, 1, 18, 18,
+                        30, 2, 5, 6, 4, 18, 20, 12, 12, 2, 30, 116, 11, 6,
+                        26, 2, 15, 12, 8, 21, 13, 5, 5);
+            };
+        }
+    }
 
     public ProfileListScreen(Screen parent) {
         super(Text.translatable("screen.universal_config.title"));
@@ -166,60 +243,66 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int contentWidth() {
-        return Math.min(MAX_CONTENT_WIDTH, Math.max(1, width - MIN_EDGE * 2));
+        LayoutMetrics metrics = layoutMetrics();
+        return Math.min(MAX_CONTENT_WIDTH, Math.max(1, width - metrics.outerMargin * 2));
     }
 
     private int contentLeft() {
         return (width - contentWidth()) / 2;
     }
 
-    /**
-     * 1.19.2 commonly runs with a smaller logical viewport at the same physical resolution.
-     * Keep the compact layout in logical GUI coordinates so GUI scale changes affect every
-     * dependent position together instead of mixing physical-pixel assumptions into widgets.
-     */
-    private boolean compactLayout() {
-        return width < 560 || height < 330;
+    private LayoutMode layoutMode() {
+        if (width >= 560 && height >= 330) {
+            return LayoutMode.NORMAL;
+        }
+        if (width >= 460 && height >= 270) {
+            return LayoutMode.MEDIUM;
+        }
+        return LayoutMode.SMALL;
+    }
+
+    private LayoutMetrics layoutMetrics() {
+        return LayoutMetrics.forMode(layoutMode());
     }
 
     private int headerHeight() {
-        return compactLayout() ? COMPACT_HEADER_HEIGHT : HEADER_HEIGHT;
+        return layoutMetrics().headerHeight;
     }
 
     private int pendingHeight() {
-        return compactLayout() ? COMPACT_PENDING_HEIGHT : PENDING_HEIGHT;
+        return layoutMetrics().pendingHeight;
     }
 
     private int panelGap() {
-        return compactLayout() ? COMPACT_PANEL_GAP : PANEL_GAP;
+        return layoutMetrics().panelGap;
     }
 
     private int panelHeaderHeight() {
-        return compactLayout() ? COMPACT_PANEL_HEADER_HEIGHT : PANEL_HEADER_HEIGHT;
+        return layoutMetrics().panelHeaderHeight;
     }
 
     private int panelPadding() {
-        return compactLayout() ? COMPACT_PANEL_PADDING : PANEL_PADDING;
+        return layoutMetrics().panelPadding;
     }
 
     private int footerHeight() {
-        return compactLayout() ? COMPACT_FOOTER_HEIGHT : FOOTER_HEIGHT;
+        return layoutMetrics().footerHeight;
     }
 
     private int buttonHeight() {
-        return compactLayout() ? COMPACT_BUTTON_HEIGHT : BUTTON_HEIGHT;
+        return layoutMetrics().buttonHeight;
     }
 
     private int primaryButtonHeight() {
-        return compactLayout() ? COMPACT_PRIMARY_BUTTON_HEIGHT : PRIMARY_BUTTON_HEIGHT;
+        return layoutMetrics().primaryButtonHeight;
     }
 
     private int cardHeight() {
-        return compactLayout() ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
+        return layoutMetrics().cardHeight;
     }
 
     private int cardGap() {
-        return compactLayout() ? COMPACT_CARD_GAP : CARD_GAP;
+        return layoutMetrics().cardGap;
     }
 
     private int cardStep() {
@@ -227,15 +310,15 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int profileIconSize() {
-        return compactLayout() ? COMPACT_PROFILE_ICON_SIZE : PROFILE_ICON_SIZE;
+        return layoutMetrics().profileIconSize;
     }
 
     private int reorderButtonWidth() {
-        return compactLayout() ? COMPACT_REORDER_BUTTON_WIDTH : REORDER_BUTTON_WIDTH;
+        return layoutMetrics().reorderButtonWidth;
     }
 
     private int reorderButtonHeight() {
-        return compactLayout() ? COMPACT_REORDER_BUTTON_HEIGHT : REORDER_BUTTON_HEIGHT;
+        return layoutMetrics().reorderButtonHeight;
     }
 
     private int menuHeight() {
@@ -243,11 +326,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int moreButtonWidth() {
-        return compactLayout() ? 30 : MORE_BUTTON_WIDTH;
+        return layoutMetrics().moreButtonWidth;
     }
 
     private int menuWidth() {
-        return compactLayout() ? Math.min(MENU_WIDTH, Math.max(1, detailWidth())) : MENU_WIDTH;
+        return Math.min(layoutMetrics().menuWidth, Math.max(1, detailWidth()));
     }
 
     private int mainTop() {
@@ -259,7 +342,7 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int leftPanelWidth() {
-        int available = contentWidth() - COLUMN_GAP;
+        int available = contentWidth() - layoutMetrics().columnGap;
         int minimum = Math.min(142, Math.max(1, available / 2));
         return Math.max(minimum, available * 49 / 100);
     }
@@ -269,7 +352,7 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int rightPanelLeft() {
-        return leftPanelRight() + COLUMN_GAP;
+        return leftPanelRight() + layoutMetrics().columnGap;
     }
 
     private int rightPanelRight() {
@@ -326,11 +409,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int detailViewportTop() {
-        return mainTop() + panelHeaderHeight() + (compactLayout() ? 5 : 7);
+        return mainTop() + panelHeaderHeight() + layoutMetrics().detailViewportTopGap;
     }
 
     private int detailViewportBottom() {
-        return primaryButtonY() - (compactLayout() ? 5 : 7);
+        return primaryButtonY() - layoutMetrics().detailViewportBottomGap;
     }
 
     private int detailContentWidth() {
@@ -348,7 +431,7 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int footerButtonY() {
-        return height - footerHeight() + (compactLayout() ? 1 : 2);
+        return height - footerHeight() + layoutMetrics().footerButtonOffset;
     }
 
     private int pendingTop() {
@@ -459,7 +542,7 @@ public final class ProfileListScreen extends Screen {
 
     private void addReorderButtons(int profileIndex, int cardY) {
         int x = cardX() + cardWidth() - reorderButtonWidth() - 4;
-        int y = cardY + 3;
+        int y = cardY + layoutMetrics().reorderButtonOffset;
         ButtonWidget upButton = ScreenUtil.buttonBuilder(Text.literal("↑"), button -> moveProfile(profileIndex, profileIndex - 1))
                 .narrationSupplier(ignored -> Text.translatable("screen.universal_config.move_up"))
                 .dimensions(x, y, reorderButtonWidth(), reorderButtonHeight()).build();
@@ -818,7 +901,7 @@ public final class ProfileListScreen extends Screen {
             return 0;
         }
         int x = cardX() + cardWidth() - reorderButtonWidth() - 4;
-        int y = cardY(index) + 3;
+        int y = cardY(index) + layoutMetrics().reorderButtonOffset;
         if (inside(mouseX, mouseY, x, y, reorderButtonWidth(), reorderButtonHeight())) {
             return -1;
         }
@@ -925,9 +1008,10 @@ public final class ProfileListScreen extends Screen {
             return;
         }
         ProfileManifest manifest = selected.manifest();
+        LayoutMetrics metrics = layoutMetrics();
         int x = detailX() + 10;
         int contentWidth = detailContentWidth();
-        int y = innerTop + 8 - detailScroll;
+        int y = innerTop + metrics.detailContentPadding - detailScroll;
         ScreenUtil.enableScissor(detailX(), innerTop, rightPanelRight() - panelPadding(), innerBottom);
         drawProfileIcon(context, x, y, profileIconSize(), manifest.icon);
         int infoX = x + profileIconSize() + 10;
@@ -935,22 +1019,22 @@ public final class ProfileListScreen extends Screen {
         drawTrimmed(context, environmentSummary(manifest), infoX, y + 1, infoWidth, 0xFFFFFFFF);
         drawTrimmed(context, loaderSummary(manifest), infoX, y + 15, infoWidth, MUTED_TEXT_COLOR);
 
-        y += 31;
+        y += metrics.detailIntroHeight;
         for (OrderedText line : descriptionLines(manifest)) {
             ScreenUtil.drawTextWithShadow(context, textRenderer, line, x, y, SECONDARY_TEXT_COLOR);
-            y += DETAIL_LINE_HEIGHT;
+            y += metrics.detailLineHeight;
         }
-        y += 3;
+        y += metrics.detailDescriptionGap;
         drawTrimmed(context, updatedSummary(manifest), x, y, contentWidth, MUTED_TEXT_COLOR);
-        y += 18;
+        y += metrics.detailUpdatedGap;
         // 表示名と混同しないよう、.ucp ファイル名を実ファイル名のまま別行で示す。
         // ファイル名は動的な値のため翻訳対象にせず、そのまま表示する。
         drawTrimmed(context, profileFileName(selected), x, y, contentWidth, MUTED_TEXT_COLOR);
-        y += 14;
+        y += metrics.detailFileGap;
         ScreenUtil.fill(context, x, y, x + contentWidth, y + 1, DIVIDER_COLOR);
         ScreenUtil.drawTextWithShadow(context, textRenderer, Text.translatable("screen.universal_config.included_settings"),
-                x, y + 9, SECONDARY_TEXT_COLOR);
-        int itemY = y + 25;
+                x, y + metrics.detailHeadingOffset, SECONDARY_TEXT_COLOR);
+        int itemY = y + metrics.detailIncludeOffset;
         if (manifest.includes == null) {
             drawTrimmed(context, translation("screen.universal_config.targets_unknown"), x, itemY,
                     contentWidth, MUTED_TEXT_COLOR);
@@ -967,11 +1051,14 @@ public final class ProfileListScreen extends Screen {
     }
 
     private int detailContentHeight(ProfileManifest manifest) {
+        LayoutMetrics metrics = layoutMetrics();
         int includeLines = Math.max(1, includedSettingCount(manifest));
-        return 8 + 31 + descriptionLines(manifest).size() * DETAIL_LINE_HEIGHT + 3 + 18 + 25
+        return metrics.detailContentPadding + metrics.detailIntroHeight
+                + descriptionLines(manifest).size() * metrics.detailLineHeight
+                + metrics.detailDescriptionGap + metrics.detailUpdatedGap
+                + metrics.detailIncludeOffset
                 // detailContent で updated の下に .ucp ファイル名1行を追加している分。
-                + 14
-                + includeLines * 15;
+                + metrics.detailFileGap + includeLines * metrics.detailIncludeRowHeight;
     }
 
     private String environmentSummary(ProfileManifest manifest) {
@@ -1068,14 +1155,14 @@ public final class ProfileListScreen extends Screen {
         if (included) {
             ScreenUtil.drawTextWithShadow(context, textRenderer, Text.literal("✓"), x, y, CHECK_COLOR);
             drawTrimmed(context, Text.translatable(key).getString(), x + 14, y, detailWidth() - 34, 0xFFFFFFFF);
-            return y + 15;
+            return y + layoutMetrics().detailIncludeRowHeight;
         }
         return y;
     }
 
     private void drawPanelHeader(MatrixStack context, int left, int right, Text heading) {
         int headerHeight = panelHeaderHeight();
-        int textY = mainTop() + (compactLayout() ? 5 : 8);
+        int textY = mainTop() + layoutMetrics().panelHeaderTextOffset;
         ScreenUtil.fill(context, left + 2, mainTop() + 2, right - 2, mainTop() + headerHeight, PANEL_HEADER_COLOR);
         ScreenUtil.drawTextWithShadow(context, textRenderer, heading, left + panelPadding(), textY, 0xFFFFFFFF);
         ScreenUtil.fill(context, left + 2, mainTop() + headerHeight - 1, right - 2, mainTop() + headerHeight, DIVIDER_COLOR);
@@ -1095,24 +1182,27 @@ public final class ProfileListScreen extends Screen {
             drawBorderedRect(context, cardX(), y, cardX() + cardWidth(), y + cardHeight(), fill, border, PANEL_BORDER_DARK);
             ProfileSummary summary = profiles.get(index);
             ProfileManifest manifest = summary.manifest();
-            int iconX = cardX() + 7;
+            LayoutMetrics metrics = layoutMetrics();
+            int iconX = cardX() + metrics.cardPadding;
             int iconY = y + (cardHeight() - profileIconSize()) / 2;
             drawProfileIcon(context, iconX, iconY, profileIconSize(), manifest.icon);
-            int textX = iconX + profileIconSize() + (compactLayout() ? 7 : 9);
+            int textX = iconX + profileIconSize() + metrics.cardTextGap;
             int textWidth = cardX() + cardWidth() - textX - reorderButtonWidth() - 12;
             int nameWidth = textWidth;
+            int textY = y + metrics.cardTextOffset;
             if (isDefaultProfile(summary.path())) {
                 String marker = translation("screen.universal_config.default_marker");
                 int markerWidth = Math.min(textRenderer.getWidth(marker), textWidth);
                 int markerX = textX + textWidth - markerWidth;
                 nameWidth = Math.max(0, markerX - textX - 4);
-                drawTrimmed(context, marker, markerX, y + (compactLayout() ? 5 : 7), markerWidth, SECONDARY_TEXT_COLOR);
+                drawTrimmed(context, marker, markerX, textY, markerWidth, SECONDARY_TEXT_COLOR);
             }
-            drawTrimmed(context, profileName(manifest), textX, y + (compactLayout() ? 5 : 7), nameWidth, 0xFFFFFFFF);
+            drawTrimmed(context, profileName(manifest), textX, textY, nameWidth, 0xFFFFFFFF);
             String[] environment = environmentLines(manifest);
             String version = manifest.source == null ? translation("screen.universal_config.environment_unknown")
                     : safe(manifest.source.minecraftVersion);
-            drawTrimmed(context, version + " " + environment[1], textX, y + (compactLayout() ? 20 : 23), textWidth, SECONDARY_TEXT_COLOR);
+            drawTrimmed(context, version + " " + environment[1], textX,
+                    y + metrics.cardEnvironmentOffset, textWidth, SECONDARY_TEXT_COLOR);
         }
         ScreenUtil.disableScissor();
     }
