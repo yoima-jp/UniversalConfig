@@ -15,6 +15,7 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.render.OverlayTexture;
@@ -26,6 +27,7 @@ import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.MathHelper;
 
 import java.nio.file.Path;
 import java.util.function.Function;
@@ -159,7 +161,49 @@ final class ScreenUtil {
         }
 
         ButtonWidget build() {
-            return new ButtonWidget(x, y, width, height, message, onPress);
+            return new VanillaButtonWidget(x, y, width, height, message, onPress);
+        }
+    }
+
+    /**
+     * Keeps the 1.19.2 ButtonWidget contract while avoiding a full 20px widget texture stretch when a screen uses
+     * a 24px button. Newer Minecraft versions render the same vanilla texture as a nine-slice, so the top and bottom
+     * edges stay crisp and the middle section absorbs the extra height.
+     */
+    private static final class VanillaButtonWidget extends ButtonWidget {
+        private VanillaButtonWidget(int x, int y, int width, int height, Text message, PressAction onPress) {
+            super(x, y, width, height, message, onPress);
+        }
+
+        @Override
+        public void renderButton(MatrixStack context, int mouseX, int mouseY, float delta) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            RenderSystem.setShader(GameRenderer::getPositionTexShader);
+            RenderSystem.setShaderTexture(0, WIDGETS_TEXTURE);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+
+            int textureY = 46 + getYImage(isHovered()) * 20;
+            int edge = Math.min(4, Math.min(width / 2, height / 2));
+            int middleHeight = Math.max(0, height - edge * 2);
+            int leftWidth = width / 2;
+            int rightWidth = width - leftWidth;
+            int rightU = 200 - rightWidth;
+
+            drawTexture(context, x, y, 0, textureY, leftWidth, edge);
+            drawTexture(context, x, y + edge, 0, textureY + edge, leftWidth, middleHeight);
+            drawTexture(context, x, y + height - edge, 0, textureY + 20 - edge, leftWidth, edge);
+            drawTexture(context, x + leftWidth, y, rightU, textureY, rightWidth, edge);
+            drawTexture(context, x + leftWidth, y + edge, rightU, textureY + edge, rightWidth, middleHeight);
+            drawTexture(context, x + leftWidth, y + height - edge, rightU, textureY + 20 - edge,
+                    rightWidth, edge);
+
+            renderBackground(context, client, mouseX, mouseY);
+            int textColor = active ? 0xFFFFFF : 0xA0A0A0;
+            DrawableHelper.drawCenteredText(context, client.textRenderer, getMessage(), x + width / 2,
+                    y + (height - 8) / 2, textColor | (MathHelper.ceil(alpha * 255.0F) << 24));
         }
     }
 
