@@ -98,7 +98,6 @@ public final class UniversalConfigMod implements ClientModInitializer {
             DrawableHelper.drawTexture(context,
                     x + TITLE_SCREEN_ICON_PADDING,
                     y + TITLE_SCREEN_ICON_PADDING,
-                    0,
                     0.0F, 0.0F,
                     iconSize,
                     iconSize,
