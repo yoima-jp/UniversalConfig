@@ -98,17 +98,20 @@ final class ScreenUtil {
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        matrices.push();
-        matrices.translate(x + 8.0F * scale, y + 8.0F * scale, 100.0F);
-        matrices.scale(scale, -scale, 1.0F);
-        matrices.scale(16.0F, 16.0F, 16.0F);
+        MatrixStack modelView = RenderSystem.getModelViewStack();
+        modelView.push();
+        modelView.translate(x, y, 100.0F);
+        modelView.translate(8.0F * scale, 8.0F * scale, 0.0F);
+        modelView.scale(scale, -scale, 1.0F);
+        modelView.scale(16.0F, 16.0F, 16.0F);
+        RenderSystem.applyModelViewMatrix();
         boolean disableLighting = !model.isSideLit();
         if (disableLighting) {
             DiffuseLighting.disableGuiDepthLighting();
         }
         try {
             VertexConsumerProvider.Immediate consumers = client.getBufferBuilders().getEntityVertexConsumers();
-            client.getItemRenderer().renderItem(stack, ModelTransformation.Mode.GUI, false, matrices, consumers,
+            client.getItemRenderer().renderItem(stack, ModelTransformation.Mode.GUI, false, new MatrixStack(), consumers,
                     LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, model);
             consumers.draw();
         } finally {
@@ -117,7 +120,8 @@ final class ScreenUtil {
                 DiffuseLighting.enableGuiDepthLighting();
             }
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            matrices.pop();
+            modelView.pop();
+            RenderSystem.applyModelViewMatrix();
         }
     }
 
