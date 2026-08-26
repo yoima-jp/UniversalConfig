@@ -12,7 +12,13 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.render.model.BakedModel;
+import net.minecraft.client.render.model.json.ModelTransformation;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
@@ -76,7 +82,31 @@ final class ScreenUtil {
     }
 
     static void drawItem(MatrixStack matrices, ItemStack stack, int x, int y) {
-        MinecraftClient.getInstance().getItemRenderer().renderGuiItemIcon(stack, x, y);
+        drawItem(matrices, stack, x, y, 1.0F);
+    }
+
+    static void drawItem(MatrixStack matrices, ItemStack stack, int x, int y, float scale) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        BakedModel model = client.getItemRenderer().getModel(stack, client.world, client.player, 0);
+        matrices.push();
+        matrices.translate(x + 8.0F * scale, y + 8.0F * scale, 150.0F);
+        matrices.scale(scale, -scale, 1.0F);
+        matrices.scale(16.0F, 16.0F, 16.0F);
+        boolean disableLighting = !model.isSideLit();
+        if (disableLighting) {
+            DiffuseLighting.disableGuiDepthLighting();
+        }
+        try {
+            VertexConsumerProvider.Immediate consumers = client.getBufferBuilders().getEntityVertexConsumers();
+            client.getItemRenderer().renderItem(stack, ModelTransformation.Mode.GUI, false, matrices, consumers,
+                    LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, model);
+            consumers.draw();
+        } finally {
+            if (disableLighting) {
+                DiffuseLighting.enableGuiDepthLighting();
+            }
+            matrices.pop();
+        }
     }
 
     /**

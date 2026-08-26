@@ -1127,12 +1127,7 @@ public final class ProfileListScreen extends Screen {
             case ProfileIcon.DIAMOND_BLOCK -> new ItemStack(Blocks.DIAMOND_BLOCK);
             default -> new ItemStack(Blocks.GRASS_BLOCK);
         };
-        float scale = size / 16.0F;
-        context.push();
-        context.translate(x, y, 0);
-        context.scale(scale, scale, 1.0F);
-        ScreenUtil.drawItem(context, stack, 0, 0);
-        context.pop();
+        ScreenUtil.drawItem(context, stack, x, y, size / 16.0F);
     }
 
     private DateTimeFormatter displayDateFormatter() {
