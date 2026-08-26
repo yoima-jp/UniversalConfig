@@ -1,5 +1,6 @@
 package com.example.universalconfig.fabric;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.core.UniversalConfigException;
 import com.example.universalconfig.core.UniversalConfigFormat;
@@ -95,6 +96,10 @@ public final class UniversalConfigMod implements ClientModInitializer {
             // 画像を差し替えた際は TITLE_SCREEN_TEXTURE_WIDTH/HEIGHT と実寸を一致させること。
             int iconSize = TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_ICON_PADDING * 2;
             MinecraftClient.getInstance().getTextureManager().bindTexture(TITLE_SCREEN_BUTTON_TEXTURE);
+            RenderSystem.setShaderTexture(0, TITLE_SCREEN_BUTTON_TEXTURE);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             DrawableHelper.drawTexture(context,
                     x + TITLE_SCREEN_ICON_PADDING,
                     y + TITLE_SCREEN_ICON_PADDING,
@@ -103,6 +108,7 @@ public final class UniversalConfigMod implements ClientModInitializer {
                     iconSize,
                     TITLE_SCREEN_TEXTURE_WIDTH,
                     TITLE_SCREEN_TEXTURE_HEIGHT);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
     }
 

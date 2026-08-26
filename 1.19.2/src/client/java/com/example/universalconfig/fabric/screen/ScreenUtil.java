@@ -1,5 +1,7 @@
 package com.example.universalconfig.fabric.screen;
 
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.example.universalconfig.core.UniversalConfigException;
 import com.example.universalconfig.core.UniversalConfigPaths;
 import com.example.universalconfig.core.UniversalConfigSettings;
@@ -19,6 +21,8 @@ import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.model.BakedModel;
 import net.minecraft.client.render.model.json.ModelTransformation;
+import net.minecraft.client.texture.AbstractTexture;
+import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
@@ -88,8 +92,14 @@ final class ScreenUtil {
     static void drawItem(MatrixStack matrices, ItemStack stack, int x, int y, float scale) {
         MinecraftClient client = MinecraftClient.getInstance();
         BakedModel model = client.getItemRenderer().getModel(stack, client.world, client.player, 0);
+        AbstractTexture atlas = client.getTextureManager().getTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        atlas.setFilter(false, false);
+        RenderSystem.setShaderTexture(0, SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE);
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SrcFactor.SRC_ALPHA, GlStateManager.DstFactor.ONE_MINUS_SRC_ALPHA);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         matrices.push();
-        matrices.translate(x + 8.0F * scale, y + 8.0F * scale, 150.0F);
+        matrices.translate(x + 8.0F * scale, y + 8.0F * scale, 100.0F);
         matrices.scale(scale, -scale, 1.0F);
         matrices.scale(16.0F, 16.0F, 16.0F);
         boolean disableLighting = !model.isSideLit();
@@ -102,9 +112,11 @@ final class ScreenUtil {
                     LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, model);
             consumers.draw();
         } finally {
+            RenderSystem.enableDepthTest();
             if (disableLighting) {
                 DiffuseLighting.enableGuiDepthLighting();
             }
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             matrices.pop();
         }
     }
