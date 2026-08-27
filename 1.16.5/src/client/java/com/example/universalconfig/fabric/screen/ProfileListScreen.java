@@ -134,15 +134,17 @@ public final class ProfileListScreen extends Screen {
             listScroll = Math.min(listScroll, maxListScroll());
             detailScroll = Math.min(detailScroll, maxDetailScroll());
         } catch (UniversalConfigException | RuntimeException ex) {
-            profiles = List.of();
+            profiles = com.example.universalconfig.core.Java8Compat.listOf();
             pendingImport = null;
             defaultProfilePath = null;
             selectedProfileIndex = -1;
             listScroll = 0;
             detailScroll = 0;
-            status = ex instanceof UniversalConfigException universalConfigException
-                    ? ScreenUtil.errorText(universalConfigException)
-                    : ScreenUtil.translatable("screen.universal_config.load_failed");
+            if (ex instanceof UniversalConfigException) {
+                status = ScreenUtil.errorText((UniversalConfigException) ex);
+            } else {
+                status = ScreenUtil.translatable("screen.universal_config.load_failed");
+            }
         }
     }
 
@@ -692,8 +694,8 @@ public final class ProfileListScreen extends Screen {
     }
 
     private void handleActionFailure(Exception ex, String fallbackKey) {
-        if (ex instanceof UniversalConfigException universalConfigException) {
-            status = ScreenUtil.errorText(universalConfigException);
+        if (ex instanceof UniversalConfigException) {
+            status = ScreenUtil.errorText((UniversalConfigException) ex);
         } else {
             status = ScreenUtil.translatable(fallbackKey);
         }
@@ -859,18 +861,18 @@ public final class ProfileListScreen extends Screen {
     }
 
     private String pendingProfileName() {
-        if (pendingImport == null || pendingImport.profilePath == null || pendingImport.profilePath.isBlank()) {
+        if (pendingImport == null || pendingImport.profilePath == null || pendingImport.profilePath.trim().isEmpty()) {
             return translation("screen.universal_config.this_profile");
         }
         try {
-            Path pendingPath = Path.of(pendingImport.profilePath).toAbsolutePath().normalize();
+            Path pendingPath = java.nio.file.Paths.get(pendingImport.profilePath).toAbsolutePath().normalize();
             for (ProfileSummary profile : profiles) {
                 if (profile.path().toAbsolutePath().normalize().equals(pendingPath)) {
                     return profileName(profile.manifest());
                 }
             }
             String fileName = pendingPath.getFileName() == null ? "" : pendingPath.getFileName().toString();
-            return fileName.isBlank() ? translation("screen.universal_config.this_profile") : fileName;
+            return fileName.trim().isEmpty() ? translation("screen.universal_config.this_profile") : fileName;
         } catch (RuntimeException ex) {
             return translation("screen.universal_config.this_profile");
         }
@@ -970,7 +972,7 @@ public final class ProfileListScreen extends Screen {
     }
 
     private String descriptionSummary(ProfileManifest manifest) {
-        return manifest.description == null || manifest.description.isBlank()
+        return manifest.description == null || manifest.description.trim().isEmpty()
                 ? translation("screen.universal_config.description_none")
                 : manifest.description;
     }
@@ -999,7 +1001,7 @@ public final class ProfileListScreen extends Screen {
     }
 
     private String formatDate(String value) {
-        if (value == null || value.isBlank()) {
+        if (value == null || value.trim().isEmpty()) {
             return translation("screen.universal_config.date_unknown");
         }
         try {
@@ -1121,16 +1123,16 @@ public final class ProfileListScreen extends Screen {
     }
 
     private void drawProfileIcon(MatrixStack context, int x, int y, int size, String iconId) {
-        ItemStack stack = switch (ProfileIcon.normalize(iconId)) {
-            case ProfileIcon.CRAFTING_TABLE -> new ItemStack(Blocks.CRAFTING_TABLE);
-            case ProfileIcon.BOOKSHELF -> new ItemStack(Blocks.BOOKSHELF);
-            case ProfileIcon.COBBLESTONE -> new ItemStack(Blocks.COBBLESTONE);
-            case ProfileIcon.TNT -> new ItemStack(Blocks.TNT);
-            case ProfileIcon.CHEST -> new ItemStack(Blocks.CHEST);
-            case ProfileIcon.FURNACE -> new ItemStack(Blocks.FURNACE);
-            case ProfileIcon.DIAMOND_BLOCK -> new ItemStack(Blocks.DIAMOND_BLOCK);
-            default -> new ItemStack(Blocks.GRASS_BLOCK);
-        };
+        String normalized = ProfileIcon.normalize(iconId);
+        ItemStack stack;
+        if (ProfileIcon.CRAFTING_TABLE.equals(normalized)) stack = new ItemStack(Blocks.CRAFTING_TABLE);
+        else if (ProfileIcon.BOOKSHELF.equals(normalized)) stack = new ItemStack(Blocks.BOOKSHELF);
+        else if (ProfileIcon.COBBLESTONE.equals(normalized)) stack = new ItemStack(Blocks.COBBLESTONE);
+        else if (ProfileIcon.TNT.equals(normalized)) stack = new ItemStack(Blocks.TNT);
+        else if (ProfileIcon.CHEST.equals(normalized)) stack = new ItemStack(Blocks.CHEST);
+        else if (ProfileIcon.FURNACE.equals(normalized)) stack = new ItemStack(Blocks.FURNACE);
+        else if (ProfileIcon.DIAMOND_BLOCK.equals(normalized)) stack = new ItemStack(Blocks.DIAMOND_BLOCK);
+        else stack = new ItemStack(Blocks.GRASS_BLOCK);
         ScreenUtil.drawItem(context, stack, x, y, size / 16.0F);
     }
 
@@ -1157,11 +1159,11 @@ public final class ProfileListScreen extends Screen {
     }
 
     private Locale localeForLanguage(String languageCode) {
-        if (languageCode.isBlank()) {
+        if (languageCode.trim().isEmpty()) {
             return Locale.ENGLISH;
         }
         Locale locale = Locale.forLanguageTag(languageCode.replace('_', '-'));
-        return locale.getLanguage().isBlank() ? Locale.ENGLISH : locale;
+        return locale.getLanguage().trim().isEmpty() ? Locale.ENGLISH : locale;
     }
 
     private boolean isDefaultProfile(Path profilePath) {
@@ -1236,20 +1238,19 @@ public final class ProfileListScreen extends Screen {
         if (loader.isEmpty()) {
             return loader;
         }
-        return switch (loader.toLowerCase()) {
-            case "fabric" -> "Fabric";
-            case "forge" -> "Forge";
-            case "neoforge" -> "NeoForge";
-            default -> loader.substring(0, 1).toUpperCase() + loader.substring(1);
-        };
+        String normalized = loader.toLowerCase();
+        if ("fabric".equals(normalized)) return "Fabric";
+        if ("forge".equals(normalized)) return "Forge";
+        if ("neoforge".equals(normalized)) return "NeoForge";
+        return loader.substring(0, 1).toUpperCase() + loader.substring(1);
     }
 
     private String safe(String value) {
-        return value == null || value.isBlank() ? translation("screen.universal_config.unknown") : value;
+        return value == null || value.trim().isEmpty() ? translation("screen.universal_config.unknown") : value;
     }
 
     private String profileName(ProfileManifest manifest) {
-        return manifest == null || manifest.name == null || manifest.name.isBlank()
+        return manifest == null || manifest.name == null || manifest.name.trim().isEmpty()
                 ? translation("screen.universal_config.this_profile")
                 : manifest.name;
     }

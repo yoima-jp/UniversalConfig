@@ -344,10 +344,11 @@ public final class ApplyScheduledScreen extends Screen {
     }
 
     private static String titleKey(State state) {
-        return switch (state) {
-            case SCHEDULED -> "screen.universal_config.apply_scheduled_title";
-            case RESTART_FAILED -> "screen.universal_config.restart_failed_title";
-            case PENDING_INVALID -> "screen.universal_config.pending_invalid_title";
-        };
+        switch (state) {
+            case SCHEDULED: return "screen.universal_config.apply_scheduled_title";
+            case RESTART_FAILED: return "screen.universal_config.restart_failed_title";
+            case PENDING_INVALID: return "screen.universal_config.pending_invalid_title";
+            default: return "screen.universal_config.apply_scheduled_title";
+        }
     }
 }

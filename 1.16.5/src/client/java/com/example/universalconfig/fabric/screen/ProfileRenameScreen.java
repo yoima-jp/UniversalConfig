@@ -46,7 +46,7 @@ public final class ProfileRenameScreen extends Screen {
 
     private void rename() {
         try {
-            if (nameField.getText().trim().isBlank()) {
+            if (nameField.getText().trim().trim().isEmpty()) {
                 status = ScreenUtil.translatable("screen.universal_config.profile_name_required");
                 return;
             }

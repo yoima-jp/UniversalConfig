@@ -22,7 +22,7 @@ public final class FileOperationLogger {
             "(?<![A-Za-z0-9_/:>])/(?:[^\\s\\t,;:/]+/)*[^\\s\\t,;:/]+"
     );
     private static final String LAUNCH_ID = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")
-            .format(java.time.LocalDateTime.now()) + "-pid" + ProcessHandle.current().pid();
+            .format(java.time.LocalDateTime.now()) + "-pid" + Java8Compat.currentPid();
     private static Path configuredRoot;
     private static Path instanceRoot;
     private static Path userHomeRoot;
@@ -48,9 +48,9 @@ public final class FileOperationLogger {
         }
         configuredRoot = root;
         instanceRoot = instance;
-        userHomeRoot = normalizeOrNull(Path.of(System.getProperty("user.home", ".")));
+        userHomeRoot = normalizeOrNull(java.nio.file.Paths.get(System.getProperty("user.home", ".")));
         String appData = System.getenv("APPDATA");
-        appDataRoot = appData == null || appData.isBlank() ? null : normalizeOrNull(Path.of(appData));
+        appDataRoot = appData == null || appData.trim().isEmpty() ? null : normalizeOrNull(java.nio.file.Paths.get(appData));
         Path logsRoot = root.resolve(UniversalConfigFormat.LOGS_DIRECTORY_NAME);
         launchLogFile = logsRoot.resolve(UniversalConfigFormat.LAUNCH_LOGS_DIRECTORY_NAME)
                 .resolve(UniversalConfigFormat.LAUNCH_LOG_FILE_PREFIX + LAUNCH_ID + ".log");
@@ -58,7 +58,7 @@ public final class FileOperationLogger {
         try {
             Files.createDirectories(launchLogFile.getParent());
             Files.createDirectories(latestLogFile.getParent());
-            Files.writeString(latestLogFile, "", StandardCharsets.UTF_8,
+            com.example.universalconfig.core.Java8Compat.writeString(latestLogFile, "", StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ignored) {
             // The later write path also tolerates logging failures.
@@ -102,9 +102,9 @@ public final class FileOperationLogger {
                 line.append('\t').append(sanitizeText(writer.toString()));
             }
             line.append(System.lineSeparator());
-            Files.writeString(launchLogFile, line.toString(), StandardCharsets.UTF_8,
+            com.example.universalconfig.core.Java8Compat.writeString(launchLogFile, line.toString(), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            Files.writeString(latestLogFile, line.toString(), StandardCharsets.UTF_8,
+            com.example.universalconfig.core.Java8Compat.writeString(latestLogFile, line.toString(), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException ignored) {
             // Logging must never break profile application or backup recovery.
@@ -119,7 +119,7 @@ public final class FileOperationLogger {
         if (normalized == null) {
             return "<path>";
         }
-        List<PathLabel> labels = List.of(
+        List<PathLabel> labels = com.example.universalconfig.core.Java8Compat.listOf(
                 new PathLabel(instanceRoot, "<minecraft-instance>"),
                 new PathLabel(configuredRoot, "<universal-config>"),
                 new PathLabel(appDataRoot, "<app-data>"),
@@ -127,7 +127,7 @@ public final class FileOperationLogger {
         ).stream()
                 .filter(label -> label.root() != null)
                 .sorted(Comparator.comparingInt((PathLabel label) -> label.root().getNameCount()).reversed())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         for (PathLabel label : labels) {
             if (normalized.startsWith(label.root())) {
                 Path relative = label.root().relativize(normalized);
@@ -141,7 +141,7 @@ public final class FileOperationLogger {
     }
 
     static synchronized String sanitizeText(String value) {
-        if (value == null || value.isBlank()) {
+        if (value == null || value.trim().isEmpty()) {
             return value == null ? "" : value;
         }
         String sanitized = value.replace('\n', ' ').replace('\r', ' ');
@@ -153,7 +153,7 @@ public final class FileOperationLogger {
         labels = labels.stream()
                 .filter(label -> label.root() != null)
                 .sorted(Comparator.comparingInt((PathLabel label) -> label.root().toString().length()).reversed())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         for (PathLabel label : labels) {
             String nativeRoot = label.root().toString();
             sanitized = sanitized.replace(nativeRoot, label.label())
@@ -179,6 +179,16 @@ public final class FileOperationLogger {
         return left == null ? right == null : left.equals(right);
     }
 
-    private record PathLabel(Path root, String label) {
+    private static final class PathLabel {
+        private final Path root;
+        private final String label;
+
+        private PathLabel(Path root, String label) {
+            this.root = root;
+            this.label = label;
+        }
+
+        private Path root() { return root; }
+        private String label() { return label; }
     }
 }

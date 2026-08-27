@@ -26,7 +26,7 @@ public final class FabricRestartService {
                     ManagementFactory.getRuntimeMXBean().getInputArguments(),
                     System.getProperty("java.class.path", ""),
                     KNOT_CLIENT_MAIN_CLASS,
-                    List.of(loader.getLaunchArguments(false))
+                    com.example.universalconfig.core.Java8Compat.listOf(loader.getLaunchArguments(false))
             );
             CurrentProcessRestartService.scheduleRestartAfterCurrentProcessExit(
                     loader.getGameDir(), javaArguments);

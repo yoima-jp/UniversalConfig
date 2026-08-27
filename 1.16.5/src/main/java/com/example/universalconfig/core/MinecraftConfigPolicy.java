@@ -8,11 +8,11 @@ import java.util.Set;
  * Keep Minecraft-version-specific additions in this class instead of adapter logic.
  */
 public final class MinecraftConfigPolicy {
-    private static final Set<String> DENIED_CONFIG_TOP_LEVEL_DIRECTORIES = Set.of(
+    private static final Set<String> DENIED_CONFIG_TOP_LEVEL_DIRECTORIES = com.example.universalconfig.core.Java8Compat.setOf(
             "mods", "saves", "logs", "crash-reports", "resourcepacks", "shaderpacks", "screenshots"
     );
 
-    private static final Set<String> CONFIG_FILE_EXTENSIONS = Set.of(
+    private static final Set<String> CONFIG_FILE_EXTENSIONS = com.example.universalconfig.core.Java8Compat.setOf(
             ".cfg", ".json", ".toml", ".yaml", ".yml", ".properties", ".conf", ".txt"
     );
 
@@ -20,7 +20,7 @@ public final class MinecraftConfigPolicy {
     }
 
     public static boolean isValidClientOption(String key, String value) {
-        if (key == null || key.isBlank() || value == null) {
+        if (key == null || key.trim().isEmpty() || value == null) {
             return false;
         }
         // Key bindings have a separate compatibility representation. Accepting key_ here would
@@ -32,7 +32,7 @@ public final class MinecraftConfigPolicy {
     }
 
     public static boolean isAllowedConfigFile(String relativePath) {
-        if (relativePath == null || relativePath.isBlank()) {
+        if (relativePath == null || relativePath.trim().isEmpty()) {
             return false;
         }
         String lower = relativePath.toLowerCase(Locale.ROOT);

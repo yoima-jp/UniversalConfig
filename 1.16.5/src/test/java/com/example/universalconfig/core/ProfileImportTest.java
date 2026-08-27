@@ -93,7 +93,7 @@ class ProfileImportTest {
         try (ZipArchiveReader reader = new ZipArchiveReader(second);
              InputStream manifestInput = reader.open(UniversalConfigFormat.MANIFEST_ENTRY)) {
             JsonObject importedManifest = JsonDocuments.GSON.fromJson(
-                    new String(manifestInput.readAllBytes(), StandardCharsets.UTF_8), JsonObject.class);
+                    new String(Java8Compat.readAllBytes(manifestInput), StandardCharsets.UTF_8), JsonObject.class);
             assertEquals("Future Profile (1)", importedManifest.get("name").getAsString());
             assertEquals("preserved", importedManifest.get("futureField").getAsString());
 
@@ -101,7 +101,7 @@ class ProfileImportTest {
                     ChecksumDocument.class);
             for (Map.Entry<String, String> expected : checksums.files.entrySet()) {
                 try (InputStream entry = reader.open(expected.getKey())) {
-                    assertEquals(expected.getValue(), Checksums.sha256(entry.readAllBytes()));
+                    assertEquals(expected.getValue(), Checksums.sha256(Java8Compat.readAllBytes(entry)));
                 }
             }
         }
@@ -113,8 +113,8 @@ class ProfileImportTest {
                 new UniversalConfigSettings(tempDir.resolve("invalid-shared")));
         Path wrongExtension = tempDir.resolve("profile.zip");
         Path brokenProfile = tempDir.resolve("broken.ucp");
-        Files.writeString(wrongExtension, "not a profile", StandardCharsets.UTF_8);
-        Files.writeString(brokenProfile, "not a zip", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(wrongExtension, "not a profile", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(brokenProfile, "not a zip", StandardCharsets.UTF_8);
 
         assertThrows(UniversalConfigException.class, () -> service.importProfile(null));
         assertThrows(UniversalConfigException.class, () -> service.importProfile(wrongExtension));
@@ -124,7 +124,7 @@ class ProfileImportTest {
     private Path createExternalProfile() throws Exception {
         Path sourceInstance = tempDir.resolve("source-instance");
         Files.createDirectories(sourceInstance);
-        Files.writeString(UniversalConfigPaths.optionsFile(sourceInstance), "guiScale:3\n", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(UniversalConfigPaths.optionsFile(sourceInstance), "guiScale:3\n", StandardCharsets.UTF_8);
         ProfileService sourceService = new ProfileService(
                 new UniversalConfigSettings(tempDir.resolve("source-shared")));
         ProfileCreateOptions options = new ProfileCreateOptions();

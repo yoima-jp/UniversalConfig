@@ -24,7 +24,7 @@ public final class CurrentProcessRestartService {
     }
 
     public static void scheduleRestartAfterCurrentProcessExit() throws UniversalConfigException {
-        scheduleRestartAfterCurrentProcessExit(currentWorkingDirectory(), List.of());
+        scheduleRestartAfterCurrentProcessExit(currentWorkingDirectory(), com.example.universalconfig.core.Java8Compat.listOf());
     }
 
     /**
@@ -34,7 +34,7 @@ public final class CurrentProcessRestartService {
      */
     public static void scheduleRestartAfterCurrentProcessExit(Path workingDirectory)
             throws UniversalConfigException {
-        scheduleRestartAfterCurrentProcessExit(workingDirectory, List.of());
+        scheduleRestartAfterCurrentProcessExit(workingDirectory, com.example.universalconfig.core.Java8Compat.listOf());
     }
 
     /**
@@ -45,23 +45,24 @@ public final class CurrentProcessRestartService {
             Path workingDirectory,
             List<String> loaderResolvedArguments
     ) throws UniversalConfigException {
-        ProcessHandle current = ProcessHandle.current();
-        ProcessHandle.Info processInfo = current.info();
-        String executable = processInfo.command()
-                .filter(value -> !value.isBlank())
-                .orElseThrow(() -> new UniversalConfigException("Could not determine the current Java executable."));
+        String executable = currentJavaExecutable();
         Path normalizedWorkingDirectory = normalizeWorkingDirectory(workingDirectory);
-        List<ProcessCommand> ancestors = ancestorCommands(current);
+        List<ProcessCommand> ancestors = Java8Compat.copyOf(new ArrayList<ProcessCommand>());
         // Modrinth's documented launch URL requires a database-only internal ID that is not inherited by the game.
         // Guessing it from the folder name could launch the wrong profile, so only self-identifying launchers are used.
-        LaunchCommand replacement = prismFamilyLauncherCommand(System.getenv(), normalizedWorkingDirectory, ancestors)
-                .or(() -> atLauncherCommand(normalizedWorkingDirectory, ancestors))
-                .orElseGet(() -> unsupportedLauncherCommand(executable, loaderResolvedArguments)
-                        .orElse(null));
+        Optional<LaunchCommand> replacementOption = prismFamilyLauncherCommand(
+                System.getenv(), normalizedWorkingDirectory, ancestors);
+        if (!replacementOption.isPresent()) {
+            replacementOption = atLauncherCommand(normalizedWorkingDirectory, ancestors);
+        }
+        if (!replacementOption.isPresent()) {
+            replacementOption = unsupportedLauncherCommand(executable, loaderResolvedArguments);
+        }
+        LaunchCommand replacement = replacementOption.orElse(null);
         if (replacement == null) {
             throw new UniversalConfigException("Could not determine how to restart this launcher instance.");
         }
-        scheduleJavaHelper(current.pid(), executable, replacement, normalizedWorkingDirectory);
+        scheduleJavaHelper(Java8Compat.currentPid(), executable, replacement, normalizedWorkingDirectory);
     }
 
     /**
@@ -86,13 +87,13 @@ public final class CurrentProcessRestartService {
             return Optional.empty();
         }
         try {
-            List<String> copied = List.copyOf(arguments);
-            if (copied.stream().anyMatch(value -> value == null || value.isBlank())) {
+            List<String> copied = Java8Compat.copyOf(arguments);
+            if (copied.stream().anyMatch(value -> value == null || value.trim().isEmpty())) {
                 return Optional.empty();
             }
             for (int index = 0; index + 2 < copied.size(); index++) {
                 if (("-cp".equals(copied.get(index)) || "-classpath".equals(copied.get(index)))
-                        && !copied.get(index + 1).isBlank()
+                        && !copied.get(index + 1).trim().isEmpty()
                         && !copied.get(index + 2).startsWith("-")) {
                     return Optional.of(copied);
                 }
@@ -113,7 +114,7 @@ public final class CurrentProcessRestartService {
             List<String> applicationArguments
     ) throws UniversalConfigException {
         try {
-            if (classPath == null || classPath.isBlank() || mainClass == null || mainClass.isBlank()) {
+            if (classPath == null || classPath.trim().isEmpty() || mainClass == null || mainClass.trim().isEmpty()) {
                 throw new IllegalArgumentException("Java classpath and main class are required");
             }
             List<String> arguments = new ArrayList<>(
@@ -123,7 +124,7 @@ public final class CurrentProcessRestartService {
             arguments.add(classPath);
             arguments.add(mainClass);
             arguments.addAll(applicationArguments);
-            return List.copyOf(arguments);
+            return Java8Compat.copyOf(arguments);
         } catch (RuntimeException ex) {
             throw new UniversalConfigException("Could not determine the current Java arguments.", ex);
         }
@@ -157,8 +158,8 @@ public final class CurrentProcessRestartService {
                     helperExecutable(helperJavaExecutable), helperClasspathEntry()))
                     .directory(workingDirectory.toFile())
                     .redirectInput(ProcessBuilder.Redirect.PIPE)
-                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .redirectOutput(new java.io.File(isWindows(System.getProperty("os.name", "")) ? "NUL" : "/dev/null"))
+                    .redirectError(new java.io.File(isWindows(System.getProperty("os.name", "")) ? "NUL" : "/dev/null"))
                     .start();
             // Loader arguments can contain an access token. Send the launch plan through the helper's private pipe
             // and close it so the helper can validate the complete payload before publishing its ready marker.
@@ -184,16 +185,15 @@ public final class CurrentProcessRestartService {
         deleteQuietly(readyPath);
     }
 
-    private static List<ProcessCommand> ancestorCommands(ProcessHandle current) {
-        List<ProcessCommand> commands = new ArrayList<>();
-        ProcessHandle ancestor = current.parent().orElse(null);
-        for (int depth = 0; ancestor != null && depth < 16; depth++) {
-            ProcessHandle.Info info = ancestor.info();
-            info.command().filter(value -> !value.isBlank()).ifPresent(command -> commands.add(
-                    new ProcessCommand(command, info.arguments().map(List::of).orElseGet(List::of))));
-            ancestor = ancestor.parent().orElse(null);
+    private static String currentJavaExecutable() throws UniversalConfigException {
+        String javaHome = System.getProperty("java.home", "");
+        String executable = javaHome + java.io.File.separator + "bin" + java.io.File.separator
+                + (isWindows(System.getProperty("os.name", "")) ? "java.exe" : "java");
+        Path path = java.nio.file.Paths.get(executable).toAbsolutePath().normalize();
+        if (!Files.isRegularFile(path)) {
+            throw new UniversalConfigException("Could not determine the current Java executable.");
         }
-        return List.copyOf(commands);
+        return path.toString();
     }
 
     static Optional<LaunchCommand> prismLauncherCommand(
@@ -208,7 +208,7 @@ public final class CurrentProcessRestartService {
         return ancestorCommands.stream()
                 .filter(CurrentProcessRestartService::isPrismLauncherExecutable)
                 .findFirst()
-                .map(command -> new LaunchCommand(command, List.of("--launch", instanceId)));
+                .map(command -> new LaunchCommand(command, com.example.universalconfig.core.Java8Compat.listOf("--launch", instanceId)));
     }
 
     static Optional<LaunchCommand> prismFamilyLauncherCommand(
@@ -224,7 +224,7 @@ public final class CurrentProcessRestartService {
                 .map(ProcessCommand::executable)
                 .filter(CurrentProcessRestartService::isPrismFamilyLauncherExecutable)
                 .findFirst()
-                .map(command -> new LaunchCommand(command, List.of("--launch", instanceId)));
+                .map(command -> new LaunchCommand(command, com.example.universalconfig.core.Java8Compat.listOf("--launch", instanceId)));
     }
 
     private static Optional<String> validatedPrismFamilyInstanceId(
@@ -234,14 +234,14 @@ public final class CurrentProcessRestartService {
         String instanceId = environment.get("INST_ID");
         String instanceDirectoryValue = environment.get("INST_DIR");
         String minecraftDirectoryValue = environment.get("INST_MC_DIR");
-        if (instanceId == null || instanceId.isBlank()
-                || instanceDirectoryValue == null || instanceDirectoryValue.isBlank()
-                || minecraftDirectoryValue == null || minecraftDirectoryValue.isBlank()) {
+        if (instanceId == null || instanceId.trim().isEmpty()
+                || instanceDirectoryValue == null || instanceDirectoryValue.trim().isEmpty()
+                || minecraftDirectoryValue == null || minecraftDirectoryValue.trim().isEmpty()) {
             return Optional.empty();
         }
         try {
-            Path instanceDirectory = Path.of(instanceDirectoryValue).toAbsolutePath().normalize();
-            Path minecraftDirectory = Path.of(minecraftDirectoryValue).toAbsolutePath().normalize();
+            Path instanceDirectory = java.nio.file.Paths.get(instanceDirectoryValue).toAbsolutePath().normalize();
+            Path minecraftDirectory = java.nio.file.Paths.get(minecraftDirectoryValue).toAbsolutePath().normalize();
             Path instanceFolderName = instanceDirectory.getFileName();
             if (!minecraftDirectory.equals(workingDirectory.toAbsolutePath().normalize())
                     || instanceFolderName == null
@@ -279,7 +279,7 @@ public final class CurrentProcessRestartService {
         if (launcherWorkingDirectory == null) {
             return Optional.empty();
         }
-        List<String> launchArguments = List.of(
+        List<String> launchArguments = com.example.universalconfig.core.Java8Compat.listOf(
                 "--working-dir", launcherWorkingDirectory.toString(),
                 "--launch", instanceName.toString());
         for (ProcessCommand ancestor : ancestorCommands) {
@@ -289,7 +289,7 @@ public final class CurrentProcessRestartService {
             if (isJavaExecutable(ancestor.executable())) {
                 Optional<List<String>> jarArguments = atLauncherJarArguments(ancestor.arguments(), launchArguments);
                 if (jarArguments.isPresent()) {
-                    return Optional.of(new LaunchCommand(ancestor.executable(), jarArguments.orElseThrow()));
+                    return Optional.of(new LaunchCommand(ancestor.executable(), jarArguments.get()));
                 }
             }
         }
@@ -311,13 +311,13 @@ public final class CurrentProcessRestartService {
             }
             List<String> arguments = new ArrayList<>(ancestorArguments.subList(0, index + 2));
             arguments.addAll(launchArguments);
-            return Optional.of(List.copyOf(arguments));
+            return Optional.of(Java8Compat.copyOf(arguments));
         }
         return Optional.empty();
     }
 
     static List<String> buildHelperCommand(String javaExecutable, Path helperClasspath) {
-        return List.of(
+        return com.example.universalconfig.core.Java8Compat.listOf(
                 javaExecutable,
                 "-cp",
                 helperClasspath.toString(),
@@ -332,7 +332,7 @@ public final class CurrentProcessRestartService {
             if (Files.isRegularFile(readyPath)) {
                 return;
             }
-            if (!helper.isAlive()) {
+            if (processExited(helper)) {
                 throw new UniversalConfigException("The Minecraft restart helper stopped before becoming ready.");
             }
             Thread.sleep(HELPER_READY_POLL_MILLIS);
@@ -343,7 +343,7 @@ public final class CurrentProcessRestartService {
 
     private static Path currentWorkingDirectory() throws UniversalConfigException {
         try {
-            return normalizeWorkingDirectory(Path.of(System.getProperty("user.dir", ".")));
+            return normalizeWorkingDirectory(java.nio.file.Paths.get(System.getProperty("user.dir", ".")));
         } catch (UniversalConfigException ex) {
             throw ex;
         } catch (RuntimeException ex) {
@@ -368,7 +368,7 @@ public final class CurrentProcessRestartService {
                     || RestartHelper.class.getProtectionDomain().getCodeSource() == null) {
                 throw new UniversalConfigException("Could not locate the restart helper code.");
             }
-            return Path.of(RestartHelper.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+            return java.nio.file.Paths.get(RestartHelper.class.getProtectionDomain().getCodeSource().getLocation().toURI())
                     .toAbsolutePath()
                     .normalize();
         } catch (URISyntaxException | RuntimeException ex) {
@@ -381,7 +381,7 @@ public final class CurrentProcessRestartService {
             return currentExecutable;
         }
         try {
-            Path executablePath = Path.of(currentExecutable).toAbsolutePath().normalize();
+            Path executablePath = java.nio.file.Paths.get(currentExecutable).toAbsolutePath().normalize();
             Path fileName = executablePath.getFileName();
             if (fileName != null && fileName.toString().equalsIgnoreCase("java.exe")) {
                 Path javaw = executablePath.resolveSibling("javaw.exe");
@@ -424,7 +424,7 @@ public final class CurrentProcessRestartService {
     }
 
     private static String fileName(String command) {
-        if (command == null || command.isBlank()) {
+        if (command == null || command.trim().isEmpty()) {
             return "";
         }
         // ProcessHandle can expose a Windows-style path while tests or tooling run on another OS,
@@ -435,8 +435,17 @@ public final class CurrentProcessRestartService {
     }
 
     private static void stopHelper(Process helper) {
-        if (helper != null && helper.isAlive()) {
+        if (helper != null && !processExited(helper)) {
             helper.destroy();
+        }
+    }
+
+    private static boolean processExited(Process process) {
+        try {
+            process.exitValue();
+            return true;
+        } catch (IllegalThreadStateException ex) {
+            return false;
         }
     }
 
@@ -448,15 +457,25 @@ public final class CurrentProcessRestartService {
         }
     }
 
-    record LaunchCommand(String executable, List<String> arguments) {
-        LaunchCommand {
-            arguments = List.copyOf(arguments);
+    static final class LaunchCommand {
+        private final String executable;
+        private final List<String> arguments;
+        LaunchCommand(String executable, List<String> arguments) {
+            this.executable = executable;
+            this.arguments = java.util.Collections.unmodifiableList(new java.util.ArrayList<String>(arguments));
         }
+        String executable() { return executable; }
+        List<String> arguments() { return arguments; }
     }
 
-    record ProcessCommand(String executable, List<String> arguments) {
-        ProcessCommand {
-            arguments = List.copyOf(arguments);
+    static final class ProcessCommand {
+        private final String executable;
+        private final List<String> arguments;
+        ProcessCommand(String executable, List<String> arguments) {
+            this.executable = executable;
+            this.arguments = java.util.Collections.unmodifiableList(new java.util.ArrayList<String>(arguments));
         }
+        String executable() { return executable; }
+        List<String> arguments() { return arguments; }
     }
 }

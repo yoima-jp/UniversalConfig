@@ -20,13 +20,13 @@ class CurrentProcessRestartServiceTest {
 
     @Test
     void helperCommandDoesNotRequireAPlanPathOrOperatingSystemShell() {
-        Path helperClasspath = Path.of("/path with spaces/universal-config.jar");
+        Path helperClasspath = java.nio.file.Paths.get("/path with spaces/universal-config.jar");
         List<String> command = CurrentProcessRestartService.buildHelperCommand(
                 "/opt/java/bin/java",
                 helperClasspath
         );
 
-        assertEquals(List.of(
+        assertEquals(com.example.universalconfig.core.Java8Compat.listOf(
                 "/opt/java/bin/java",
                 "-cp",
                 helperClasspath.toString(),
@@ -42,7 +42,7 @@ class CurrentProcessRestartServiceTest {
     void windowsHelperUsesJavaWithoutPowerShellOrEncodedCommands() {
         List<String> command = CurrentProcessRestartService.buildHelperCommand(
                 "C:\\Program Files\\Java\\bin\\javaw.exe",
-                Path.of("C:\\mods\\universal-config.jar")
+                java.nio.file.Paths.get("C:\\mods\\universal-config.jar")
         );
 
         assertEquals("C:\\Program Files\\Java\\bin\\javaw.exe", command.get(0));
@@ -57,13 +57,13 @@ class CurrentProcessRestartServiceTest {
     @Test
     void javaLaunchArgumentsPreserveLoaderAndJvmArgumentBoundaries() throws Exception {
         List<String> arguments = CurrentProcessRestartService.buildJavaLaunchArguments(
-                List.of("-Xmx4G", "-Dlabel=value with spaces"),
+                com.example.universalconfig.core.Java8Compat.listOf("-Xmx4G", "-Dlabel=value with spaces"),
                 "C:\\libraries with spaces\\client.jar;C:\\libraries\\loader.jar",
                 "net.fabricmc.loader.impl.launch.knot.KnotClient",
-                List.of("--gameDir", "C:\\instances\\fabric 1.20.1\\instance", "--accessToken", "token-value")
+                com.example.universalconfig.core.Java8Compat.listOf("--gameDir", "C:\\instances\\fabric 1.20.1\\instance", "--accessToken", "token-value")
         );
 
-        assertEquals(List.of(
+        assertEquals(com.example.universalconfig.core.Java8Compat.listOf(
                 "-Xmx4G",
                 "-Dlabel=value with spaces",
                 "-cp",
@@ -81,7 +81,7 @@ class CurrentProcessRestartServiceTest {
         Path minecraftDirectory = temporaryDirectory.resolve("PrismLauncher").resolve("instances")
                 .resolve("1.20.1(2)").resolve("minecraft");
         Path launcherExecutable = temporaryDirectory.resolve("prismlauncher.exe");
-        Map<String, String> environment = Map.of(
+        Map<String, String> environment = com.example.universalconfig.core.Java8Compat.mapOf(
                 "INST_ID", "1.20.1(2)",
                 "INST_DIR", minecraftDirectory.getParent().toString(),
                 "INST_MC_DIR", minecraftDirectory.toString()
@@ -90,36 +90,36 @@ class CurrentProcessRestartServiceTest {
         CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.prismLauncherCommand(
                 environment,
                 minecraftDirectory,
-                List.of(
+                com.example.universalconfig.core.Java8Compat.listOf(
                         temporaryDirectory.resolve("java").resolve("bin").resolve("javaw.exe").toString(),
                         launcherExecutable.toString()
                 )
-        ).orElseThrow();
+        ).get();
 
         assertEquals(launcherExecutable.toString(), command.executable());
-        assertEquals(List.of("--launch", "1.20.1(2)"), command.arguments());
+        assertEquals(com.example.universalconfig.core.Java8Compat.listOf("--launch", "1.20.1(2)"), command.arguments());
     }
 
     @Test
     void prismLauncherRestartRejectsMismatchedInstanceEnvironment() {
-        Path minecraftDirectory = Path.of("C:\\PrismLauncher\\instances\\safe\\minecraft");
-        Map<String, String> environment = Map.of(
+        Path minecraftDirectory = java.nio.file.Paths.get("C:\\PrismLauncher\\instances\\safe\\minecraft");
+        Map<String, String> environment = com.example.universalconfig.core.Java8Compat.mapOf(
                 "INST_ID", "other",
                 "INST_DIR", "C:\\PrismLauncher\\instances\\safe",
                 "INST_MC_DIR", minecraftDirectory.toString()
         );
 
-        assertTrue(CurrentProcessRestartService.prismLauncherCommand(
+        assertFalse(CurrentProcessRestartService.prismLauncherCommand(
                 environment,
                 minecraftDirectory,
-                List.of("C:\\Program Files\\PrismLauncher\\prismlauncher.exe")
-        ).isEmpty());
+                com.example.universalconfig.core.Java8Compat.listOf("C:\\Program Files\\PrismLauncher\\prismlauncher.exe")
+        ).isPresent());
     }
 
     @Test
     void prismAndMultiMcExecutablesAreRecognizedAcrossOperatingSystems() {
-        Path minecraftDirectory = Path.of("/games/instances/fabric/minecraft");
-        Map<String, String> environment = Map.of(
+        Path minecraftDirectory = java.nio.file.Paths.get("/games/instances/fabric/minecraft");
+        Map<String, String> environment = com.example.universalconfig.core.Java8Compat.mapOf(
                 "INST_ID", "fabric",
                 "INST_DIR", "/games/instances/fabric",
                 "INST_MC_DIR", minecraftDirectory.toString()
@@ -128,18 +128,18 @@ class CurrentProcessRestartServiceTest {
         CurrentProcessRestartService.LaunchCommand prism = CurrentProcessRestartService.prismFamilyLauncherCommand(
                 environment,
                 minecraftDirectory,
-                List.of(new CurrentProcessRestartService.ProcessCommand(
-                        "/Applications/Prism Launcher.app/Contents/MacOS/prismlauncher", List.of()))
-        ).orElseThrow();
+                com.example.universalconfig.core.Java8Compat.listOf(new CurrentProcessRestartService.ProcessCommand(
+                        "/Applications/Prism Launcher.app/Contents/MacOS/prismlauncher", com.example.universalconfig.core.Java8Compat.listOf()))
+        ).get();
         CurrentProcessRestartService.LaunchCommand multiMc = CurrentProcessRestartService.prismFamilyLauncherCommand(
                 environment,
                 minecraftDirectory,
-                List.of(new CurrentProcessRestartService.ProcessCommand("/opt/multimc/MultiMC", List.of()))
-        ).orElseThrow();
+                com.example.universalconfig.core.Java8Compat.listOf(new CurrentProcessRestartService.ProcessCommand("/opt/multimc/MultiMC", com.example.universalconfig.core.Java8Compat.listOf()))
+        ).get();
 
-        assertEquals(List.of("--launch", "fabric"), prism.arguments());
+        assertEquals(com.example.universalconfig.core.Java8Compat.listOf("--launch", "fabric"), prism.arguments());
         assertEquals("/opt/multimc/MultiMC", multiMc.executable());
-        assertEquals(List.of("--launch", "fabric"), multiMc.arguments());
+        assertEquals(com.example.universalconfig.core.Java8Compat.listOf("--launch", "fabric"), multiMc.arguments());
     }
 
     @Test
@@ -148,16 +148,16 @@ class CurrentProcessRestartServiceTest {
         Path instanceDirectory = launcherDirectory.resolve("instances").resolve("TestPack");
         Path launcherExecutable = launcherDirectory.resolve("ATLauncher.exe");
         Files.createDirectories(instanceDirectory);
-        Files.writeString(instanceDirectory.resolve("instance.json"), "{}");
+        com.example.universalconfig.core.Java8Compat.writeString(instanceDirectory.resolve("instance.json"), "{}");
 
         CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.atLauncherCommand(
                 instanceDirectory,
-                List.of(new CurrentProcessRestartService.ProcessCommand(
-                        launcherExecutable.toString(), List.of()))
-        ).orElseThrow();
+                com.example.universalconfig.core.Java8Compat.listOf(new CurrentProcessRestartService.ProcessCommand(
+                        launcherExecutable.toString(), com.example.universalconfig.core.Java8Compat.listOf()))
+        ).get();
 
         assertEquals(launcherExecutable.toString(), command.executable());
-        assertEquals(List.of(
+        assertEquals(com.example.universalconfig.core.Java8Compat.listOf(
                 "--working-dir", launcherDirectory.toAbsolutePath().normalize().toString(),
                 "--launch", "TestPack"), command.arguments());
     }
@@ -167,17 +167,17 @@ class CurrentProcessRestartServiceTest {
         Path launcherDirectory = temporaryDirectory.resolve("portable");
         Path instanceDirectory = launcherDirectory.resolve("instances").resolve("Pack2");
         Files.createDirectories(instanceDirectory);
-        Files.writeString(instanceDirectory.resolve("instance.json"), "{}");
+        com.example.universalconfig.core.Java8Compat.writeString(instanceDirectory.resolve("instance.json"), "{}");
 
         CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.atLauncherCommand(
                 instanceDirectory,
-                List.of(new CurrentProcessRestartService.ProcessCommand(
+                com.example.universalconfig.core.Java8Compat.listOf(new CurrentProcessRestartService.ProcessCommand(
                         "/usr/bin/java",
-                        List.of("-Xmx512m", "-jar", "/opt/ATLauncher/ATLauncher.jar", "--debug")))
-        ).orElseThrow();
+                        com.example.universalconfig.core.Java8Compat.listOf("-Xmx512m", "-jar", "/opt/ATLauncher/ATLauncher.jar", "--debug")))
+        ).get();
 
         assertEquals("/usr/bin/java", command.executable());
-        assertEquals(List.of(
+        assertEquals(com.example.universalconfig.core.Java8Compat.listOf(
                 "-Xmx512m", "-jar", "/opt/ATLauncher/ATLauncher.jar",
                 "--working-dir", launcherDirectory.toAbsolutePath().normalize().toString(),
                 "--launch", "Pack2"), command.arguments());
@@ -188,23 +188,23 @@ class CurrentProcessRestartServiceTest {
         Path instanceDirectory = temporaryDirectory.resolve("instances").resolve("NotATLauncher");
         Files.createDirectories(instanceDirectory);
 
-        assertTrue(CurrentProcessRestartService.atLauncherCommand(
+        assertFalse(CurrentProcessRestartService.atLauncherCommand(
                 instanceDirectory,
-                List.of(new CurrentProcessRestartService.ProcessCommand("ATLauncher.exe", List.of()))
-        ).isEmpty());
+                com.example.universalconfig.core.Java8Compat.listOf(new CurrentProcessRestartService.ProcessCommand("ATLauncher.exe", com.example.universalconfig.core.Java8Compat.listOf()))
+        ).isPresent());
     }
 
     @Test
     void unsupportedLauncherUsesLoaderResolvedArguments() {
         String javaExecutable = "C:\\Program Files\\Java\\bin\\java.exe";
-        List<String> javaArguments = List.of(
+        List<String> javaArguments = com.example.universalconfig.core.Java8Compat.listOf(
                 "-cp", "C:\\game libraries\\client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient",
                 "--gameDir", "C:\\instances\\fabric 1.20.1\\instance");
 
         CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.unsupportedLauncherCommand(
                 javaExecutable,
                 javaArguments
-        ).orElseThrow();
+        ).get();
 
         assertEquals(javaExecutable, command.executable());
         assertEquals(javaArguments, command.arguments());
@@ -212,18 +212,18 @@ class CurrentProcessRestartServiceTest {
 
     @Test
     void unsupportedLauncherDoesNotUseIncompleteArguments() {
-        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
+        assertFalse(CurrentProcessRestartService.unsupportedLauncherCommand(
                 "java.exe",
-                List.of("--gameDir", "C:\\instances\\fabric 1.20.1\\instance")
-        ).isEmpty());
-        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
+                com.example.universalconfig.core.Java8Compat.listOf("--gameDir", "C:\\instances\\fabric 1.20.1\\instance")
+        ).isPresent());
+        assertFalse(CurrentProcessRestartService.unsupportedLauncherCommand(
                 "java.exe",
-                List.of()
-        ).isEmpty());
-        assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
+                com.example.universalconfig.core.Java8Compat.listOf()
+        ).isPresent());
+        assertFalse(CurrentProcessRestartService.unsupportedLauncherCommand(
                 "C:\\launchers\\launcher.exe",
-                List.of("-cp", "client.jar", "example.Main")
-        ).isEmpty());
+                com.example.universalconfig.core.Java8Compat.listOf("-cp", "client.jar", "example.Main")
+        ).isPresent());
     }
 
     @Test
@@ -231,8 +231,8 @@ class CurrentProcessRestartServiceTest {
         CurrentProcessRestartService.LaunchCommand command =
                 CurrentProcessRestartService.unsupportedLauncherCommand(
                         "java.exe",
-                        List.of("-cp", "client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient")
-                ).orElseThrow();
+                        com.example.universalconfig.core.Java8Compat.listOf("-cp", "client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient")
+                ).get();
 
         assertEquals("java.exe", command.executable());
         assertEquals("client.jar", command.arguments().get(1));
@@ -243,8 +243,8 @@ class CurrentProcessRestartServiceTest {
         RestartHelper.LaunchPlan expected = new RestartHelper.LaunchPlan(
                 84,
                 "C:\\Program Files\\Java\\bin\\javaw.exe",
-                List.of("-Dlabel=it's ready", "-cp", "C:\\game path\\game.jar", "example.Main"),
-                Path.of("C:\\game path"),
+                com.example.universalconfig.core.Java8Compat.listOf("-Dlabel=it's ready", "-cp", "C:\\game path\\game.jar", "example.Main"),
+                java.nio.file.Paths.get("C:\\game path"),
                 temporaryDirectory.resolve("restart.ready"),
                 temporaryDirectory.resolve("restart.log")
         );

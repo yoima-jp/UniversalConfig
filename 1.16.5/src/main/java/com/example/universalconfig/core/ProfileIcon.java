@@ -16,7 +16,7 @@ public final class ProfileIcon {
     public static final String FURNACE = "furnace";
     public static final String DIAMOND_BLOCK = "diamond_block";
 
-    private static final Set<String> KNOWN_IDS = Set.of(
+    private static final Set<String> KNOWN_IDS = com.example.universalconfig.core.Java8Compat.setOf(
             GRASS_BLOCK, CRAFTING_TABLE, BOOKSHELF, COBBLESTONE,
             TNT, CHEST, FURNACE, DIAMOND_BLOCK);
 
@@ -28,13 +28,10 @@ public final class ProfileIcon {
             return iconId;
         }
         // 初期版の抽象アイコンIDも読み込めるよう、意味の近いブロックへ移行する。
-        return switch (iconId == null ? "" : iconId) {
-            case "laptop" -> CRAFTING_TABLE;
-            // Amethyst was briefly offered by the 1.20 client, but the stable icon contract must also render on
-            // pre-1.17 ports. Keep accepting its persisted ID and migrate it to a block available since early Java.
-            case "camera", "amethyst_block" -> COBBLESTONE;
-            case "book" -> BOOKSHELF;
-            default -> GRASS_BLOCK;
-        };
+        String value = iconId == null ? "" : iconId;
+        if ("laptop".equals(value)) return CRAFTING_TABLE;
+        if ("camera".equals(value) || "amethyst_block".equals(value)) return COBBLESTONE;
+        if ("book".equals(value)) return BOOKSHELF;
+        return GRASS_BLOCK;
     }
 }

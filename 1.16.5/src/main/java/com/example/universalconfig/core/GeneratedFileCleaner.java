@@ -182,12 +182,12 @@ public final class GeneratedFileCleaner {
 
         try (ZipFile zip = new ZipFile(normalized.toFile())) {
             // Validate every entry name through ZipSecurity to reject unsafe archives early.
-            var entries = zip.entries();
+            java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
-                var entry = entries.nextElement();
+                java.util.zip.ZipEntry entry = entries.nextElement();
                 ZipSecurity.validateRelativeEntryName(entry.getName());
             }
-            var manifestEntry = zip.getEntry(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY);
+            java.util.zip.ZipEntry manifestEntry = zip.getEntry(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY);
             if (manifestEntry == null || manifestEntry.isDirectory()) {
                 FileOperationLogger.failure("CLEANUP_BACKUP", backup, "manifest missing", null);
                 return null;
@@ -199,7 +199,7 @@ public final class GeneratedFileCleaner {
             }
             BackupManifest manifest;
             try (InputStream input = zip.getInputStream(manifestEntry)) {
-                byte[] encoded = input.readNBytes(MAX_MANIFEST_BYTES + 1);
+                byte[] encoded = Java8Compat.readNBytes(input, MAX_MANIFEST_BYTES + 1);
                 if (encoded.length > MAX_MANIFEST_BYTES) {
                     FileOperationLogger.failure("CLEANUP_BACKUP", backup, "manifest exceeds size limit", null);
                     return null;
@@ -212,7 +212,7 @@ public final class GeneratedFileCleaner {
                 FileOperationLogger.failure("CLEANUP_BACKUP", backup, "manifest format is invalid", null);
                 return null;
             }
-            if (manifest.createdAt == null || manifest.createdAt.isBlank()) {
+            if (manifest.createdAt == null || manifest.createdAt.trim().isEmpty()) {
                 FileOperationLogger.failure("CLEANUP_BACKUP", backup, "manifest has no createdAt", null);
                 return null;
             }
@@ -252,7 +252,7 @@ public final class GeneratedFileCleaner {
         // readAllBytes is intentionally avoided because .ucbackup is untrusted external input.
         // ZipInputStream verifies each entry's CRC when it reaches EOF; ZipFile entry streams do not.
         byte[] buffer = new byte[8192];
-        var entry = zip.getNextEntry();
+        java.util.zip.ZipEntry entry = zip.getNextEntry();
         while (entry != null) {
             ZipSecurity.validateRelativeEntryName(entry.getName());
             if (!entry.isDirectory()) {

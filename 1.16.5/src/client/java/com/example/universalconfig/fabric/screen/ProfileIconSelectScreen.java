@@ -91,16 +91,15 @@ final class ProfileIconSelectScreen extends Screen {
     }
 
     private ItemStack iconStack(String iconId) {
-        return switch (ProfileIcon.normalize(iconId)) {
-            case ProfileIcon.CRAFTING_TABLE -> new ItemStack(Blocks.CRAFTING_TABLE);
-            case ProfileIcon.BOOKSHELF -> new ItemStack(Blocks.BOOKSHELF);
-            case ProfileIcon.COBBLESTONE -> new ItemStack(Blocks.COBBLESTONE);
-            case ProfileIcon.TNT -> new ItemStack(Blocks.TNT);
-            case ProfileIcon.CHEST -> new ItemStack(Blocks.CHEST);
-            case ProfileIcon.FURNACE -> new ItemStack(Blocks.FURNACE);
-            case ProfileIcon.DIAMOND_BLOCK -> new ItemStack(Blocks.DIAMOND_BLOCK);
-            default -> new ItemStack(Blocks.GRASS_BLOCK);
-        };
+        String normalized = ProfileIcon.normalize(iconId);
+        if (ProfileIcon.CRAFTING_TABLE.equals(normalized)) return new ItemStack(Blocks.CRAFTING_TABLE);
+        if (ProfileIcon.BOOKSHELF.equals(normalized)) return new ItemStack(Blocks.BOOKSHELF);
+        if (ProfileIcon.COBBLESTONE.equals(normalized)) return new ItemStack(Blocks.COBBLESTONE);
+        if (ProfileIcon.TNT.equals(normalized)) return new ItemStack(Blocks.TNT);
+        if (ProfileIcon.CHEST.equals(normalized)) return new ItemStack(Blocks.CHEST);
+        if (ProfileIcon.FURNACE.equals(normalized)) return new ItemStack(Blocks.FURNACE);
+        if (ProfileIcon.DIAMOND_BLOCK.equals(normalized)) return new ItemStack(Blocks.DIAMOND_BLOCK);
+        return new ItemStack(Blocks.GRASS_BLOCK);
     }
 
     private static final class IconButton extends ButtonWidget {

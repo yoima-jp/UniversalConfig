@@ -36,7 +36,7 @@ public final class ProfileConfirmScreen extends Screen {
     private final Path profilePath;
     private ProfileManifest manifest;
     private ProfileDiff diff = new ProfileDiff();
-    private List<DisplayLine> detailLines = List.of();
+    private List<DisplayLine> detailLines = com.example.universalconfig.core.Java8Compat.listOf();
     private Text status = ScreenUtil.empty();
     private boolean detailsVisible;
     private int scroll;
@@ -72,10 +72,12 @@ public final class ProfileConfirmScreen extends Screen {
         } catch (UniversalConfigException | RuntimeException ex) {
             manifest = null;
             diff = new ProfileDiff();
-            detailLines = List.of();
-            status = ex instanceof UniversalConfigException universalConfigException
-                    ? ScreenUtil.errorText(universalConfigException)
-                    : ScreenUtil.translatable("screen.universal_config.confirm_load_failed");
+            detailLines = com.example.universalconfig.core.Java8Compat.listOf();
+            if (ex instanceof UniversalConfigException) {
+                status = ScreenUtil.errorText((UniversalConfigException) ex);
+            } else {
+                status = ScreenUtil.translatable("screen.universal_config.confirm_load_failed");
+            }
             FileOperationLogger.failure("LOAD_PROFILE_CONFIRM", profilePath, "failed", ex);
         }
     }
@@ -151,19 +153,21 @@ public final class ProfileConfirmScreen extends Screen {
     }
 
     private Text scheduleButtonLabel() {
-        return switch (diff.riskLevel) {
-            case HIGH -> ScreenUtil.translatable("screen.universal_config.confirm_schedule_high");
-            case MEDIUM -> ScreenUtil.translatable("screen.universal_config.use_profile");
-            case LOW -> ScreenUtil.translatable("screen.universal_config.use_profile");
-        };
+        switch (diff.riskLevel) {
+            case HIGH: return ScreenUtil.translatable("screen.universal_config.confirm_schedule_high");
+            case MEDIUM:
+            case LOW: return ScreenUtil.translatable("screen.universal_config.use_profile");
+            default: return ScreenUtil.translatable("screen.universal_config.use_profile");
+        }
     }
 
     private String riskLevelKey(RiskLevel riskLevel) {
-        return switch (riskLevel) {
-            case HIGH -> "screen.universal_config.risk_high";
-            case MEDIUM -> "screen.universal_config.risk_medium";
-            case LOW -> "screen.universal_config.risk_low";
-        };
+        switch (riskLevel) {
+            case HIGH: return "screen.universal_config.risk_high";
+            case MEDIUM: return "screen.universal_config.risk_medium";
+            case LOW: return "screen.universal_config.risk_low";
+            default: return "screen.universal_config.risk_low";
+        }
     }
 
     private void schedule() {
@@ -175,9 +179,11 @@ public final class ProfileConfirmScreen extends Screen {
             ScreenUtil.service().scheduleApplyOnNextStart(ScreenUtil.instancePath(), profilePath, ScreenUtil.environment());
             client.openScreen(new ApplyScheduledScreen(parent));
         } catch (UniversalConfigException | RuntimeException ex) {
-            status = ex instanceof UniversalConfigException universalConfigException
-                    ? ScreenUtil.errorText(universalConfigException)
-                    : ScreenUtil.translatable("screen.universal_config.schedule_failed");
+            if (ex instanceof UniversalConfigException) {
+                status = ScreenUtil.errorText((UniversalConfigException) ex);
+            } else {
+                status = ScreenUtil.translatable("screen.universal_config.schedule_failed");
+            }
             FileOperationLogger.failure("SCHEDULE_PROFILE_APPLY", profilePath, "failed", ex);
         }
     }
@@ -300,7 +306,7 @@ public final class ProfileConfirmScreen extends Screen {
     }
 
     private String safe(String value) {
-        return value == null || value.isBlank() ? translation("screen.universal_config.unknown") : value;
+        return value == null || value.trim().isEmpty() ? translation("screen.universal_config.unknown") : value;
     }
 
     private String translation(String key) {
@@ -318,6 +324,14 @@ public final class ProfileConfirmScreen extends Screen {
                 textRenderer.trimToWidth(text == null ? "" : text, Math.max(0, maxWidth)), x, y, color);
     }
 
-    private record DisplayLine(Text text, boolean warning) {
+    private static final class DisplayLine {
+        private final Text text;
+        private final boolean warning;
+        private DisplayLine(Text text, boolean warning) {
+            this.text = text;
+            this.warning = warning;
+        }
+        private Text text() { return text; }
+        private boolean warning() { return warning; }
     }
 }

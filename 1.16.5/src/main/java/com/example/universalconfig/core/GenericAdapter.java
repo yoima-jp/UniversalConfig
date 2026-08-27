@@ -190,8 +190,9 @@ public final class GenericAdapter implements ProfileAdapter {
                 }
                 Path config = configPath(instancePath);
                 if (Files.isDirectory(config)) {
-                    try (var stream = Files.walk(config)) {
-                        for (Path source : stream.filter(Files::isRegularFile).toList()) {
+                    try (java.util.stream.Stream<Path> stream = Files.walk(config)) {
+                        for (Path source : stream.filter(Files::isRegularFile)
+                                .collect(java.util.stream.Collectors.toList())) {
                             String relative = config.relativize(source).toString().replace('\\', '/');
                             if (isUniversalConfigInternalPath(relative)) {
                                 FileOperationLogger.info("SKIP_INTERNAL_CONFIG_BACKUP", source, relative);
@@ -438,7 +439,7 @@ public final class GenericAdapter implements ProfileAdapter {
         Path configRoot = configPath(instancePath);
         if (!Files.isDirectory(configRoot)) {
             FileOperationLogger.info("LIST_CONFIG", configRoot, "missing");
-            return List.of();
+            return com.example.universalconfig.core.Java8Compat.listOf();
         }
         if (!options.configRelativePaths.isEmpty()) {
             List<String> selected = new ArrayList<>();
@@ -454,14 +455,14 @@ public final class GenericAdapter implements ProfileAdapter {
             }
             return selected;
         }
-        try (var stream = Files.walk(configRoot)) {
+        try (java.util.stream.Stream<Path> stream = Files.walk(configRoot)) {
             FileOperationLogger.info("LIST_CONFIG", configRoot, "walk");
             return stream.filter(Files::isRegularFile)
                     .map(configRoot::relativize)
                     .map(path -> path.toString().replace('\\', '/'))
                     .filter(this::allowedConfigPath)
                     .filter(path -> !isUniversalConfigInternalPath(path))
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
         } catch (IOException ex) {
             FileOperationLogger.failure("LIST_CONFIG", configRoot, "walk", ex);
             throw new UniversalConfigException("Failed to list config files.", ex);
@@ -511,7 +512,7 @@ public final class GenericAdapter implements ProfileAdapter {
         ChecksumDocument checksums = JsonDocuments.read(reader, UniversalConfigFormat.CHECKSUMS_ENTRY, ChecksumDocument.class);
         for (Map.Entry<String, String> expected : checksums.files.entrySet()) {
             try (InputStream input = reader.open(expected.getKey())) {
-                byte[] bytes = input.readAllBytes();
+                byte[] bytes = Java8Compat.readAllBytes(input);
                 String actual = Checksums.sha256(bytes);
                 if (!actual.equalsIgnoreCase(expected.getValue())) {
                     diff.checksumWarnings.add(expected.getKey() + " checksum mismatch.");

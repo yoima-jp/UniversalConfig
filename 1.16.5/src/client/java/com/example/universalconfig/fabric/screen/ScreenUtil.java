@@ -176,7 +176,8 @@ final class ScreenUtil {
     }
 
     static Text errorText(Exception ex) {
-        if (ex instanceof UniversalConfigException ucex && ucex.translationKey() != null) {
+        if (ex instanceof UniversalConfigException && ((UniversalConfigException) ex).translationKey() != null) {
+            UniversalConfigException ucex = (UniversalConfigException) ex;
             Object[] args = ucex.translationArgs();
             return args == null || args.length == 0
                     ? ScreenUtil.translatable(ucex.translationKey())

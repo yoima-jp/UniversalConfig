@@ -21,7 +21,7 @@ class GenericAdapterTest {
     @Test
     void extractsOnlyKeybindLinesFromOptions() throws Exception {
         Path options = tempDir.resolve(UniversalConfigFormat.OPTIONS_FILE_NAME);
-        Files.writeString(options, String.join("\n",
+        com.example.universalconfig.core.Java8Compat.writeString(options, String.join("\n",
                 "lang:ja_jp",
                 "key_key.forward:key.keyboard.w",
                 "fov:0.0",
@@ -39,7 +39,7 @@ class GenericAdapterTest {
     @Test
     void extractsAllClientOptionsExceptKeybinds() throws Exception {
         Path options = tempDir.resolve(UniversalConfigFormat.OPTIONS_FILE_NAME);
-        Files.writeString(options, String.join("\n",
+        com.example.universalconfig.core.Java8Compat.writeString(options, String.join("\n",
                 "lang:ja_jp",
                 "soundCategory_master:0.25",
                 "soundCategory_music:0.0",
@@ -64,7 +64,7 @@ class GenericAdapterTest {
     @Test
     void importsAllClientOptionsByMergingAndSkipsMalformedEntries() throws Exception {
         Path options = tempDir.resolve(UniversalConfigFormat.OPTIONS_FILE_NAME);
-        Files.writeString(options, String.join("\n",
+        com.example.universalconfig.core.Java8Compat.writeString(options, String.join("\n",
                 "version:3465",
                 "lang:en_us",
                 "currentOnly:preserved",

@@ -4,7 +4,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 public final class AdapterRegistry {
-    private final List<ProfileAdapter> adapters = List.of(
+    private final List<ProfileAdapter> adapters = com.example.universalconfig.core.Java8Compat.listOf(
             new GenericAdapter()
     );
 

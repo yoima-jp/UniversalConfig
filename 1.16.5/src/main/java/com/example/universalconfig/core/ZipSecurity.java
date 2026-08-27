@@ -16,7 +16,7 @@ public final class ZipSecurity {
     }
 
     public static void validateRelativeEntryName(String entryName) throws UniversalConfigException {
-        if (entryName == null || entryName.isBlank()) {
+        if (entryName == null || entryName.trim().isEmpty()) {
             throw new UniversalConfigException("ZIP entry name is empty.");
         }
         String normalizedSlashes = entryName.replace('\\', '/');
@@ -26,7 +26,7 @@ public final class ZipSecurity {
                 || normalizedSlashes.equals("..")) {
             throw new UniversalConfigException("Unsafe ZIP entry path rejected: " + entryName);
         }
-        Path path = Path.of(normalizedSlashes);
+        Path path = java.nio.file.Paths.get(normalizedSlashes);
         if (path.isAbsolute()) {
             throw new UniversalConfigException("Absolute ZIP entry path rejected: " + entryName);
         }

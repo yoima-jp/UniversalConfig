@@ -32,7 +32,7 @@ public final class BackupListScreen extends Screen {
             backups = ScreenUtil.service().listBackups();
             status = ScreenUtil.empty();
         } catch (UniversalConfigException ex) {
-            backups = List.of();
+            backups = com.example.universalconfig.core.Java8Compat.listOf();
             status = ScreenUtil.errorText(ex);
         }
     }

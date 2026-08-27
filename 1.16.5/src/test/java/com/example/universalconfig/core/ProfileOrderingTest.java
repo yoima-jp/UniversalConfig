@@ -38,7 +38,8 @@ class ProfileOrderingTest {
         service.createProfile(instance, options("Second"), environment(instance));
         service.createProfile(instance, options("Third"), environment(instance));
 
-        int initialIndex = service.listProfiles().stream().map(ProfileSummary::path).toList().indexOf(first);
+        int initialIndex = service.listProfiles().stream().map(ProfileSummary::path)
+                .collect(java.util.stream.Collectors.toList()).indexOf(first);
         int targetIndex = initialIndex == 0 ? 2 : 0;
         service.moveProfile(instance, first, targetIndex);
 
@@ -64,13 +65,14 @@ class ProfileOrderingTest {
         assertNotEquals(original, duplicate);
 
         // 複製を先頭へ移動し、設定を保存する。
-        int duplicateIndex = service.listProfiles().stream().map(ProfileSummary::path).toList().indexOf(duplicate);
+        int duplicateIndex = service.listProfiles().stream().map(ProfileSummary::path)
+                .collect(java.util.stream.Collectors.toList()).indexOf(duplicate);
         service.moveProfile(instance, duplicate, 0);
 
         // 設定を再読み込みしても、元と複製の両方が一覧に残ること。
         UniversalConfigSettings reloaded = UniversalConfigPaths.loadOrCreateSettings(instance);
         List<Path> reloadedPaths = new ProfileService(reloaded).listProfiles().stream()
-                .map(ProfileSummary::path).toList();
+                .map(ProfileSummary::path).collect(java.util.stream.Collectors.toList());
         assertTrue(reloadedPaths.contains(original), "original profile must remain after reorder + reload");
         assertTrue(reloadedPaths.contains(duplicate), "duplicate profile must remain after reorder + reload");
         assertEquals(duplicate, reloadedPaths.get(0), "duplicate must stay at the moved position after reload");
@@ -79,7 +81,7 @@ class ProfileOrderingTest {
     private Path createInstance() throws Exception {
         Path instance = tempDir.resolve("instance");
         Files.createDirectories(instance);
-        Files.writeString(UniversalConfigPaths.optionsFile(instance), "guiScale:3\n", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(UniversalConfigPaths.optionsFile(instance), "guiScale:3\n", StandardCharsets.UTF_8);
         return instance;
     }
 

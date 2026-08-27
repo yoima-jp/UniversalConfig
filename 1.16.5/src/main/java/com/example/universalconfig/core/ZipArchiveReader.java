@@ -18,7 +18,7 @@ public final class ZipArchiveReader implements ProfileArchiveReader {
         try {
             FileOperationLogger.info("OPEN_ZIP", archivePath, "read");
             long totalUncompressedSize = 0;
-            for (ZipEntry entry : zipFile.stream().toList()) {
+            for (ZipEntry entry : zipFile.stream().collect(java.util.stream.Collectors.toList())) {
                 ZipSecurity.validateRelativeEntryName(entry.getName());
                 if (!entry.isDirectory()) {
                     totalUncompressedSize = ZipSecurity.validateEntrySizes(

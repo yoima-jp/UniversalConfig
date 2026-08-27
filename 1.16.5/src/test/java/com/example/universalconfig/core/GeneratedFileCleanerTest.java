@@ -68,7 +68,7 @@ class GeneratedFileCleanerTest {
 
         // Write a file with the .ucbackup extension that is not a valid ZIP.
         Path corrupt = backupsDir.resolve("corrupt.ucbackup");
-        Files.writeString(corrupt, "this is not a zip", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(corrupt, "this is not a zip", StandardCharsets.UTF_8);
 
         int deleted = new GeneratedFileCleaner(settings).cleanupBackups();
 
@@ -157,15 +157,15 @@ class GeneratedFileCleanerTest {
         Files.createDirectories(launchesDir);
 
         Path oldLog = launchesDir.resolve(UniversalConfigFormat.LAUNCH_LOG_FILE_PREFIX + "20250101-120000-000-pid1.log");
-        Files.writeString(oldLog, "old", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(oldLog, "old", StandardCharsets.UTF_8);
         setLastModifiedDaysAgo(oldLog, 45);
 
         Path latestLog = launchesDir.resolve(UniversalConfigFormat.LATEST_LOG_FILE_NAME);
-        Files.writeString(latestLog, "latest", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(latestLog, "latest", StandardCharsets.UTF_8);
         setLastModifiedDaysAgo(latestLog, 45);
 
         Path recentLog = launchesDir.resolve(UniversalConfigFormat.LAUNCH_LOG_FILE_PREFIX + "20260101-120000-000-pid2.log");
-        Files.writeString(recentLog, "recent", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(recentLog, "recent", StandardCharsets.UTF_8);
         setLastModifiedDaysAgo(recentLog, 2);
 
         int deleted = new GeneratedFileCleaner(settings).cleanupLaunchLogs();
@@ -199,7 +199,7 @@ class GeneratedFileCleanerTest {
         Path oldBackup = createBackupZip(backupsDir.resolve("old.ucbackup"), oldDate);
 
         Path oldLog = launchesDir.resolve("old.log");
-        Files.writeString(oldLog, "old", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(oldLog, "old", StandardCharsets.UTF_8);
         setLastModifiedDaysAgo(oldLog, 40);
 
         int deleted = new GeneratedFileCleaner(settings).cleanup();
@@ -231,7 +231,7 @@ class GeneratedFileCleanerTest {
         // Make the backups "directory" a regular file, causing Files.list to fail.
         Path backupsDir = UniversalConfigPaths.backupsDirectory(settings);
         Files.createDirectories(backupsDir.getParent());
-        Files.writeString(backupsDir, "not a directory", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(backupsDir, "not a directory", StandardCharsets.UTF_8);
 
         // Should not throw.
         int deleted = new GeneratedFileCleaner(settings).cleanupBackups();

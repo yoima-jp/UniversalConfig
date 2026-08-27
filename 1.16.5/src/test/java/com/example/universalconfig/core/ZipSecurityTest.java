@@ -23,7 +23,7 @@ class ZipSecurityTest {
 
     @Test
     void resolvesInsideDestination() throws UniversalConfigException {
-        Path root = Path.of("build", "tmp", "zip-root");
+        Path root = java.nio.file.Paths.get("build", "tmp", "zip-root");
         Path resolved = ZipSecurity.safeResolve(root, "profile/config.json");
         assertEquals(root.toAbsolutePath().normalize().resolve("profile/config.json").normalize(), resolved);
     }

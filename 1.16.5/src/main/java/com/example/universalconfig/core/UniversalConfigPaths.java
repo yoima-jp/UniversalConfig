@@ -21,11 +21,11 @@ public final class UniversalConfigPaths {
 
     public static Path defaultRootDirectory() {
         String appData = System.getenv("APPDATA");
-        if (appData != null && !appData.isBlank()) {
-            return Path.of(appData, UniversalConfigFormat.ROOT_DIRECTORY_NAME);
+        if (appData != null && !appData.trim().isEmpty()) {
+            return java.nio.file.Paths.get(appData, UniversalConfigFormat.ROOT_DIRECTORY_NAME);
         }
         String userHome = System.getProperty("user.home", ".");
-        return Path.of(userHome, UniversalConfigFormat.ROOT_DIRECTORY_NAME);
+        return java.nio.file.Paths.get(userHome, UniversalConfigFormat.ROOT_DIRECTORY_NAME);
     }
 
     public static UniversalConfigSettings loadOrCreateSettings(Path minecraftRunDirectory) throws UniversalConfigException {
@@ -36,8 +36,8 @@ public final class UniversalConfigPaths {
                 try (Reader reader = Files.newBufferedReader(localSettings, StandardCharsets.UTF_8)) {
                     dto = GSON.fromJson(reader, SettingsDto.class);
                 }
-                if (dto != null && dto.rootDirectory != null && !dto.rootDirectory.isBlank()) {
-                    UniversalConfigSettings settings = new UniversalConfigSettings(Path.of(dto.rootDirectory));
+                if (dto != null && dto.rootDirectory != null && !dto.rootDirectory.trim().isEmpty()) {
+                    UniversalConfigSettings settings = new UniversalConfigSettings(java.nio.file.Paths.get(dto.rootDirectory));
                     boolean invalidDefaultProfilePath = hasInvalidDefaultProfilePath(dto.defaultProfilePath);
                     settings.setDefaultProfilePath(parseDefaultProfilePath(dto.defaultProfilePath));
                     settings.setProfileOrder(dto.profileOrder);
@@ -158,7 +158,7 @@ public final class UniversalConfigPaths {
                 ? UniversalConfigFormat.DEFAULT_PROFILE_SLUG
                 : value.toLowerCase(Locale.ROOT).trim();
         String slug = lower.replaceAll("[^a-z0-9._-]+", "-").replaceAll("(^-+|-+$)", "");
-        return slug.isBlank() ? UniversalConfigFormat.DEFAULT_PROFILE_SLUG : slug;
+        return slug.trim().isEmpty() ? UniversalConfigFormat.DEFAULT_PROFILE_SLUG : slug;
     }
 
     private static final class SettingsDto {
@@ -195,22 +195,22 @@ public final class UniversalConfigPaths {
     }
 
     private static Path parseDefaultProfilePath(String value) {
-        if (value == null || value.isBlank()) {
+        if (value == null || value.trim().isEmpty()) {
             return null;
         }
         try {
-            return Path.of(value);
+            return java.nio.file.Paths.get(value);
         } catch (InvalidPathException ex) {
             return null;
         }
     }
 
     private static boolean hasInvalidDefaultProfilePath(String value) {
-        if (value == null || value.isBlank()) {
+        if (value == null || value.trim().isEmpty()) {
             return false;
         }
         try {
-            Path.of(value);
+            java.nio.file.Paths.get(value);
             return false;
         } catch (InvalidPathException ex) {
             return true;

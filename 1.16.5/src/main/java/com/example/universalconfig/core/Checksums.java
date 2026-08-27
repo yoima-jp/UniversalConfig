@@ -2,7 +2,6 @@ package com.example.universalconfig.core;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.Map;
 
 public final class Checksums {
@@ -21,7 +20,7 @@ public final class Checksums {
 
     public static String sha256(byte[] bytes) throws UniversalConfigException {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            return Java8Compat.hex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException ex) {
             throw new UniversalConfigException("SHA-256 is not available.", ex);
         }

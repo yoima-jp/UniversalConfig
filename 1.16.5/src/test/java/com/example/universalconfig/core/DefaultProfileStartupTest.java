@@ -27,11 +27,11 @@ class DefaultProfileStartupTest {
         assertTrue(service.isFirstMinecraftStart(instance));
 
         Files.createDirectories(instance);
-        Files.writeString(UniversalConfigPaths.optionsFile(instance),
+        com.example.universalconfig.core.Java8Compat.writeString(UniversalConfigPaths.optionsFile(instance),
                 "onboardAccessibility:true\nguiScale:2\n", StandardCharsets.UTF_8);
         assertTrue(service.isFirstMinecraftStart(instance));
 
-        Files.writeString(UniversalConfigPaths.optionsFile(instance),
+        com.example.universalconfig.core.Java8Compat.writeString(UniversalConfigPaths.optionsFile(instance),
                 "onboardAccessibility:false\nguiScale:2\n", StandardCharsets.UTF_8);
         assertFalse(service.isFirstMinecraftStart(instance));
     }
@@ -41,7 +41,7 @@ class DefaultProfileStartupTest {
         Path sharedRoot = tempDir.resolve("shared");
         Path profile = sharedRoot.resolve(UniversalConfigFormat.PROFILES_DIRECTORY_NAME).resolve("main.ucp");
         Files.createDirectories(profile.getParent());
-        Files.writeString(profile, "placeholder", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(profile, "placeholder", StandardCharsets.UTF_8);
 
         UniversalConfigSettings firstSettings = new UniversalConfigSettings(sharedRoot);
         firstSettings.setDefaultProfilePath(profile);
@@ -50,7 +50,7 @@ class DefaultProfileStartupTest {
         Path secondInstance = tempDir.resolve("second-instance");
         Path secondLocalSettings = UniversalConfigPaths.localSettingsFile(secondInstance);
         Files.createDirectories(secondLocalSettings.getParent());
-        Files.writeString(secondLocalSettings,
+        com.example.universalconfig.core.Java8Compat.writeString(secondLocalSettings,
                 "{\"rootDirectory\":\"" + escapeJson(sharedRoot.toAbsolutePath().normalize().toString()) + "\"}",
                 StandardCharsets.UTF_8);
 
@@ -66,7 +66,7 @@ class DefaultProfileStartupTest {
         Path target = tempDir.resolve("new-instance");
         Files.createDirectories(source);
         Files.createDirectories(target);
-        Files.writeString(UniversalConfigPaths.optionsFile(source),
+        com.example.universalconfig.core.Java8Compat.writeString(UniversalConfigPaths.optionsFile(source),
                 "onboardAccessibility:false\nguiScale:3\n", StandardCharsets.UTF_8);
 
         UniversalConfigSettings settings = new UniversalConfigSettings(sharedRoot);
@@ -88,7 +88,7 @@ class DefaultProfileStartupTest {
 
         assertNotNull(firstResult);
         assertTrue(Files.isRegularFile(UniversalConfigPaths.defaultProfileAppliedMarker(target)));
-        assertTrue(Files.readString(UniversalConfigPaths.optionsFile(target), StandardCharsets.UTF_8)
+        assertTrue(com.example.universalconfig.core.Java8Compat.readString(UniversalConfigPaths.optionsFile(target), StandardCharsets.UTF_8)
                 .contains("guiScale:3"));
         assertNull(service.applyDefaultProfileOnFirstStart(target, targetEnvironment));
     }
@@ -115,7 +115,7 @@ class DefaultProfileStartupTest {
         Path sharedRoot = tempDir.resolve("shared");
         Path source = tempDir.resolve("source");
         Files.createDirectories(source);
-        Files.writeString(UniversalConfigPaths.optionsFile(source), "guiScale:3\n", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(UniversalConfigPaths.optionsFile(source), "guiScale:3\n", StandardCharsets.UTF_8);
         UniversalConfigSettings settings = new UniversalConfigSettings(sharedRoot);
         UniversalConfigPaths.ensureDirectories(settings);
         ProfileService service = new ProfileService(settings);
@@ -130,7 +130,7 @@ class DefaultProfileStartupTest {
         service.setDefaultProfile(source, profile);
 
         Path invalidInstance = tempDir.resolve("not-a-directory");
-        Files.writeString(invalidInstance, "file", StandardCharsets.UTF_8);
+        com.example.universalconfig.core.Java8Compat.writeString(invalidInstance, "file", StandardCharsets.UTF_8);
 
         assertThrows(UniversalConfigException.class, () -> service.applyDefaultProfileOnFirstStart(
                 invalidInstance,

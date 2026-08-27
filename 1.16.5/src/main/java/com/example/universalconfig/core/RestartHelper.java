@@ -38,11 +38,11 @@ public final class RestartHelper {
             // so no launch arguments (including an access token) need to survive in a crash-recoverable file.
             plan = readPlan(System.in);
             writeStatus(plan.diagnosticLog(), "helper-started");
-            Files.writeString(plan.readyPath(), "ready", StandardCharsets.UTF_8,
+            com.example.universalconfig.core.Java8Compat.writeString(plan.readyPath(), "ready", StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
 
             long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(EXIT_WAIT_SECONDS);
-            while (ProcessHandle.of(plan.parentPid()).map(ProcessHandle::isAlive).orElse(false)) {
+            while (Java8Compat.isProcessAlive(plan.parentPid())) {
                 if (System.nanoTime() >= deadline) {
                     writeStatus(plan.diagnosticLog(), "parent-exit-timeout");
                     return;
@@ -56,11 +56,11 @@ public final class RestartHelper {
             Process replacement = new ProcessBuilder(command)
                     .directory(plan.workingDirectory().toFile())
                     .redirectInput(ProcessBuilder.Redirect.PIPE)
-                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .redirectOutput(new java.io.File(System.getProperty("os.name", "").toLowerCase().contains("win") ? "NUL" : "/dev/null"))
+                    .redirectError(new java.io.File(System.getProperty("os.name", "").toLowerCase().contains("win") ? "NUL" : "/dev/null"))
                     .start();
             replacement.getOutputStream().close();
-            writeStatus(plan.diagnosticLog(), "replacement-started pid=" + replacement.pid());
+            writeStatus(plan.diagnosticLog(), "replacement-started pid=" + Java8Compat.currentPid());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             if (plan != null) {
@@ -104,11 +104,11 @@ public final class RestartHelper {
             }
             long parentPid = input.readLong();
             String executable = readValue(input);
-            Path workingDirectory = Path.of(readValue(input)).toAbsolutePath().normalize();
-            Path readyPath = Path.of(readValue(input)).toAbsolutePath().normalize();
-            Path diagnosticLog = Path.of(readValue(input)).toAbsolutePath().normalize();
+            Path workingDirectory = java.nio.file.Paths.get(readValue(input)).toAbsolutePath().normalize();
+            Path readyPath = java.nio.file.Paths.get(readValue(input)).toAbsolutePath().normalize();
+            Path diagnosticLog = java.nio.file.Paths.get(readValue(input)).toAbsolutePath().normalize();
             int argumentCount = input.readInt();
-            if (parentPid <= 0 || executable.isBlank() || argumentCount < 0 || argumentCount > MAX_ARGUMENT_COUNT) {
+            if (parentPid <= 0 || executable.trim().isEmpty() || argumentCount < 0 || argumentCount > MAX_ARGUMENT_COUNT) {
                 throw new IOException("Invalid restart plan.");
             }
             List<String> arguments = new ArrayList<>(argumentCount);
@@ -138,7 +138,7 @@ public final class RestartHelper {
         if (length < 0 || length > MAX_VALUE_BYTES) {
             throw new IOException("Invalid restart plan value length.");
         }
-        byte[] encoded = input.readNBytes(length);
+        byte[] encoded = Java8Compat.readNBytes(input, length);
         if (encoded.length != length) {
             throw new IOException("Restart plan ended unexpectedly.");
         }
@@ -148,7 +148,7 @@ public final class RestartHelper {
     private static void writeStatus(Path logPath, String status) {
         try {
             Files.createDirectories(logPath.getParent());
-            Files.writeString(logPath, OffsetDateTime.now() + " " + status + System.lineSeparator(),
+            com.example.universalconfig.core.Java8Compat.writeString(logPath, OffsetDateTime.now() + " " + status + System.lineSeparator(),
                     StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException | RuntimeException ignored) {
             // Diagnostic logging must never prevent the replacement process from starting.
@@ -160,16 +160,27 @@ public final class RestartHelper {
         return message == null ? "no details" : message.replace('\n', ' ').replace('\r', ' ');
     }
 
-    record LaunchPlan(
-            long parentPid,
-            String executable,
-            List<String> arguments,
-            Path workingDirectory,
-            Path readyPath,
-            Path diagnosticLog
-    ) {
-        LaunchPlan {
-            arguments = List.copyOf(arguments);
+    static final class LaunchPlan {
+        private final long parentPid;
+        private final String executable;
+        private final List<String> arguments;
+        private final Path workingDirectory;
+        private final Path readyPath;
+        private final Path diagnosticLog;
+        LaunchPlan(long parentPid, String executable, List<String> arguments, Path workingDirectory,
+                   Path readyPath, Path diagnosticLog) {
+            this.parentPid = parentPid;
+            this.executable = executable;
+            this.arguments = java.util.Collections.unmodifiableList(new java.util.ArrayList<String>(arguments));
+            this.workingDirectory = workingDirectory;
+            this.readyPath = readyPath;
+            this.diagnosticLog = diagnosticLog;
         }
+        long parentPid() { return parentPid; }
+        String executable() { return executable; }
+        List<String> arguments() { return arguments; }
+        Path workingDirectory() { return workingDirectory; }
+        Path readyPath() { return readyPath; }
+        Path diagnosticLog() { return diagnosticLog; }
     }
 }

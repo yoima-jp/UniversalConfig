@@ -30,7 +30,7 @@ public final class UniversalConfigSettings {
     }
 
     public List<String> profileOrder() {
-        return List.copyOf(profileOrder);
+        return Java8Compat.copyOf(profileOrder);
     }
 
     public void setProfileOrder(List<String> profileOrder) {
@@ -39,7 +39,7 @@ public final class UniversalConfigSettings {
             return;
         }
         for (String profileKey : profileOrder) {
-            if (profileKey != null && !profileKey.isBlank() && !this.profileOrder.contains(profileKey)) {
+            if (profileKey != null && !profileKey.trim().isEmpty() && !this.profileOrder.contains(profileKey)) {
                 this.profileOrder.add(profileKey);
             }
         }
