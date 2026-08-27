@@ -93,6 +93,6 @@ class ProfileOrderingTest {
     }
 
     private MinecraftEnvironment environment(Path instance) {
-        return new MinecraftEnvironment(instance, "1.21.1", ModLoader.FABRIC, "0.16.14");
+        return new MinecraftEnvironment(instance, "26.2", ModLoader.NEOFORGE, "26.2.0.59");
     }
 }

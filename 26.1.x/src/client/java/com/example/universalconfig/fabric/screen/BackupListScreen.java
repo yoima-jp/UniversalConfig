@@ -4,6 +4,7 @@ import com.example.universalconfig.core.BackupSummary;
 import com.example.universalconfig.core.UniversalConfigException;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
@@ -57,10 +58,21 @@ public final class BackupListScreen extends Screen {
                 break;
             }
             Path backupPath = backup.path();
-            addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.restore"), button -> restore(backupPath))
+            addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.restore"), button -> confirmRestore(backupPath))
                     .bounds(width - 80, y, 60, 20).build());
             y += 36;
         }
+    }
+
+    private void confirmRestore(Path backupPath) {
+        ScreenUtil.setScreen(minecraft, new ConfirmScreen(confirmed -> {
+            if (confirmed) {
+                restore(backupPath);
+            } else {
+                ScreenUtil.setScreen(minecraft, this);
+            }
+        }, Component.translatable("screen.universal_config.confirm_restore_title"),
+                Component.translatable("screen.universal_config.confirm_restore_message")));
     }
 
     private void restore(Path backupPath) {
@@ -86,11 +98,13 @@ public final class BackupListScreen extends Screen {
             if (y > height - 28) {
                 break;
             }
-            String created = backup.manifest().createdAt == null ? "unknown" : backup.manifest().createdAt;
+            String created = backup.manifest() == null || backup.manifest().createdAt == null ? "unknown" : backup.manifest().createdAt;
             context.text(font, created + "  " + backup.path().getFileName(), 12, y, 0xFFFFFF);
-            context.text(font, Component.translatable("screen.universal_config.backup_details",
-                    backup.manifest().minecraftVersion, backup.manifest().loader,
-                    backup.manifest().files.size()), 12, y + 12, 0xBBBBBB);
+            if (backup.manifest() != null) {
+                context.text(font, Component.translatable("screen.universal_config.backup_details",
+                        backup.manifest().minecraftVersion, backup.manifest().loader,
+                        backup.manifest().files == null ? 0 : backup.manifest().files.size()), 12, y + 12, 0xBBBBBB);
+            }
             y += 36;
         }
         super.extractRenderState(context, mouseX, mouseY, delta);

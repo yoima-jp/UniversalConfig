@@ -133,6 +133,6 @@ class ProfileImportTest {
         options.includeClientOptions = true;
         options.includeModConfigs = false;
         return sourceService.createProfile(sourceInstance, options,
-                new MinecraftEnvironment(sourceInstance, "1.21.1", ModLoader.FABRIC, "0.16.14"));
+                new MinecraftEnvironment(sourceInstance, "26.2", ModLoader.NEOFORGE, "26.2.0.59"));
     }
 }

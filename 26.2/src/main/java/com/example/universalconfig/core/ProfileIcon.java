@@ -30,8 +30,7 @@ public final class ProfileIcon {
         // 初期版の抽象アイコンIDも読み込めるよう、意味の近いブロックへ移行する。
         return switch (iconId == null ? "" : iconId) {
             case "laptop" -> CRAFTING_TABLE;
-            // Amethyst was briefly offered by the 1.20 client, but the stable icon contract must also render on
-            // pre-1.17 ports. Keep accepting its persisted ID and migrate it to a block available since early Java.
+            // Keep accepting persisted IDs and migrate them to a block available across supported clients.
             case "camera", "amethyst_block" -> COBBLESTONE;
             case "book" -> BOOKSHELF;
             default -> GRASS_BLOCK;
