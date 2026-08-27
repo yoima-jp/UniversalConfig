@@ -20,6 +20,7 @@ import java.util.List;
  */
 public final class RestartHelper {
     static final int EXIT_WAIT_SECONDS = 120;
+    static final long PARENT_EXIT_SETTLE_MILLIS = 2_000L;
     private static final String PLAN_MAGIC = "UNIVERSAL_CONFIG_RESTART_V1";
     private static final int MAX_ARGUMENT_COUNT = 4_096;
     private static final int MAX_VALUE_BYTES = 1_048_576;
@@ -49,6 +50,11 @@ public final class RestartHelper {
                 }
                 Thread.sleep(250L);
             }
+
+            // Prism/MultiMC updates its running-state asynchronously after the JVM exits. Starting in the same
+            // scheduler tick can therefore be rejected as an already-running instance.
+            writeStatus(plan.diagnosticLog(), "parent-exited; waiting-for-launcher");
+            Thread.sleep(PARENT_EXIT_SETTLE_MILLIS);
 
             List<String> command = new ArrayList<>(plan.arguments().size() + 1);
             command.add(plan.executable());

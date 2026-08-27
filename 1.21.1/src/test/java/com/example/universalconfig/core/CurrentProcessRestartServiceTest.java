@@ -59,8 +59,8 @@ class CurrentProcessRestartServiceTest {
         List<String> arguments = CurrentProcessRestartService.buildJavaLaunchArguments(
                 List.of("-Xmx4G", "-Dlabel=value with spaces"),
                 "C:\\libraries with spaces\\client.jar;C:\\libraries\\loader.jar",
-                "net.fabricmc.loader.impl.launch.knot.KnotClient",
-                List.of("--gameDir", "C:\\instances\\fabric 1.21.1\\instance", "--accessToken", "token-value")
+                "net.neoforged.fml.loading.targets.CommonClientLaunchHandler",
+                List.of("--gameDir", "C:\\instances\\neoforge 26.2\\instance", "--accessToken", "token-value")
         );
 
         assertEquals(List.of(
@@ -68,9 +68,9 @@ class CurrentProcessRestartServiceTest {
                 "-Dlabel=value with spaces",
                 "-cp",
                 "C:\\libraries with spaces\\client.jar;C:\\libraries\\loader.jar",
-                "net.fabricmc.loader.impl.launch.knot.KnotClient",
+                "net.neoforged.fml.loading.targets.CommonClientLaunchHandler",
                 "--gameDir",
-                "C:\\instances\\fabric 1.21.1\\instance",
+                "C:\\instances\\neoforge 26.2\\instance",
                 "--accessToken",
                 "token-value"
         ), arguments);
@@ -79,10 +79,10 @@ class CurrentProcessRestartServiceTest {
     @Test
     void prismLauncherRestartDoesNotDependOnUnavailableJavaArguments() {
         Path minecraftDirectory = temporaryDirectory.resolve("PrismLauncher").resolve("instances")
-                .resolve("1.21.1(2)").resolve("minecraft");
+                .resolve("26.2(2)").resolve("minecraft");
         Path launcherExecutable = temporaryDirectory.resolve("prismlauncher.exe");
         Map<String, String> environment = Map.of(
-                "INST_ID", "1.21.1(2)",
+                "INST_ID", "26.2(2)",
                 "INST_DIR", minecraftDirectory.getParent().toString(),
                 "INST_MC_DIR", minecraftDirectory.toString()
         );
@@ -97,7 +97,7 @@ class CurrentProcessRestartServiceTest {
         ).orElseThrow();
 
         assertEquals(launcherExecutable.toString(), command.executable());
-        assertEquals(List.of("--launch", "1.21.1(2)"), command.arguments());
+        assertEquals(List.of("--launch", "26.2(2)"), command.arguments());
     }
 
     @Test
@@ -118,10 +118,10 @@ class CurrentProcessRestartServiceTest {
 
     @Test
     void prismAndMultiMcExecutablesAreRecognizedAcrossOperatingSystems() {
-        Path minecraftDirectory = Path.of("/games/instances/fabric/minecraft");
+        Path minecraftDirectory = Path.of("/games/instances/neoforge/minecraft");
         Map<String, String> environment = Map.of(
-                "INST_ID", "fabric",
-                "INST_DIR", "/games/instances/fabric",
+                "INST_ID", "neoforge",
+                "INST_DIR", "/games/instances/neoforge",
                 "INST_MC_DIR", minecraftDirectory.toString()
         );
 
@@ -137,9 +137,9 @@ class CurrentProcessRestartServiceTest {
                 List.of(new CurrentProcessRestartService.ProcessCommand("/opt/multimc/MultiMC", List.of()))
         ).orElseThrow();
 
-        assertEquals(List.of("--launch", "fabric"), prism.arguments());
+        assertEquals(List.of("--launch", "neoforge"), prism.arguments());
         assertEquals("/opt/multimc/MultiMC", multiMc.executable());
-        assertEquals(List.of("--launch", "fabric"), multiMc.arguments());
+        assertEquals(List.of("--launch", "neoforge"), multiMc.arguments());
     }
 
     @Test
@@ -198,8 +198,8 @@ class CurrentProcessRestartServiceTest {
     void unsupportedLauncherUsesLoaderResolvedArguments() {
         String javaExecutable = "C:\\Program Files\\Java\\bin\\java.exe";
         List<String> javaArguments = List.of(
-                "-cp", "C:\\game libraries\\client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient",
-                "--gameDir", "C:\\instances\\fabric 1.21.1\\instance");
+                "-cp", "C:\\game libraries\\client.jar", "net.neoforged.fml.loading.targets.CommonClientLaunchHandler",
+                "--gameDir", "C:\\instances\\neoforge 26.2\\instance");
 
         CurrentProcessRestartService.LaunchCommand command = CurrentProcessRestartService.unsupportedLauncherCommand(
                 javaExecutable,
@@ -214,7 +214,7 @@ class CurrentProcessRestartServiceTest {
     void unsupportedLauncherDoesNotUseIncompleteArguments() {
         assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
                 "java.exe",
-                List.of("--gameDir", "C:\\instances\\fabric 1.21.1\\instance")
+                List.of("--gameDir", "C:\\instances\\neoforge 26.2\\instance")
         ).isEmpty());
         assertTrue(CurrentProcessRestartService.unsupportedLauncherCommand(
                 "java.exe",
@@ -227,11 +227,47 @@ class CurrentProcessRestartServiceTest {
     }
 
     @Test
+    void loaderResolvedArgumentsArePreferredForUnsupportedLaunchers() {
+        List<String> processArguments = List.of(
+                "-cp", "resolved-client.jar", "net.neoforged.fml.startup.Client",
+                "--fml.mcVersion", "26.2");
+        List<String> loaderArguments = List.of(
+                "-cp", "reconstructed-client.jar", "net.neoforged.fml.startup.Client",
+                "--fml.neoForgeVersion", "26.2.0.59",
+                "--fml.mcVersion", "26.2",
+                "--fml.neoFormVersion", "2");
+
+        assertEquals(loaderArguments, CurrentProcessRestartService.currentJavaArguments(
+                processArguments, loaderArguments).orElseThrow());
+    }
+
+    @Test
+    void processArgumentsAreUsedWhenLoaderArgumentsAreUnavailable() {
+        List<String> processArguments = List.of(
+                "-cp", "resolved-client.jar", "net.neoforged.fml.startup.Client");
+        List<String> loaderArguments = List.of(
+                "--gameDir", "C:\\instances\\neoforge 26.2\\instance");
+
+        assertEquals(processArguments, CurrentProcessRestartService.currentJavaArguments(
+                processArguments, loaderArguments).orElseThrow());
+    }
+
+    @Test
+    void loaderArgumentsAreUsedWhenProcessArgumentsAreUnavailable() {
+        List<String> loaderArguments = List.of(
+                "-cp", "reconstructed-client.jar", "net.neoforged.fml.startup.Client");
+
+        assertEquals(loaderArguments, CurrentProcessRestartService.currentJavaArguments(
+                List.of(), loaderArguments).orElseThrow());
+        assertTrue(CurrentProcessRestartService.currentJavaArguments(List.of(), List.of()).isEmpty());
+    }
+
+    @Test
     void gdLauncherPathIsHandledByTheGenericUnsupportedLauncherPath() {
         CurrentProcessRestartService.LaunchCommand command =
                 CurrentProcessRestartService.unsupportedLauncherCommand(
                         "java.exe",
-                        List.of("-cp", "client.jar", "net.fabricmc.loader.impl.launch.knot.KnotClient")
+                        List.of("-cp", "client.jar", "net.neoforged.fml.loading.targets.CommonClientLaunchHandler")
                 ).orElseThrow();
 
         assertEquals("java.exe", command.executable());

@@ -73,7 +73,7 @@ class DefaultProfileStartupTest {
         UniversalConfigPaths.ensureDirectories(settings);
         ProfileService service = new ProfileService(settings);
         MinecraftEnvironment sourceEnvironment = new MinecraftEnvironment(
-                source, "1.21.1", ModLoader.FABRIC, "0.16.14");
+                source, "26.2", ModLoader.NEOFORGE, "26.2.0.59");
         ProfileCreateOptions options = new ProfileCreateOptions();
         options.name = "Default";
         options.includeKeybinds = false;
@@ -83,7 +83,7 @@ class DefaultProfileStartupTest {
         service.setDefaultProfile(source, profile);
 
         MinecraftEnvironment targetEnvironment = new MinecraftEnvironment(
-                target, "1.21.1", ModLoader.FABRIC, "0.16.14");
+                target, "26.2", ModLoader.NEOFORGE, "26.2.0.59");
         ProfileService.ApplyResult firstResult = service.applyDefaultProfileOnFirstStart(target, targetEnvironment);
 
         assertNotNull(firstResult);
@@ -104,7 +104,7 @@ class DefaultProfileStartupTest {
         JsonDocuments.write(UniversalConfigPaths.pendingImportFile(instance), pending);
 
         ProfileService.ApplyResult result = service.applyDefaultProfileOnFirstStart(instance,
-                new MinecraftEnvironment(instance, "1.21.1", ModLoader.FABRIC, "0.16.14"));
+                new MinecraftEnvironment(instance, "26.2", ModLoader.NEOFORGE, "26.2.0.59"));
 
         assertNull(result);
         assertFalse(Files.exists(UniversalConfigPaths.defaultProfileAppliedMarker(instance)));
@@ -120,7 +120,7 @@ class DefaultProfileStartupTest {
         UniversalConfigPaths.ensureDirectories(settings);
         ProfileService service = new ProfileService(settings);
         MinecraftEnvironment environment = new MinecraftEnvironment(
-                source, "1.21.1", ModLoader.FABRIC, "0.16.14");
+                source, "26.2", ModLoader.NEOFORGE, "26.2.0.59");
         ProfileCreateOptions options = new ProfileCreateOptions();
         options.name = "Default";
         options.includeKeybinds = false;
@@ -134,7 +134,7 @@ class DefaultProfileStartupTest {
 
         assertThrows(UniversalConfigException.class, () -> service.applyDefaultProfileOnFirstStart(
                 invalidInstance,
-                new MinecraftEnvironment(invalidInstance, "1.21.1", ModLoader.FABRIC, "0.16.14")));
+                new MinecraftEnvironment(invalidInstance, "26.2", ModLoader.NEOFORGE, "26.2.0.59")));
         assertFalse(Files.exists(UniversalConfigPaths.defaultProfileAppliedMarker(invalidInstance)));
     }
 

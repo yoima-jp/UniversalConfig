@@ -1,7 +1,9 @@
 package com.example.universalconfig.core;
 
 public class UniversalConfigException extends Exception {
-    // Keep user-facing text translatable without coupling the shared core to Minecraft's client API.
+    // ユーザー向けメッセージを言語設定に追従させるため、例外には翻訳キーだけを持たせる。
+    // core は Minecraft クライアント API (Text 等) に依存できないため、Text.translatable への変換は
+    // クライアント側の ScreenUtil.errorText で行う。翻訳キー未指定の例外は従来通り message 文字列を表示する。
     private final String translationKey;
     private final Object[] translationArgs;
 
