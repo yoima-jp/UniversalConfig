@@ -31,7 +31,6 @@ import net.minecraft.text.Text;
 import net.minecraft.text.LiteralText;
 import net.minecraft.text.TranslatableText;
 import net.minecraft.text.MutableText;
-import net.minecraft.util.math.MathHelper;
 
 import java.nio.file.Path;
 import java.util.function.Function;
@@ -186,76 +185,34 @@ final class ScreenUtil {
 
     }
 
-    /**
-     * Renders only the taller action buttons without sampling the next row of widgets.png.
-     * Vanilla 1.16.5 has a 20px button texture; keep its 4px edges fixed and stretch only
-     * the 12px center to fill the extra height.
-     */
+    /** Keeps the action slot's 24px hitbox while using the unmodified 20px vanilla widget renderer. */
     private static final class ActionButtonWidget extends ButtonWidget {
+        private final int slotY;
+        private final int slotHeight;
+
         private ActionButtonWidget(int x, int y, int width, int height, Text message, PressAction onPress) {
-            super(x, y, width, height, message, onPress);
+            super(x, y + 2, width, 20, message, onPress);
+            this.slotY = y;
+            this.slotHeight = height;
         }
 
         @Override
         public void renderButton(MatrixStack context, int mouseX, int mouseY, float delta) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            client.getTextureManager().bindTexture(WIDGETS_TEXTURE);
-            RenderSystem.color4f(1.0F, 1.0F, 1.0F, alpha);
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.enableDepthTest();
-
-            int textureY = 46 + getYImage(isHovered()) * 20;
-            // Keep the 20px vanilla texture rows intact. Stretching the middle with a matrix can sample
-            // the adjacent row and produce a one-pixel artifact at the bottom of a 24px action button.
-            int leftWidth = Math.min(20, width / 2);
-            int rightWidth = leftWidth;
-            int topHeight = Math.min(4, height / 2);
-            int bottomHeight = topHeight;
-            int middleWidth = Math.max(0, width - leftWidth - rightWidth);
-            int middleHeight = Math.max(0, height - topHeight - bottomHeight);
-            int rightU = 200 - rightWidth;
-            int middleU = leftWidth;
-            int middleTextureWidth = Math.max(0, 200 - leftWidth - rightWidth);
-            int middleTextureHeight = Math.max(0, 20 - topHeight - bottomHeight);
-
-            drawTexture(context, x, y, 0, textureY, leftWidth, topHeight);
-            drawTextureRepeated(context, x + leftWidth, y, middleWidth, topHeight,
-                    middleU, textureY, middleTextureWidth, topHeight);
-            drawTexture(context, x + width - rightWidth, y, rightU, textureY, rightWidth, topHeight);
-
-            drawTextureRepeated(context, x, y + topHeight, leftWidth, middleHeight,
-                    0, textureY + topHeight, leftWidth, middleTextureHeight);
-            drawTextureRepeated(context, x + leftWidth, y + topHeight, middleWidth, middleHeight,
-                    middleU, textureY + topHeight, middleTextureWidth, middleTextureHeight);
-            drawTextureRepeated(context, x + width - rightWidth, y + topHeight, rightWidth, middleHeight,
-                    rightU, textureY + topHeight, rightWidth, middleTextureHeight);
-
-            drawTexture(context, x, y + height - bottomHeight, 0, textureY + 20 - bottomHeight,
-                    leftWidth, bottomHeight);
-            drawTextureRepeated(context, x + leftWidth, y + height - bottomHeight, middleWidth, bottomHeight,
-                    middleU, textureY + 20 - bottomHeight, middleTextureWidth, bottomHeight);
-            drawTexture(context, x + width - rightWidth, y + height - bottomHeight,
-                    rightU, textureY + 20 - bottomHeight, rightWidth, bottomHeight);
-
-            RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-            int textColor = active ? 0xFFFFFF : 0xA0A0A0;
-            DrawableHelper.drawCenteredText(context, client.textRenderer, getMessage(), x + width / 2,
-                    y + (height - 8) / 2, textColor | (MathHelper.ceil(alpha * 255.0F) << 24));
+            super.renderButton(context, mouseX, mouseY, delta);
         }
 
-        private void drawTextureRepeated(MatrixStack context, int x, int y, int width, int height,
-                                          int u, int v, int textureWidth, int textureHeight) {
-            if (width <= 0 || height <= 0 || textureWidth <= 0 || textureHeight <= 0) {
-                return;
-            }
-            for (int offsetY = 0; offsetY < height; offsetY += textureHeight) {
-                int tileHeight = Math.min(textureHeight, height - offsetY);
-                for (int offsetX = 0; offsetX < width; offsetX += textureWidth) {
-                    int tileWidth = Math.min(textureWidth, width - offsetX);
-                    drawTexture(context, x + offsetX, y + offsetY, u, v, tileWidth, tileHeight);
-                }
-            }
+        @Override
+        protected boolean clicked(double mouseX, double mouseY) {
+            return active && visible
+                    && mouseX >= x && mouseX < x + width
+                    && mouseY >= slotY && mouseY < slotY + slotHeight;
+        }
+
+        @Override
+        public boolean isMouseOver(double mouseX, double mouseY) {
+            return active && visible
+                    && mouseX >= x && mouseX < x + width
+                    && mouseY >= slotY && mouseY < slotY + slotHeight;
         }
     }
 
