@@ -60,6 +60,7 @@ public final class UniversalConfigMod implements ClientModInitializer {
         });
     }
 
+
     private static int titleScreenButtonY(MinecraftClient client, int screenHeight) {
         int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
         int reservedTextHeight = client.textRenderer.fontHeight + TITLE_SCREEN_SYSTEM_TEXT_GAP;
