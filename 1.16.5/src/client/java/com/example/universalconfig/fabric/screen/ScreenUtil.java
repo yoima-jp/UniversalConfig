@@ -161,7 +161,7 @@ final class ScreenUtil {
 
         ButtonWidget build() {
             return actionButton
-                    ? new ActionButtonWidget(x, y, width, height, message, onPress)
+                    ? new VanillaButtonWidget(x, y + 2, width, 20, message, onPress)
                     : new VanillaButtonWidget(x, y, width, height, message, onPress);
         }
     }
@@ -183,37 +183,6 @@ final class ScreenUtil {
             super.renderButton(context, mouseX, mouseY, delta);
         }
 
-    }
-
-    /** Keeps the action slot's 24px hitbox while using the unmodified 20px vanilla widget renderer. */
-    private static final class ActionButtonWidget extends ButtonWidget {
-        private final int slotY;
-        private final int slotHeight;
-
-        private ActionButtonWidget(int x, int y, int width, int height, Text message, PressAction onPress) {
-            super(x, y + 2, width, 20, message, onPress);
-            this.slotY = y;
-            this.slotHeight = height;
-        }
-
-        @Override
-        public void renderButton(MatrixStack context, int mouseX, int mouseY, float delta) {
-            super.renderButton(context, mouseX, mouseY, delta);
-        }
-
-        @Override
-        protected boolean clicked(double mouseX, double mouseY) {
-            return active && visible
-                    && mouseX >= x && mouseX < x + width
-                    && mouseY >= slotY && mouseY < slotY + slotHeight;
-        }
-
-        @Override
-        public boolean isMouseOver(double mouseX, double mouseY) {
-            return active && visible
-                    && mouseX >= x && mouseX < x + width
-                    && mouseY >= slotY && mouseY < slotY + slotHeight;
-        }
     }
 
     static Text errorText(Exception ex) {

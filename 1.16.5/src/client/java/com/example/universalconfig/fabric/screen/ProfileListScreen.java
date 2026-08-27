@@ -734,6 +734,9 @@ public final class ProfileListScreen extends Screen {
             rebuildButtons();
         }
         if (button == 0) {
+            if (clickActionSlot(mouseX, mouseY)) {
+                return true;
+            }
             int profileIndex = profileIndexAt(mouseX, mouseY);
             int reorderDelta = reorderDeltaAt(mouseX, mouseY);
             if (profileIndex >= 0 && reorderDelta != 0) {
@@ -749,6 +752,30 @@ public final class ProfileListScreen extends Screen {
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private boolean clickActionSlot(double mouseX, double mouseY) {
+        ProfileSummary selected = selectedProfile();
+        if (selected == null || mouseY < primaryButtonY() || mouseY >= primaryButtonY() + primaryButtonHeight()) {
+            return false;
+        }
+        int actionWidth = Math.max(1, detailWidth() - moreButtonWidth() - 6);
+        boolean inExtraTop = mouseY < primaryButtonY() + 2;
+        boolean inExtraBottom = mouseY >= primaryButtonY() + 22;
+        if (!inExtraTop && !inExtraBottom) {
+            return false;
+        }
+        if (inside(mouseX, mouseY, detailX(), primaryButtonY(), actionWidth, primaryButtonHeight())) {
+            openConfirm(selected.path());
+            return true;
+        }
+        int moreX = detailX() + actionWidth + 6;
+        if (inside(mouseX, mouseY, moreX, primaryButtonY(), moreButtonWidth(), primaryButtonHeight())) {
+            moreMenuOpen = !moreMenuOpen;
+            rebuildButtons();
+            return true;
+        }
+        return false;
     }
 
     @Override
