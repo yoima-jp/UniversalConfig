@@ -383,11 +383,13 @@ public final class ProfileListScreen extends Screen {
             Path path = selected.path();
             int actionWidth = Math.max(1, detailWidth() - moreButtonWidth() - 6);
             addButton(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.use_profile"), button -> openConfirm(path))
-                    .dimensions(detailX(), primaryButtonY(), actionWidth, primaryButtonHeight()).build());
+                    .dimensions(detailX(), primaryButtonY(), actionWidth, primaryButtonHeight())
+                    .actionButton().build());
             addButton(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.more"), button -> {
                 moreMenuOpen = !moreMenuOpen;
                 rebuildButtons();
-            }).dimensions(detailX() + actionWidth + 6, primaryButtonY(), moreButtonWidth(), primaryButtonHeight()).build());
+            }).dimensions(detailX() + actionWidth + 6, primaryButtonY(), moreButtonWidth(), primaryButtonHeight())
+                    .actionButton().build());
             if (moreMenuOpen) {
                 addMoreMenuButtons(path);
             }

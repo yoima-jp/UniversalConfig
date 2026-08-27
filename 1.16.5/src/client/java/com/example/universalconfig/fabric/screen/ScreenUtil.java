@@ -136,6 +136,7 @@ final class ScreenUtil {
         private int y;
         private int width;
         private int height;
+        private boolean actionButton;
 
         private LegacyButtonBuilder(Text message, ButtonWidget.PressAction onPress) {
             this.message = message;
@@ -154,8 +155,15 @@ final class ScreenUtil {
             return this;
         }
 
+        LegacyButtonBuilder actionButton() {
+            this.actionButton = true;
+            return this;
+        }
+
         ButtonWidget build() {
-            return new VanillaButtonWidget(x, y, width, height, message, onPress);
+            return actionButton
+                    ? new ActionButtonWidget(x, y, width, height, message, onPress)
+                    : new VanillaButtonWidget(x, y, width, height, message, onPress);
         }
     }
 
@@ -176,6 +184,57 @@ final class ScreenUtil {
             super.renderButton(context, mouseX, mouseY, delta);
         }
 
+    }
+
+    /**
+     * Renders only the taller action buttons without sampling the next row of widgets.png.
+     * Vanilla 1.16.5 has a 20px button texture; keep its 4px edges fixed and stretch only
+     * the 12px center to fill the extra height.
+     */
+    private static final class ActionButtonWidget extends ButtonWidget {
+        private ActionButtonWidget(int x, int y, int width, int height, Text message, PressAction onPress) {
+            super(x, y, width, height, message, onPress);
+        }
+
+        @Override
+        public void renderButton(MatrixStack context, int mouseX, int mouseY, float delta) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            client.getTextureManager().bindTexture(WIDGETS_TEXTURE);
+            RenderSystem.color4f(1.0F, 1.0F, 1.0F, alpha);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+
+            int textureY = 46 + getYImage(isHovered()) * 20;
+            int edge = Math.min(4, height / 2);
+            int middleHeight = height - edge * 2;
+            int middleTextureHeight = 20 - edge * 2;
+            int leftWidth = width / 2;
+            int rightWidth = width - leftWidth;
+            int rightU = 200 - rightWidth;
+
+            drawTexture(context, x, y, 0, textureY, leftWidth, edge);
+            drawTexture(context, x + leftWidth, y, rightU, textureY, rightWidth, edge);
+            drawTexture(context, x, y + height - edge, 0, textureY + 20 - edge, leftWidth, edge);
+            drawTexture(context, x + leftWidth, y + height - edge, rightU,
+                    textureY + 20 - edge, rightWidth, edge);
+
+            if (middleHeight > 0 && middleTextureHeight > 0) {
+                context.push();
+                context.translate(0.0D, y + edge, 0.0D);
+                context.scale(1.0F, middleHeight / (float) middleTextureHeight, 1.0F);
+                drawTexture(context, x, 0, 0, textureY + edge, leftWidth, middleTextureHeight);
+                drawTexture(context, x + leftWidth, 0, rightU, textureY + edge,
+                        rightWidth, middleTextureHeight);
+                context.pop();
+            }
+
+            RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
+            renderBackground(context, client, mouseX, mouseY);
+            int textColor = active ? 0xFFFFFF : 0xA0A0A0;
+            DrawableHelper.drawCenteredText(context, client.textRenderer, getMessage(), x + width / 2,
+                    y + (height - 8) / 2, textColor | (MathHelper.ceil(alpha * 255.0F) << 24));
+        }
     }
 
     static Text errorText(Exception ex) {
