@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "universal_config",
+  "version": "${version}",
+  "name": "Universal Config",
+  "description": "Share Minecraft keybinds, client settings, and mod configuration profiles across Minecraft instances.",
+  "authors": [
+    "yoima-jp",
+    "tofuturu",
+    "tanzana7"
+  ],
+  "contact": {
+    "homepage": "https://modrinth.com/project/universal-config",
+    "sources": "https://github.com/yoima-jp/UniversalConfig",
+    "issues": "https://github.com/yoima-jp/UniversalConfig/issues/new/choose",
+    "modrinth": "universal-config"
+  },
+  "license": "MIT",
+  "icon": "assets/universal_config/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "preLaunch": [
+      "com.example.universalconfig.fabric.UniversalConfigPreLaunch"
+    ],
+    "client": [
+      "com.example.universalconfig.fabric.UniversalConfigMod"
+    ],
+    "modmenu": [
+      "com.example.universalconfig.fabric.UniversalConfigModMenuApi"
+    ]
+  },
+  "depends": {
+    "fabricloader": "*",
+    "minecraft": "1.18.2",
+    "java": ">=17",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}
