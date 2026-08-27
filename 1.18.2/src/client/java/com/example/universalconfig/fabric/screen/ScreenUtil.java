@@ -10,6 +10,7 @@ import com.example.universalconfig.core.FileOperationLogger;
 import com.example.universalconfig.fabric.FabricEnvironmentDetector;
 import com.example.universalconfig.fabric.UniversalConfigMod;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.util.Window;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawableHelper;
@@ -91,7 +92,13 @@ final class ScreenUtil {
     }
 
     static void enableScissor(int left, int top, int right, int bottom) {
-        RenderSystem.enableScissor(left, top, right, bottom);
+        Window window = MinecraftClient.getInstance().getWindow();
+        double scale = window.getScaleFactor();
+        int framebufferLeft = (int) Math.floor(left * scale);
+        int framebufferTop = (int) Math.floor(window.getFramebufferHeight() - bottom * scale);
+        int framebufferWidth = (int) Math.ceil((right - left) * scale);
+        int framebufferHeight = (int) Math.ceil((bottom - top) * scale);
+        RenderSystem.enableScissor(framebufferLeft, framebufferTop, framebufferWidth, framebufferHeight);
     }
 
     static void disableScissor() {
