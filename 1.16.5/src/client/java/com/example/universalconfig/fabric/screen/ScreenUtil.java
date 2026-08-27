@@ -206,34 +206,56 @@ final class ScreenUtil {
             RenderSystem.enableDepthTest();
 
             int textureY = 46 + getYImage(isHovered()) * 20;
-            int edge = Math.min(4, height / 2);
-            int middleHeight = height - edge * 2;
-            int middleTextureHeight = 20 - edge * 2;
-            int leftWidth = width / 2;
-            int rightWidth = width - leftWidth;
+            // Keep the 20px vanilla texture rows intact. Stretching the middle with a matrix can sample
+            // the adjacent row and produce a one-pixel artifact at the bottom of a 24px action button.
+            int leftWidth = Math.min(20, width / 2);
+            int rightWidth = leftWidth;
+            int topHeight = Math.min(4, height / 2);
+            int bottomHeight = topHeight;
+            int middleWidth = Math.max(0, width - leftWidth - rightWidth);
+            int middleHeight = Math.max(0, height - topHeight - bottomHeight);
             int rightU = 200 - rightWidth;
+            int middleU = leftWidth;
+            int middleTextureWidth = Math.max(0, 200 - leftWidth - rightWidth);
+            int middleTextureHeight = Math.max(0, 20 - topHeight - bottomHeight);
 
-            drawTexture(context, x, y, 0, textureY, leftWidth, edge);
-            drawTexture(context, x + leftWidth, y, rightU, textureY, rightWidth, edge);
-            drawTexture(context, x, y + height - edge, 0, textureY + 20 - edge, leftWidth, edge);
-            drawTexture(context, x + leftWidth, y + height - edge, rightU,
-                    textureY + 20 - edge, rightWidth, edge);
+            drawTexture(context, x, y, 0, textureY, leftWidth, topHeight);
+            drawTextureRepeated(context, x + leftWidth, y, middleWidth, topHeight,
+                    middleU, textureY, middleTextureWidth, topHeight);
+            drawTexture(context, x + width - rightWidth, y, rightU, textureY, rightWidth, topHeight);
 
-            if (middleHeight > 0 && middleTextureHeight > 0) {
-                context.push();
-                context.translate(0.0D, y + edge, 0.0D);
-                context.scale(1.0F, middleHeight / (float) middleTextureHeight, 1.0F);
-                drawTexture(context, x, 0, 0, textureY + edge, leftWidth, middleTextureHeight);
-                drawTexture(context, x + leftWidth, 0, rightU, textureY + edge,
-                        rightWidth, middleTextureHeight);
-                context.pop();
-            }
+            drawTextureRepeated(context, x, y + topHeight, leftWidth, middleHeight,
+                    0, textureY + topHeight, leftWidth, middleTextureHeight);
+            drawTextureRepeated(context, x + leftWidth, y + topHeight, middleWidth, middleHeight,
+                    middleU, textureY + topHeight, middleTextureWidth, middleTextureHeight);
+            drawTextureRepeated(context, x + width - rightWidth, y + topHeight, rightWidth, middleHeight,
+                    rightU, textureY + topHeight, rightWidth, middleTextureHeight);
+
+            drawTexture(context, x, y + height - bottomHeight, 0, textureY + 20 - bottomHeight,
+                    leftWidth, bottomHeight);
+            drawTextureRepeated(context, x + leftWidth, y + height - bottomHeight, middleWidth, bottomHeight,
+                    middleU, textureY + 20 - bottomHeight, middleTextureWidth, bottomHeight);
+            drawTexture(context, x + width - rightWidth, y + height - bottomHeight,
+                    rightU, textureY + 20 - bottomHeight, rightWidth, bottomHeight);
 
             RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-            renderBackground(context, client, mouseX, mouseY);
             int textColor = active ? 0xFFFFFF : 0xA0A0A0;
             DrawableHelper.drawCenteredText(context, client.textRenderer, getMessage(), x + width / 2,
                     y + (height - 8) / 2, textColor | (MathHelper.ceil(alpha * 255.0F) << 24));
+        }
+
+        private void drawTextureRepeated(MatrixStack context, int x, int y, int width, int height,
+                                          int u, int v, int textureWidth, int textureHeight) {
+            if (width <= 0 || height <= 0 || textureWidth <= 0 || textureHeight <= 0) {
+                return;
+            }
+            for (int offsetY = 0; offsetY < height; offsetY += textureHeight) {
+                int tileHeight = Math.min(textureHeight, height - offsetY);
+                for (int offsetX = 0; offsetX < width; offsetX += textureWidth) {
+                    int tileWidth = Math.min(textureWidth, width - offsetX);
+                    drawTexture(context, x + offsetX, y + offsetY, u, v, tileWidth, tileHeight);
+                }
+            }
         }
     }
 
