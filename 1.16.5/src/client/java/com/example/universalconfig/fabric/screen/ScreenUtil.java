@@ -136,6 +136,7 @@ final class ScreenUtil {
         private int width;
         private int height;
         private boolean actionButton;
+        private boolean wideButton;
 
         private LegacyButtonBuilder(Text message, ButtonWidget.PressAction onPress) {
             this.message = message;
@@ -159,9 +160,16 @@ final class ScreenUtil {
             return this;
         }
 
+        LegacyButtonBuilder wideButton() {
+            this.wideButton = true;
+            return this;
+        }
+
         ButtonWidget build() {
             return actionButton
                     ? new VanillaButtonWidget(x, y + 2, width, 20, message, onPress)
+                    : wideButton
+                    ? new WideButtonWidget(x, y, width, height, message, onPress)
                     : new VanillaButtonWidget(x, y, width, height, message, onPress);
         }
     }
@@ -183,6 +191,55 @@ final class ScreenUtil {
             super.renderButton(context, mouseX, mouseY, delta);
         }
 
+    }
+
+    /**
+     * The 1.16.5 vanilla renderer samples both halves of widgets.png using the
+     * widget width. That produces a negative U coordinate for the full-width
+     * footer button. Keep the vanilla 20px row and state selection, but draw it
+     * as horizontal slices so the texture never samples outside its 200px row.
+     */
+    private static final class WideButtonWidget extends ButtonWidget {
+        private static final int TEXTURE_WIDTH = 256;
+        private static final int TEXTURE_HEIGHT = 256;
+        private static final int BUTTON_TEXTURE_WIDTH = 200;
+        private static final int SLICE_WIDTH = 4;
+        private static final int BUTTON_TEXTURE_TOP = 46;
+
+        private WideButtonWidget(int x, int y, int width, int height, Text message, PressAction onPress) {
+            super(x, y, width, height, message, onPress);
+        }
+
+        @Override
+        public void renderButton(MatrixStack context, int mouseX, int mouseY, float delta) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            TextRenderer renderer = client.textRenderer;
+            client.getTextureManager().bindTexture(WIDGETS_TEXTURE);
+            RenderSystem.color4f(1.0F, 1.0F, 1.0F, alpha);
+            int textureY = BUTTON_TEXTURE_TOP + getYImage(isHovered()) * 20;
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+
+            if (width <= SLICE_WIDTH * 2) {
+                super.renderButton(context, mouseX, mouseY, delta);
+                return;
+            }
+
+            int middleWidth = width - SLICE_WIDTH * 2;
+            DrawableHelper.drawTexture(context, x, y, SLICE_WIDTH, height,
+                    0, textureY, SLICE_WIDTH, height, TEXTURE_WIDTH, TEXTURE_HEIGHT);
+            DrawableHelper.drawTexture(context, x + SLICE_WIDTH, y, middleWidth, height,
+                    SLICE_WIDTH, textureY, BUTTON_TEXTURE_WIDTH - SLICE_WIDTH * 2, height,
+                    TEXTURE_WIDTH, TEXTURE_HEIGHT);
+            DrawableHelper.drawTexture(context, x + width - SLICE_WIDTH, y, SLICE_WIDTH, height,
+                    BUTTON_TEXTURE_WIDTH - SLICE_WIDTH, textureY, SLICE_WIDTH, height,
+                    TEXTURE_WIDTH, TEXTURE_HEIGHT);
+
+            int color = active ? 0xFFFFFF : 0xA0A0A0;
+            DrawableHelper.drawCenteredText(context, renderer, getMessage(), x + width / 2,
+                    y + (height - 8) / 2, color | ((int) (alpha * 255.0F) << 24));
+        }
     }
 
     static Text errorText(Exception ex) {
