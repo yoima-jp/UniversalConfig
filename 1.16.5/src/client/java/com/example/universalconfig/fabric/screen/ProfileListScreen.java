@@ -111,6 +111,7 @@ public final class ProfileListScreen extends Screen {
         rebuildButtons();
     }
 
+
     public void close() {
         client.openScreen(parent);
     }
@@ -399,7 +400,8 @@ public final class ProfileListScreen extends Screen {
 
         addButton(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.save_current"),
                         button -> client.openScreen(new ProfileCreateScreen(this)))
-                        .dimensions(contentLeft(), footerButtonY(), contentWidth(), buttonHeight()).build());
+                        .dimensions(contentLeft(), footerButtonY(), contentWidth(), buttonHeight())
+                        .wideButton().build());
 
         if (pendingImport != null) {
             Text restartLabel = ScreenUtil.translatable("screen.universal_config.restart_now");
