@@ -42,16 +42,12 @@ final class ScreenUtil {
     }
 
     /**
-     * 1.21.1のScreen.renderBackgroundはワールド中では暗い半透明レイヤーだけを描くため、
-     * 画面遷移直後の前フレームが透けないよう、明示的に不透明背景を描画する。
+     * Draw a fully opaque background without invoking vanilla's blur pipeline.
+     * In 1.21.11, a screen render already has a GuiRenderState for the current
+     * frame; calling Screen.renderBackground here can enqueue a second blur and
+     * throw when a parent screen has already used it.
      */
     static void renderBackground(Screen screen, DrawContext context, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world != null) {
-            screen.renderInGameBackground(context);
-        } else {
-            screen.renderBackground(context, mouseX, mouseY, delta);
-        }
         context.fill(0, 0, screen.width, screen.height, OPAQUE_BACKGROUND_COLOR);
     }
 

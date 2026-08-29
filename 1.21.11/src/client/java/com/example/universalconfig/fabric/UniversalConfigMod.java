@@ -12,8 +12,10 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -24,8 +26,7 @@ public final class UniversalConfigMod implements ClientModInitializer {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    private static final int TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET = 10;
-    private static final int TITLE_SCREEN_SYSTEM_TEXT_GAP = 4;
+    private static final int TITLE_SCREEN_FOOTER_BUTTON_BOTTOM_MARGIN = 48;
     // title_screen_button.png はボタン専用の15x15画像を使用する。drawTexture には
     // テクスチャ全体のピクセル幅・高さを渡す必要があるため、画像差し替え時はここも一致させる。
     // FabricのDrawContext#drawTexture は (u,v)-(uRegion,vRegion) をテクスチャ全体で正規化するため、
@@ -49,8 +50,8 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 // 文字ボタンではなくModアイコンだけを表示し、タイトル画面への視覚的な干渉を抑える。
                 Screens.getButtons(screen).removeIf(button -> button instanceof IconButtonWidget);
                 IconButtonWidget openButton = new IconButtonWidget(
-                        TITLE_SCREEN_BUTTON_MARGIN,
-                        titleScreenButtonY(client, screen.height),
+                        titleScreenButtonX(screen),
+                        titleScreenButtonY(screen),
                         button -> client.setScreen(new ProfileListScreen(screen)),
                         buttonLabel
                 );
@@ -60,13 +61,32 @@ public final class UniversalConfigMod implements ClientModInitializer {
         });
     }
 
-    private static int titleScreenButtonY(MinecraftClient client, int screenHeight) {
-        int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
-        int reservedTextHeight = client.textRenderer.fontHeight + TITLE_SCREEN_SYSTEM_TEXT_GAP;
-        return Math.max(
-                TITLE_SCREEN_BUTTON_MARGIN,
-                systemTextY - reservedTextHeight - TITLE_SCREEN_BUTTON_SIZE
-        );
+    private static int titleScreenButtonX(Screen screen) {
+        int leftmostFooterButton = Integer.MAX_VALUE;
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (isFooterButton(screen, button)) {
+                leftmostFooterButton = Math.min(leftmostFooterButton, button.getX());
+            }
+        }
+        if (leftmostFooterButton != Integer.MAX_VALUE) {
+            return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                    leftmostFooterButton - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
+        }
+        return TITLE_SCREEN_BUTTON_MARGIN;
+    }
+
+    private static int titleScreenButtonY(Screen screen) {
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (isFooterButton(screen, button)) {
+                return button.getY() + Math.max(0, (button.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
+            }
+        }
+        return Math.max(TITLE_SCREEN_BUTTON_MARGIN, screen.height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
+    }
+
+    private static boolean isFooterButton(Screen screen, ClickableWidget button) {
+        return button.getX() < screen.width / 2
+                && button.getY() >= screen.height - TITLE_SCREEN_FOOTER_BUTTON_BOTTOM_MARGIN;
     }
 
     public static MinecraftClient client() {
