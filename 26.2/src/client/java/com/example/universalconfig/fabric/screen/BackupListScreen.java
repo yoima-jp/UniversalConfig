@@ -89,11 +89,11 @@ public final class BackupListScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
         ScreenUtil.renderOpaqueBackground(context);
-        context.centeredText(font, title, width / 2, 14, 0xFFFFFF);
-        context.text(font, status, 12, 28, 0xFFCC66);
+        context.centeredText(font, title, width / 2, 14, 0xFFFFFFFF);
+        context.text(font, status, 12, 28, 0xFFFFCC66);
         int y = 44;
         if (backups.isEmpty()) {
-            context.text(font, Component.translatable("screen.universal_config.backup_empty"), 12, y, 0xDDDDDD);
+            context.text(font, Component.translatable("screen.universal_config.backup_empty"), 12, y, 0xFFDDDDDD);
         }
         for (BackupSummary backup : backups) {
             if (y > height - 28) {
@@ -101,11 +101,11 @@ public final class BackupListScreen extends Screen {
             }
             if (backup == null || backup.path() == null) continue;
             String created = backup.manifest() == null || backup.manifest().createdAt == null ? "unknown" : backup.manifest().createdAt;
-            context.text(font, created + "  " + backup.path().getFileName(), 12, y, 0xFFFFFF);
+            context.text(font, created + "  " + backup.path().getFileName(), 12, y, 0xFFFFFFFF);
             if (backup.manifest() != null) {
                 context.text(font, Component.translatable("screen.universal_config.backup_details",
                         backup.manifest().minecraftVersion, backup.manifest().loader,
-                        backup.manifest().files == null ? 0 : backup.manifest().files.size()), 12, y + 12, 0xBBBBBB);
+                        backup.manifest().files == null ? 0 : backup.manifest().files.size()), 12, y + 12, 0xFFBBBBBB);
             }
             y += 36;
         }
