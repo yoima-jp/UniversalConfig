@@ -138,6 +138,7 @@
   "screen.universal_config.include_toggle": "%s: %s",
   "screen.universal_config.include_enabled": "含める",
   "screen.universal_config.include_disabled": "含めない",
+  "screen.universal_config.backups": "バックアップ",
   "screen.universal_config.backup_title": "バックアップを復元",
   "screen.universal_config.backup_empty": "バックアップはまだありません。プロファイル適用前に自動作成されます。",
   "screen.universal_config.backup_restored": "復元しました: %s",

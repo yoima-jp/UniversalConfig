@@ -133,6 +133,7 @@
   "screen.universal_config.include_toggle": "%s：%s",
   "screen.universal_config.include_enabled": "包含",
   "screen.universal_config.include_disabled": "排除",
+  "screen.universal_config.backups": "備份",
   "screen.universal_config.backup_title": "還原備份" ,
   "screen.universal_config.backup_empty": "尚無備份。套用設定檔前會自動建立備份。" ,
   "screen.universal_config.backup_restored": "已還原：%s" ,
