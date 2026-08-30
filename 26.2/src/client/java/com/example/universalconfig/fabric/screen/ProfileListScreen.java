@@ -58,7 +58,7 @@ public final class ProfileListScreen extends Screen {
     private static final int MORE_BUTTON_WIDTH = 34;
     private static final int MENU_WIDTH = 132;
     private static final int MENU_ITEM_GAP = 2;
-    private static final int MENU_ITEM_COUNT = 5;
+    private static final int MENU_ITEM_COUNT = 6;
     private static final int MENU_HEIGHT = MENU_ITEM_COUNT * BUTTON_HEIGHT + (MENU_ITEM_COUNT - 1) * MENU_ITEM_GAP + 8;
     private static final int CLOSE_BUTTON_SIZE = 20;
     private static final String SAFE_DATE_PATTERN = "yyyy/MM/dd HH:mm";
@@ -359,8 +359,14 @@ public final class ProfileListScreen extends Screen {
                 .bounds(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 2, width, BUTTON_HEIGHT).build());
         addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
                 .bounds(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 3, width, BUTTON_HEIGHT).build());
-        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
+        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.backups"), button -> openBackups())
                 .bounds(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 4, width, BUTTON_HEIGHT).build());
+        addMoreMenuButton(Button.builder(Component.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
+                .bounds(x, y + (BUTTON_HEIGHT + MENU_ITEM_GAP) * 5, width, BUTTON_HEIGHT).build());
+    }
+
+    private void openBackups() {
+        ScreenUtil.setScreen(minecraft, new BackupListScreen(this));
     }
 
     private void addMoreMenuButton(Button button) {

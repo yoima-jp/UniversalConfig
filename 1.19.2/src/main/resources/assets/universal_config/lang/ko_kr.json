@@ -139,6 +139,7 @@
   "screen.universal_config.include_enabled": "포함",
   "screen.universal_config.include_disabled": "제외",
   "message.universal_config.reload_options_failed": "Minecraft 설정을 다시 불러오지 못했습니다. 재시작 전에 설정이 되돌아갈 수 있습니다.",
+  "screen.universal_config.backups": "백업",
   "screen.universal_config.backup_title": "백업 복원",
   "screen.universal_config.backup_empty": "아직 백업이 없습니다. 프로필 적용 전에 자동으로 백업됩니다.",
   "screen.universal_config.backup_restored": "복원됨: %s",

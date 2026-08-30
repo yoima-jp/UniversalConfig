@@ -57,6 +57,7 @@ public final class BackupListScreen extends Screen {
             if (y > height - 28) {
                 break;
             }
+            if (backup == null || backup.path() == null) continue;
             Path backupPath = backup.path();
             addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.restore"), button -> confirmRestore(backupPath))
                     .bounds(width - 80, y, 60, 20).build());
@@ -98,6 +99,7 @@ public final class BackupListScreen extends Screen {
             if (y > height - 28) {
                 break;
             }
+            if (backup == null || backup.path() == null) continue;
             String created = backup.manifest() == null || backup.manifest().createdAt == null ? "unknown" : backup.manifest().createdAt;
             context.text(font, created + "  " + backup.path().getFileName(), 12, y, 0xFFFFFF);
             if (backup.manifest() != null) {
