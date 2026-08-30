@@ -138,5 +138,11 @@
   "screen.universal_config.include_toggle": "%s：%s",
   "screen.universal_config.include_enabled": "包含",
   "screen.universal_config.include_disabled": "排除",
-  "message.universal_config.reload_options_failed": "無法重新載入 Minecraft 設定。重新啟動前設定可能會還原。"
+  "message.universal_config.reload_options_failed": "無法重新載入 Minecraft 設定。重新啟動前設定可能會還原。",
+  "screen.universal_config.backup_title": "還原備份",
+  "screen.universal_config.backup_empty": "尚無備份。套用設定檔前會自動建立備份。",
+  "screen.universal_config.backup_restored": "已還原：%s",
+  "screen.universal_config.backup_details": "包含：Minecraft %s / %s；檔案：%s",
+  "screen.universal_config.confirm_restore_title": "要還原備份嗎？",
+  "screen.universal_config.confirm_restore_message": "這會覆寫目前設定。要繼續嗎？"
 }
