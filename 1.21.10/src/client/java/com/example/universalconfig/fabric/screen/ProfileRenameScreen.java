@@ -63,10 +63,10 @@ public final class ProfileRenameScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
         int left = (width - FORM_WIDTH) / 2;
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 18, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 18, 0xFFFFFFFF);
         context.drawTextWithShadow(textRenderer,
-                Text.translatable("screen.universal_config.profile_rename_label"), left, 44, 0xDDDDDD);
-        context.drawTextWithShadow(textRenderer, status, left, height - 52, 0xFF7777);
+                Text.translatable("screen.universal_config.profile_rename_label"), left, 44, 0xFFDDDDDD);
+        context.drawTextWithShadow(textRenderer, status, left, height - 52, 0xFFFF7777);
         ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
     }
 }

@@ -13,6 +13,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class BackupListScreen extends Screen {
+    private static final int SCREEN_MARGIN = 16;
+    private static final int BUTTON_GAP = 8;
+    private static final int BUTTON_Y = 8;
+    private static final int BUTTON_HEIGHT = 20;
+    private static final int ROW_TEXT_X = 12;
+    private static final int ROW_TEXT_GAP = 12;
+    private static final int ROW_START_Y = 44;
+    private static final int ROW_STEP = 36;
+
     private final Screen parent;
     private List<BackupSummary> backups = new ArrayList<>();
     private Text status = Text.empty();
@@ -40,13 +49,22 @@ public final class BackupListScreen extends Screen {
 
     private void rebuildButtons() {
         clearChildren();
-        addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.refresh"), button -> {
+        Text refreshText = Text.translatable("screen.universal_config.refresh");
+        Text backText = Text.translatable("screen.universal_config.back");
+        int backWidth = buttonWidth(backText, 64);
+        int refreshWidth = buttonWidth(refreshText, 64);
+        int right = width - SCREEN_MARGIN;
+        addDrawableChild(ButtonWidget.builder(backText, button -> client.setScreen(parent))
+                .dimensions(right - backWidth, BUTTON_Y, backWidth, BUTTON_HEIGHT).build());
+        right -= backWidth + BUTTON_GAP;
+        addDrawableChild(ButtonWidget.builder(refreshText, button -> {
             reload();
             rebuildButtons();
-        }).dimensions(width - 118, 8, 52, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.back"), button -> client.setScreen(parent))
-                .dimensions(width - 60, 8, 52, 20).build());
+        }).dimensions(right - refreshWidth, BUTTON_Y, refreshWidth, BUTTON_HEIGHT).build());
 
+        Text restoreText = Text.translatable("screen.universal_config.restore");
+        int restoreWidth = buttonWidth(restoreText, 72);
+        int restoreX = width - SCREEN_MARGIN - restoreWidth;
         int y = 42;
         for (BackupSummary backup : backups) {
             if (y > height - 28) {
@@ -54,10 +72,14 @@ public final class BackupListScreen extends Screen {
             }
             if (backup == null || backup.path() == null) continue;
             Path backupPath = backup.path();
-            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.restore"), button -> confirmRestore(backupPath))
-                    .dimensions(width - 80, y, 60, 20).build());
-            y += 36;
+            addDrawableChild(ButtonWidget.builder(restoreText, button -> confirmRestore(backupPath))
+                    .dimensions(restoreX, y, restoreWidth, BUTTON_HEIGHT).build());
+            y += ROW_STEP;
         }
+    }
+
+    private int buttonWidth(Text label, int minimumWidth) {
+        return Math.min(140, Math.max(minimumWidth, textRenderer.getWidth(label) + 16));
     }
 
     private void confirmRestore(Path backupPath) {
@@ -84,11 +106,18 @@ public final class BackupListScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 14, 0xFFFFFF);
-        context.drawTextWithShadow(textRenderer, status, 12, 28, 0xFFCC66);
-        int y = 44;
+        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 14, 0xFFFFFFFF);
+        context.drawTextWithShadow(textRenderer, trimmed(status, width - ROW_TEXT_X * 2),
+                ROW_TEXT_X, 28, 0xFFFFCC66);
+        Text restoreText = Text.translatable("screen.universal_config.restore");
+        int restoreWidth = buttonWidth(restoreText, 72);
+        int restoreX = width - SCREEN_MARGIN - restoreWidth;
+        int textWidth = Math.max(0, restoreX - ROW_TEXT_X - ROW_TEXT_GAP);
+        int y = ROW_START_Y;
         if (backups.isEmpty()) {
-            context.drawTextWithShadow(textRenderer, Text.translatable("screen.universal_config.backup_empty"), 12, y, 0xDDDDDD);
+            context.drawTextWithShadow(textRenderer,
+                    trimmed(Text.translatable("screen.universal_config.backup_empty"), width - ROW_TEXT_X * 2),
+                    ROW_TEXT_X, y, 0xFFDDDDDD);
         }
         for (BackupSummary backup : backups) {
             if (y > height - 28) {
@@ -96,14 +125,22 @@ public final class BackupListScreen extends Screen {
             }
             if (backup == null || backup.path() == null) continue;
             String created = backup.manifest() == null || backup.manifest().createdAt == null ? "unknown" : backup.manifest().createdAt;
-            context.drawTextWithShadow(textRenderer, created + "  " + backup.path().getFileName(), 12, y, 0xFFFFFF);
+            Text backupName = Text.literal(created + "  " + backup.path().getFileName());
+            context.drawTextWithShadow(textRenderer, trimmed(backupName, textWidth),
+                    ROW_TEXT_X, y, 0xFFFFFFFF);
             if (backup.manifest() != null) {
-                context.drawTextWithShadow(textRenderer, Text.translatable("screen.universal_config.backup_details",
+                Text details = Text.translatable("screen.universal_config.backup_details",
                         backup.manifest().minecraftVersion, backup.manifest().loader,
-                        backup.manifest().files == null ? 0 : backup.manifest().files.size()), 12, y + 12, 0xBBBBBB);
+                        backup.manifest().files == null ? 0 : backup.manifest().files.size());
+                context.drawTextWithShadow(textRenderer, trimmed(details, textWidth),
+                        ROW_TEXT_X, y + 12, 0xFFBBBBBB);
             }
-            y += 36;
+            y += ROW_STEP;
         }
         ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
+    }
+
+    private String trimmed(Text text, int maxWidth) {
+        return textRenderer.trimToWidth(text, Math.max(0, maxWidth)).getString();
     }
 }
