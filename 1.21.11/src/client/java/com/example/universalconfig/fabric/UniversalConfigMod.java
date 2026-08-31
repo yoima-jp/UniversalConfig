@@ -109,6 +109,9 @@ public final class UniversalConfigMod implements ClientModInitializer {
 
         @Override
         protected void drawIcon(DrawContext context, int mouseX, int mouseY, float delta) {
+            // 1.21.11のPressableWidget#renderWidgetはdrawIconだけを呼ぶため、
+            // Vanillaのボタン背景はここで明示的に描画してからアイコンを重ねる。
+            drawButton(context);
             // ボタン専用の15px画像全体を縮小描画する。TexturedButtonWidget では左上1枠が
             // 等倍で切り抜かれるため、本実装では drawTexture でテクスチャ全体をボタン内に収める。
             // 画像を差し替えた際は TITLE_SCREEN_TEXTURE_WIDTH/HEIGHT と実寸を一致させること。
