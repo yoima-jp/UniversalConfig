@@ -26,7 +26,6 @@ public final class UniversalConfigMod implements ClientModInitializer {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    private static final int TITLE_SCREEN_FOOTER_BUTTON_BOTTOM_MARGIN = 48;
     // title_screen_button.png はボタン専用の15x15画像を使用する。drawTexture には
     // テクスチャ全体のピクセル幅・高さを渡す必要があるため、画像差し替え時はここも一致させる。
     // FabricのDrawContext#drawTexture は (u,v)-(uRegion,vRegion) をテクスチャ全体で正規化するため、
@@ -62,31 +61,26 @@ public final class UniversalConfigMod implements ClientModInitializer {
     }
 
     private static int titleScreenButtonX(Screen screen) {
-        int leftmostFooterButton = Integer.MAX_VALUE;
         for (ClickableWidget button : Screens.getButtons(screen)) {
-            if (isFooterButton(screen, button)) {
-                leftmostFooterButton = Math.min(leftmostFooterButton, button.getX());
+            if (isOptionsButton(button)) {
+                return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                        button.getX() - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
             }
-        }
-        if (leftmostFooterButton != Integer.MAX_VALUE) {
-            return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
-                    leftmostFooterButton - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
         }
         return TITLE_SCREEN_BUTTON_MARGIN;
     }
 
     private static int titleScreenButtonY(Screen screen) {
         for (ClickableWidget button : Screens.getButtons(screen)) {
-            if (isFooterButton(screen, button)) {
+            if (isOptionsButton(button)) {
                 return button.getY() + Math.max(0, (button.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
             }
         }
         return Math.max(TITLE_SCREEN_BUTTON_MARGIN, screen.height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
     }
 
-    private static boolean isFooterButton(Screen screen, ClickableWidget button) {
-        return button.getX() < screen.width / 2
-                && button.getY() >= screen.height - TITLE_SCREEN_FOOTER_BUTTON_BOTTOM_MARGIN;
+    private static boolean isOptionsButton(ClickableWidget button) {
+        return button.getMessage().getString().equals(net.minecraft.text.Text.translatable("menu.options").getString());
     }
 
     public static MinecraftClient client() {
