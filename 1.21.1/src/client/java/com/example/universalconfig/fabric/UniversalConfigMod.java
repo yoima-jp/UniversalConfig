@@ -12,6 +12,8 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.MutableText;
@@ -49,8 +51,8 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 // 文字ボタンではなくModアイコンだけを表示し、タイトル画面への視覚的な干渉を抑える。
                 Screens.getButtons(screen).removeIf(button -> button instanceof IconButtonWidget);
                 IconButtonWidget openButton = new IconButtonWidget(
-                        TITLE_SCREEN_BUTTON_MARGIN,
-                        titleScreenButtonY(client, screen.height),
+                        titleScreenButtonX(screen),
+                        titleScreenButtonY(client, screen),
                         button -> client.setScreen(new ProfileListScreen(screen)),
                         buttonLabel
                 );
@@ -60,13 +62,33 @@ public final class UniversalConfigMod implements ClientModInitializer {
         });
     }
 
-    private static int titleScreenButtonY(MinecraftClient client, int screenHeight) {
+    private static int titleScreenButtonX(Screen screen) {
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (isOptionsButton(button)) {
+                return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                        button.getX() - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
+            }
+        }
+        return TITLE_SCREEN_BUTTON_MARGIN;
+    }
+
+    private static int titleScreenButtonY(MinecraftClient client, Screen screen) {
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (isOptionsButton(button)) {
+                return button.getY() + Math.max(0, (button.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
+            }
+        }
+        int screenHeight = screen.height;
         int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
         int reservedTextHeight = client.textRenderer.fontHeight + TITLE_SCREEN_SYSTEM_TEXT_GAP;
         return Math.max(
                 TITLE_SCREEN_BUTTON_MARGIN,
                 systemTextY - reservedTextHeight - TITLE_SCREEN_BUTTON_SIZE
         );
+    }
+
+    private static boolean isOptionsButton(ClickableWidget button) {
+        return button.getMessage().getString().equals(Text.translatable("menu.options").getString());
     }
 
     public static MinecraftClient client() {
