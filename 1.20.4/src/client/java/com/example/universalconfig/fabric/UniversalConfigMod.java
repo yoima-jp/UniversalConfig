@@ -18,6 +18,7 @@ import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableTextContent;
 import net.minecraft.util.Identifier;
 
 public final class UniversalConfigMod implements ClientModInitializer {
@@ -63,20 +64,24 @@ public final class UniversalConfigMod implements ClientModInitializer {
     }
 
     private static int titleScreenButtonX(Screen screen) {
+        ClickableWidget optionsButton = optionsButton(screen);
+        if (optionsButton == null) {
+            return TITLE_SCREEN_BUTTON_MARGIN;
+        }
+        int leftmostRowButton = optionsButton.getX();
         for (ClickableWidget button : Screens.getButtons(screen)) {
-            if (isOptionsButton(button)) {
-                return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
-                        button.getX() - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
+            if (overlapsRow(button, optionsButton)) {
+                leftmostRowButton = Math.min(leftmostRowButton, button.getX());
             }
         }
-        return TITLE_SCREEN_BUTTON_MARGIN;
+        return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                leftmostRowButton - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
     }
 
     private static int titleScreenButtonY(MinecraftClient client, Screen screen) {
-        for (ClickableWidget button : Screens.getButtons(screen)) {
-            if (isOptionsButton(button)) {
-                return button.getY() + Math.max(0, (button.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
-            }
+        ClickableWidget optionsButton = optionsButton(screen);
+        if (optionsButton != null) {
+            return optionsButton.getY() + Math.max(0, (optionsButton.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
         }
         int screenHeight = screen.height;
         int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
@@ -88,7 +93,22 @@ public final class UniversalConfigMod implements ClientModInitializer {
     }
 
     private static boolean isOptionsButton(ClickableWidget button) {
-        return button.getMessage().getString().equals(Text.translatable("menu.options").getString());
+        return button.getMessage().getContent() instanceof TranslatableTextContent content
+                && content.getKey().equals("menu.options");
+    }
+
+    private static ClickableWidget optionsButton(Screen screen) {
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (isOptionsButton(button)) {
+                return button;
+            }
+        }
+        return null;
+    }
+
+    private static boolean overlapsRow(ClickableWidget button, ClickableWidget rowAnchor) {
+        return button.getY() < rowAnchor.getY() + rowAnchor.getHeight()
+                && button.getY() + button.getHeight() > rowAnchor.getY();
     }
 
     public static MinecraftClient client() {
