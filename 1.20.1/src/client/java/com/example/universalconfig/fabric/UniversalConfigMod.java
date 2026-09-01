@@ -12,10 +12,13 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableTextContent;
 import net.minecraft.util.Identifier;
 
 public final class UniversalConfigMod implements ClientModInitializer {
@@ -49,8 +52,8 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 // 文字ボタンではなくModアイコンだけを表示し、タイトル画面への視覚的な干渉を抑える。
                 Screens.getButtons(screen).removeIf(button -> button instanceof IconButtonWidget);
                 IconButtonWidget openButton = new IconButtonWidget(
-                        TITLE_SCREEN_BUTTON_MARGIN,
-                        titleScreenButtonY(client, screen.height),
+                        titleScreenButtonX(screen),
+                        titleScreenButtonY(client, screen),
                         button -> client.setScreen(new ProfileListScreen(screen)),
                         buttonLabel
                 );
@@ -60,13 +63,52 @@ public final class UniversalConfigMod implements ClientModInitializer {
         });
     }
 
-    private static int titleScreenButtonY(MinecraftClient client, int screenHeight) {
+    private static int titleScreenButtonX(Screen screen) {
+        ClickableWidget optionsButton = optionsButton(screen);
+        if (optionsButton == null) {
+            return TITLE_SCREEN_BUTTON_MARGIN;
+        }
+        int leftmostRowButton = optionsButton.getX();
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (overlapsRow(button, optionsButton)) {
+                leftmostRowButton = Math.min(leftmostRowButton, button.getX());
+            }
+        }
+        return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                leftmostRowButton - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
+    }
+
+    private static int titleScreenButtonY(MinecraftClient client, Screen screen) {
+        ClickableWidget optionsButton = optionsButton(screen);
+        if (optionsButton != null) {
+            return optionsButton.getY() + Math.max(0, (optionsButton.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
+        }
+        int screenHeight = screen.height;
         int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
         int reservedTextHeight = client.textRenderer.fontHeight + TITLE_SCREEN_SYSTEM_TEXT_GAP;
         return Math.max(
                 TITLE_SCREEN_BUTTON_MARGIN,
                 systemTextY - reservedTextHeight - TITLE_SCREEN_BUTTON_SIZE
         );
+    }
+
+    private static boolean isOptionsButton(ClickableWidget button) {
+        return button.getMessage().getContent() instanceof TranslatableTextContent content
+                && content.getKey().equals("menu.options");
+    }
+
+    private static ClickableWidget optionsButton(Screen screen) {
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (isOptionsButton(button)) {
+                return button;
+            }
+        }
+        return null;
+    }
+
+    private static boolean overlapsRow(ClickableWidget button, ClickableWidget rowAnchor) {
+        return button.getY() < rowAnchor.getY() + rowAnchor.getHeight()
+                && button.getY() + button.getHeight() > rowAnchor.getY();
     }
 
     public static MinecraftClient client() {

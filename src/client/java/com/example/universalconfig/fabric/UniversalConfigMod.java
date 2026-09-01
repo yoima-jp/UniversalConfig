@@ -14,6 +14,8 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.widget.ClickableWidget;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.option.KeyBinding;
@@ -58,8 +60,8 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 // 左下にはバージョン表記、右下には著作権表記があるため、下端から14px空ける。
                 // 文字ボタンではなくModアイコンだけを表示し、タイトル画面への視覚的な干渉を抑える。
                 IconButtonWidget openButton = new IconButtonWidget(
-                        TITLE_SCREEN_BUTTON_MARGIN,
-                        scaledHeight - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BOTTOM_TEXT_CLEARANCE,
+                        titleScreenButtonX(screen),
+                        titleScreenButtonY(screen),
                         button -> client.setScreen(new ProfileListScreen(screen)),
                         buttonLabel
                 );
@@ -67,6 +69,26 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 Screens.getButtons(screen).add(openButton);
             }
         });
+    }
+
+    private static int titleScreenButtonX(Screen screen) {
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (button.getMessage().getString().equals(Text.translatable("menu.options").getString())) {
+                return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                        button.getX() - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
+            }
+        }
+        return TITLE_SCREEN_BUTTON_MARGIN;
+    }
+
+    private static int titleScreenButtonY(Screen screen) {
+        for (ClickableWidget button : Screens.getButtons(screen)) {
+            if (button.getMessage().getString().equals(Text.translatable("menu.options").getString())) {
+                return button.getY() + Math.max(0, (button.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
+            }
+        }
+        return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                screen.height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BOTTOM_TEXT_CLEARANCE);
     }
 
     public static MinecraftClient client() {
