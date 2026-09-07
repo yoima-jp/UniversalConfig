@@ -158,9 +158,35 @@ final class ScreenUtil {
         }
 
         ButtonWidget build() {
+            if (width > 400) {
+                return new WideButtonWidget(x, y, width, height, message, onPress);
+            }
             return ButtonWidget.builder(message, onPress)
                     .dimensions(x, y, width, height)
                     .build();
+        }
+    }
+
+    /**
+     * 1.19.3's vanilla button texture cannot render widths above 400 pixels without a broken center seam.
+     * Keep the wide action usable while preserving the shared layout used by newer versions.
+     */
+    private static final class WideButtonWidget extends ButtonWidget {
+        private WideButtonWidget(int x, int y, int width, int height, Text message,
+                                 ButtonWidget.PressAction onPress) {
+            super(x, y, width, height, message, onPress,
+                    ignored -> Text.translatable("narrator.button", message));
+        }
+
+        @Override
+        public void renderButton(MatrixStack matrices, int mouseX, int mouseY, float delta) {
+            int borderColor = 0xFF101010;
+            int surfaceColor = !active ? 0xFF555555 : isHovered() ? 0xFF707070 : 0xFF606060;
+            int textColor = active ? 0xFFFFFFFF : 0xFFA0A0A0;
+            fill(matrices, getX(), getY(), getX() + width, getY() + height, borderColor);
+            fill(matrices, getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, surfaceColor);
+            ScreenUtil.drawCenteredTextWithShadow(matrices, MinecraftClient.getInstance().textRenderer, getMessage(),
+                    getX() + width / 2, getY() + (height - 8) / 2, textColor);
         }
     }
 
