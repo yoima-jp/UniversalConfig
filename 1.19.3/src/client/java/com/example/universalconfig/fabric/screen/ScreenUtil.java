@@ -15,6 +15,7 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.render.DiffuseLighting;
+import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.LightmapTextureManager;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.render.OverlayTexture;
@@ -24,6 +25,7 @@ import net.minecraft.client.render.model.json.ModelTransformation;
 import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.Identifier;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 
@@ -31,6 +33,12 @@ import java.nio.file.Path;
 import java.util.function.Function;
 
 final class ScreenUtil {
+    private static final Identifier WIDGETS_TEXTURE = new Identifier("textures/gui/widgets.png");
+    private static final int BUTTON_TEXTURE_TOP = 46;
+    private static final int BUTTON_TEXTURE_WIDTH = 200;
+    private static final int BUTTON_TEXTURE_HEIGHT = 20;
+    private static final int BUTTON_TEXTURE_CAP = 20;
+
     private ScreenUtil() {
     }
 
@@ -168,8 +176,9 @@ final class ScreenUtil {
     }
 
     /**
-     * 1.19.3's vanilla button texture cannot render widths above 400 pixels without a broken center seam.
-     * Keep the wide action usable while preserving the shared layout used by newer versions.
+     * 1.19.3's vanilla button renderer samples the 200px-wide widget texture in two halves. For a wide
+     * footer, preserve both end caps and stretch the center of that same texture instead of replacing it
+     * with flat fills.
      */
     private static final class WideButtonWidget extends ButtonWidget {
         private WideButtonWidget(int x, int y, int width, int height, Text message,
@@ -180,14 +189,33 @@ final class ScreenUtil {
 
         @Override
         public void renderButton(MatrixStack matrices, int mouseX, int mouseY, float delta) {
-            int borderColor = 0xFF101010;
-            int surfaceColor = !active ? 0xFF555555 : isHovered() ? 0xFF707070 : 0xFF606060;
-            int textColor = active ? 0xFFFFFFFF : 0xFFA0A0A0;
-            fill(matrices, getX(), getY(), getX() + width, getY() + height, borderColor);
-            fill(matrices, getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, surfaceColor);
+            int yImage = getYImage(isHovered());
+            RenderSystem.setShader(GameRenderer::getPositionTexProgram);
+            RenderSystem.setShaderTexture(0, WIDGETS_TEXTURE);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.enableDepthTest();
+            drawWideButtonTexture(matrices, getX(), getY(), width, yImage);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            int textColor = (int) (alpha * 255.0F) << 24 | (active ? 0xFFFFFF : 0xA0A0A0);
             ScreenUtil.drawCenteredTextWithShadow(matrices, MinecraftClient.getInstance().textRenderer, getMessage(),
                     getX() + width / 2, getY() + (height - 8) / 2, textColor);
         }
+    }
+
+    private static void drawWideButtonTexture(MatrixStack matrices, int x, int y, int width, int yImage) {
+        int cap = Math.min(BUTTON_TEXTURE_CAP, width / 2);
+        int centerWidth = width - cap * 2;
+        int textureTop = BUTTON_TEXTURE_TOP + yImage * BUTTON_TEXTURE_HEIGHT;
+        DrawableHelper.drawTexture(matrices, x, y, cap, BUTTON_TEXTURE_HEIGHT,
+                0.0F, textureTop, cap, BUTTON_TEXTURE_HEIGHT, 256, 256);
+        if (centerWidth > 0) {
+            DrawableHelper.drawTexture(matrices, x + cap, y, centerWidth, BUTTON_TEXTURE_HEIGHT,
+                    cap, textureTop, BUTTON_TEXTURE_WIDTH - cap * 2, BUTTON_TEXTURE_HEIGHT, 256, 256);
+        }
+        DrawableHelper.drawTexture(matrices, x + width - cap, y, cap, BUTTON_TEXTURE_HEIGHT,
+                BUTTON_TEXTURE_WIDTH - cap, textureTop, cap, BUTTON_TEXTURE_HEIGHT, 256, 256);
     }
 
     static Text errorText(Exception ex) {
