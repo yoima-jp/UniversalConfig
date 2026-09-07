@@ -44,7 +44,8 @@ public final class ProfileListScreen extends Screen {
     private static final int PANEL_PADDING = 10;
     private static final int FOOTER_HEIGHT = 30;
     private static final int BUTTON_HEIGHT = 20;
-    private static final int PRIMARY_BUTTON_HEIGHT = 24;
+    // 1.19.3's vanilla button texture is fixed at 20px high; 24px leaves a second texture edge below the action row.
+    private static final int PRIMARY_BUTTON_HEIGHT = BUTTON_HEIGHT;
     private static final int CARD_HEIGHT = 40;
     private static final int CARD_GAP = 3;
     private static final int CARD_STEP = CARD_HEIGHT + CARD_GAP;
