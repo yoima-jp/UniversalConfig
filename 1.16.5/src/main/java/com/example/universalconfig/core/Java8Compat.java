@@ -196,12 +196,72 @@ public final class Java8Compat {
         Process process = null;
         try {
             String os = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
-            process = os.contains("win")
-                    ? new ProcessBuilder("tasklist", "/FI", "PID eq " + pid).start()
-                    : new ProcessBuilder("kill", "-0", String.valueOf(pid)).start();
+            if (os.contains("win")) {
+                process = new ProcessBuilder("tasklist", "/FI", "PID eq " + pid, "/FO", "CSV", "/NH").start();
+                String output = new String(readAllBytes(process.getInputStream()), Charset.defaultCharset());
+                return tasklistCommandResult(process.waitFor(), output, pid);
+            }
+            process = new ProcessBuilder("kill", "-0", String.valueOf(pid)).start();
             return process.waitFor() == 0;
         } catch (Exception ex) { return false; }
         finally { if (process != null) process.destroy(); }
+    }
+
+    /** Evaluates a tasklist invocation without relying on localized status text or its filter exit code. */
+    static boolean tasklistCommandResult(int exitCode, String output, long pid) {
+        return exitCode == 0 && tasklistOutputContainsPid(output, pid);
+    }
+
+    /** Parses the numeric PID field from tasklist's stable CSV format. */
+    static boolean tasklistOutputContainsPid(String output, long pid) {
+        if (output == null || pid <= 0) {
+            return false;
+        }
+        String[] lines = output.split("\\R");
+        for (String line : lines) {
+            List<String> fields = parseCsvLine(line);
+            if (fields.size() < 2) {
+                continue;
+            }
+            try {
+                if (Long.parseLong(fields.get(1).trim()) == pid) {
+                    return true;
+                }
+            } catch (NumberFormatException ignored) {
+                // Headers and localized diagnostic lines are not process records.
+            }
+        }
+        return false;
+    }
+
+    private static List<String> parseCsvLine(String line) {
+        ArrayList<String> fields = new ArrayList<String>();
+        if (line == null) {
+            return fields;
+        }
+        StringBuilder field = new StringBuilder();
+        boolean quoted = false;
+        for (int index = 0; index < line.length(); index++) {
+            char character = line.charAt(index);
+            if (character == '"') {
+                if (quoted && index + 1 < line.length() && line.charAt(index + 1) == '"') {
+                    field.append('"');
+                    index++;
+                } else {
+                    quoted = !quoted;
+                }
+            } else if (character == ',' && !quoted) {
+                fields.add(field.toString());
+                field.setLength(0);
+            } else {
+                field.append(character);
+            }
+        }
+        if (quoted) {
+            return new ArrayList<String>();
+        }
+        fields.add(field.toString());
+        return fields;
     }
 
     public static <T> Set<T> setOf(T... values) {

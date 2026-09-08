@@ -16,6 +16,7 @@ public final class BackupListScreen extends Screen {
     private final Screen parent;
     private List<BackupSummary> backups = new ArrayList<>();
     private Component status = Component.empty();
+    private final RestoreStatusState restoreStatusState = new RestoreStatusState();
 
     public BackupListScreen(Screen parent) {
         super(Component.translatable("screen.universal_config.backup_title"));
@@ -30,6 +31,7 @@ public final class BackupListScreen extends Screen {
     @Override
     protected void init() {
         reload();
+        status = restoreStatusState.consume(status);
         rebuildButtons();
     }
 
@@ -85,8 +87,10 @@ public final class BackupListScreen extends Screen {
         } catch (UniversalConfigException ex) {
             restoreStatus = ScreenUtil.errorText(ex);
         }
-        ScreenUtil.setScreen(minecraft, this);
         status = restoreStatus;
+        // setScreen reinitializes this screen and reload() normally clears status; carry this result across init.
+        restoreStatusState.retain(restoreStatus);
+        ScreenUtil.setScreen(minecraft, this);
         rebuildButtons();
     }
 
@@ -116,5 +120,22 @@ public final class BackupListScreen extends Screen {
             y += 36;
         }
         super.extractRenderState(context, mouseX, mouseY, delta);
+    }
+
+    static final class RestoreStatusState {
+        private Component pending;
+
+        void retain(Component value) {
+            pending = value;
+        }
+
+        Component consume(Component reloadedStatus) {
+            if (pending == null) {
+                return reloadedStatus;
+            }
+            Component result = pending;
+            pending = null;
+            return result;
+        }
     }
 }

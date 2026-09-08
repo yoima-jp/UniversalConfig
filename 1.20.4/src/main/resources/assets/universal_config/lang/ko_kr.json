@@ -146,4 +146,6 @@
   "screen.universal_config.backup_details": "포함: Minecraft %s / %s; 파일: %s",
   "screen.universal_config.confirm_restore_title": "백업을 복원할까요?",
   "screen.universal_config.confirm_restore_message": "현재 설정을 덮어씁니다. 계속할까요?"
+,
+  "screen.universal_config.reorder_failed": "프로필 순서를 변경하지 못했습니다."
 }

@@ -4,6 +4,7 @@ import com.example.universalconfig.core.CurrentProcessRestartService;
 import com.example.universalconfig.core.UniversalConfigException;
 import net.fabricmc.loader.api.FabricLoader;
 
+import java.lang.management.ManagementFactory;
 import java.util.List;
 
 /**
@@ -16,12 +17,13 @@ public final class FabricRestartService {
     public static void scheduleRestartAfterCurrentProcessExit() throws UniversalConfigException {
         try {
             FabricLoader loader = FabricLoader.getInstance();
-            // Reuse the exact argument vector that launched this JVM. Reconstructing it from the classpath and
-            // Fabric's application arguments loses development-launcher properties and classpath grouping, which
-            // can restart a bare Minecraft client without Universal Config loaded.
-            ProcessHandle.Info processInfo = ProcessHandle.current().info();
-            List<String> javaArguments = List.of(processInfo.arguments()
-                    .orElseThrow(() -> new IllegalStateException("Current Java arguments are unavailable.")));
+            // Preserve JVM argument boundaries and let Fabric resolve the application argument vector. This remains
+            // useful in development, where ProcessHandle metadata may be absent or incomplete.
+            List<String> javaArguments = CurrentProcessRestartService.buildJavaLaunchArguments(
+                    ManagementFactory.getRuntimeMXBean().getInputArguments(),
+                    System.getProperty("java.class.path", ""),
+                    "net.fabricmc.loader.impl.launch.knot.KnotClient",
+                    List.of(loader.getLaunchArguments(false)));
             CurrentProcessRestartService.scheduleRestartAfterCurrentProcessExit(
                     loader.getGameDir(), javaArguments);
         } catch (UniversalConfigException ex) {

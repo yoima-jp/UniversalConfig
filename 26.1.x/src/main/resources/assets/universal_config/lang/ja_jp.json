@@ -146,4 +146,6 @@
   "message.universal_config.reload_options_failed": "Minecraftの設定再読み込みに失敗しました。再起動前に設定が戻る可能性があります。",
   "screen.universal_config.confirm_restore_title": "バックアップを復元しますか？",
   "screen.universal_config.confirm_restore_message": "現在の設定を上書きします。続行しますか？"
+,
+  "screen.universal_config.reorder_failed": "プロファイルの並べ替えに失敗しました。"
 }

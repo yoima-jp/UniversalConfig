@@ -51,6 +51,30 @@ final class Java8CompatTest {
         assertTrue(Java8Compat.extractProcessArguments(new EmptySyntheticInfo(), EmptySyntheticInfo.class).isEmpty());
     }
 
+    @Test
+    void tasklistCsvMatchesOnlyTheRequestedLivePid() {
+        assertTrue(Java8Compat.tasklistOutputContainsPid(
+                "\"java.exe\",\"1234\",\"Console\",\"1\",\"12,345 K\"", 1234));
+        assertFalse(Java8Compat.tasklistOutputContainsPid(
+                "INFO: No tasks are running which match the specified criteria.", 1234));
+        assertFalse(Java8Compat.tasklistOutputContainsPid(
+                "\"java.exe\",\"1234\"", 9999));
+        assertFalse(Java8Compat.tasklistOutputContainsPid("malformed,not-a-pid", 1234));
+    }
+
+    @Test
+    void tasklistCommandFailureIsAlwaysSafe() {
+        assertFalse(Java8Compat.tasklistCommandResult(1, "\"java.exe\",\"1234\"", 1234));
+        assertFalse(Java8Compat.tasklistCommandResult(0, null, 1234));
+        assertFalse(Java8Compat.tasklistOutputContainsPid(null, 999999999999L));
+    }
+
+    @Test
+    void currentProcessIsAliveAndAnImpossiblePidIsNot() {
+        assertTrue(Java8Compat.isProcessAlive(Java8Compat.currentPid()));
+        assertFalse(Java8Compat.isProcessAlive(Long.MAX_VALUE));
+    }
+
     public static final class SyntheticInfo {
         private final String[] arguments;
 
