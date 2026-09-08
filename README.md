@@ -16,8 +16,12 @@ Universal Config is a client-side Forge mod for saving Minecraft keybinds, clien
 | 1.16.5 | 36.2.42 | 8 | `1.16.5/` |
 | 1.18.2 | 40.3.12 | 17 | `1.18.2/` |
 | 1.19.2 | 43.5.2 | 17 | `1.19.2/` |
+| 1.19.4 | 45.4.5 | 17 | `1.19.4/` |
 | 1.20.1 | 47.4.22 | 17 | `1.20.1/` |
+| 1.20.4 | 49.2.9 | 17 | `1.20.4/` |
+| 1.20.6 | 50.2.10 | 21 | `1.20.6/` |
 | 1.21.1 | 52.1.16 | 21 | `1.21.1/` |
+| 1.21.4 | 54.1.18 | 21 | `1.21.4/` |
 | 26.1.1–26.1.x | 63.0.2 | 25 | `26.1.x/` |
 | 26.2 | 65.1.0 | 25 | `26.2/` |
 
@@ -61,6 +65,14 @@ The root wrapper verifies that every listed version is a complete, independent p
 ```
 
 Distribution jars are written to `<version>/build/libs/`, except the 1.7.10 jar, which is written to `1.7.10/build/distributions/`. Do not distribute `*-sources.jar`.
+
+The CI matrix builds and tests the added `1.19.4`, `1.20.4`, `1.20.6`, and `1.21.4` projects independently
+and uploads one artifact per Minecraft version. The root check only verifies project structure; it does not compile each version.
+
+For a client smoke test, run the target project's wrapper with `runClient`. Check the title-screen entry,
+profile creation, item icons, apply confirmation, and Escape navigation, then inspect `run/logs/latest.log`.
+Forge 1.20.4 requires classes and resources in one development output directory; its build script configures this
+so `runClient` can discover the Mod entry point as well as `mods.toml`.
 
 ## Usage
 

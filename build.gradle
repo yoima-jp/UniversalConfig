@@ -10,7 +10,7 @@ version = '1.1.0'
 tasks.register('verifyIndependentVersions') {
     doLast {
         def versions = ['1.7.10', '1.8.9', '1.12.2', '1.16.5', '1.18.2', '1.19.2',
-                        '1.20.1', '1.21.1', '26.1.x', '26.2']
+                        '1.19.4', '1.20.1', '1.20.4', '1.20.6', '1.21.1', '1.21.4', '26.1.x', '26.2']
         versions.each { version ->
             def projectDirectory = file(version)
             if (!new File(projectDirectory, 'gradlew.bat').isFile()

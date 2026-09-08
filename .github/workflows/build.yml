@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - forge
+      - codex/forge-four-versions
   pull_request:
 
 permissions:
@@ -30,4 +32,38 @@ jobs:
         uses: gradle/actions/setup-gradle@v6
 
       - name: Build and test
-        run: ./gradlew build
+        run: bash ./gradlew check build
+
+  added-versions:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - minecraft: '1.19.4'
+            java: '17'
+          - minecraft: '1.20.4'
+            java: '17'
+          - minecraft: '1.20.6'
+            java: '21'
+          - minecraft: '1.21.4'
+            java: '21'
+    defaults:
+      run:
+        working-directory: ${{ matrix.minecraft }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Build and test standalone project
+        run: bash ./gradlew check build --console=plain
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-config-forge-${{ matrix.minecraft }}
+          path: |
+            ${{ matrix.minecraft }}/build/libs/*.jar
+            !${{ matrix.minecraft }}/build/libs/*-sources.jar
+          if-no-files-found: error
