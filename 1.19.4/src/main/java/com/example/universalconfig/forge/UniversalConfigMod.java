@@ -12,6 +12,7 @@ import net.minecraft.client.Minecraft;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -28,6 +29,7 @@ import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.internal.BrandingControl;
 
 import java.nio.file.Path;
 
@@ -39,8 +41,8 @@ public final class UniversalConfigMod {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    // Forge 1.19.2の4行表示は最上段が画面下端から40pxで始まる。文字との間には2pxだけ空ける。
-    private static final int TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE = 42;
+    private static final int TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET = 10;
+    private static final int TITLE_SCREEN_SYSTEM_TEXT_GAP = 2;
     // title_screen_button.png の実寸。画像を差し替える場合は描画APIへ渡す実寸・UV領域と
     // この定数を必ず一致させる。ボタンの位置・サイズ・描画先サイズは変更しない。
     private static final int TITLE_SCREEN_ICON_TEXTURE_WIDTH = 15;
@@ -78,10 +80,23 @@ public final class UniversalConfigMod {
             return;
         }
         Component narration = Component.translatable("button.universal_config.open");
-        int y = event.getScreen().height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BOTTOM_BRANDING_CLEARANCE;
+        int y = titleScreenButtonY(minecraft, event.getScreen().height);
         IconButton button = new IconButton(TITLE_SCREEN_BUTTON_MARGIN, y,
                 ignored -> minecraft.setScreen(new ProfileListScreen(event.getScreen())), narration);
+        button.setTooltip(Tooltip.create(narration));
         event.addListener(button);
+    }
+
+    private static int titleScreenButtonY(Minecraft minecraft, int screenHeight) {
+        int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
+        int[] brandingLines = {0};
+        BrandingControl.forEachLine(true, false, (index, line) -> brandingLines[0]++);
+        int brandingStep = minecraft.font.lineHeight + 1;
+        // Forgeの表示行数に追従し、最上段の文字との間隔だけを確保する。
+        // 1行分を余計に引くと既存Forge版より余白が広がるため、行間は行数-1で計算する。
+        int topBrandingY = systemTextY - Math.max(0, brandingLines[0] - 1) * brandingStep;
+        return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
+                topBrandingY - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_SYSTEM_TEXT_GAP);
     }
 
     private void reloadStartupOptionsAtTitleScreen() {
