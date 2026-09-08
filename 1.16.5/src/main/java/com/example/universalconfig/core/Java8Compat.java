@@ -65,6 +65,40 @@ public final class Java8Compat {
     }
 
     /**
+     * Returns the current process's parent chain when the runtime provides ProcessHandle.
+     * The public Java 9 interfaces are resolved by name so this class remains link-safe on Java 8.
+     */
+    public static List<ProcessInfo> currentProcessAncestors() {
+        try {
+            Class<?> handleClass = Class.forName("java.lang.ProcessHandle");
+            Class<?> infoClass = Class.forName("java.lang.ProcessHandle$Info");
+            Class<?> optionalClass = Class.forName("java.util.Optional");
+            Method currentMethod = handleClass.getMethod("current");
+            Method parentMethod = handleClass.getMethod("parent");
+            Method pidMethod = handleClass.getMethod("pid");
+            Method infoMethod = handleClass.getMethod("info");
+            Method commandMethod = infoClass.getMethod("command");
+            Method commandLineMethod = infoClass.getMethod("commandLine");
+            Method argumentsMethod = infoClass.getMethod("arguments");
+
+            Object ancestor = optionalValue(parentMethod.invoke(currentMethod.invoke(null)), optionalClass);
+            ArrayList<ProcessInfo> result = new ArrayList<ProcessInfo>();
+            for (int depth = 0; ancestor != null && depth < 16; depth++) {
+                Object info = infoMethod.invoke(ancestor);
+                String command = optionalString(commandMethod.invoke(info), optionalClass);
+                String commandLine = optionalString(commandLineMethod.invoke(info), optionalClass);
+                List<String> arguments = optionalArguments(argumentsMethod.invoke(info), optionalClass);
+                result.add(new ProcessInfo(((Number) pidMethod.invoke(ancestor)).longValue(),
+                        command, commandLine, arguments));
+                ancestor = optionalValue(parentMethod.invoke(ancestor), optionalClass);
+            }
+            return copyOf(result);
+        } catch (ReflectiveOperationException | RuntimeException ex) {
+            return listOf();
+        }
+    }
+
+    /**
      * Extracts arguments through the public ProcessHandle.Info contract rather than its private implementation.
      * The class and object are parameters so the boundary-preserving reflection can be tested without requiring
      * Java 9 APIs in the test source itself.
@@ -90,6 +124,60 @@ public final class Java8Compat {
             return copyOf(copied);
         } catch (ReflectiveOperationException | RuntimeException ex) {
             return listOf();
+        }
+    }
+
+    private static Object optionalValue(Object optional, Class<?> optionalClass) throws ReflectiveOperationException {
+        if (optional == null || !Boolean.TRUE.equals(optionalClass.getMethod("isPresent").invoke(optional))) {
+            return null;
+        }
+        return optionalClass.getMethod("get").invoke(optional);
+    }
+
+    private static String optionalString(Object optional, Class<?> optionalClass) throws ReflectiveOperationException {
+        Object value = optionalValue(optional, optionalClass);
+        return value instanceof String ? (String) value : null;
+    }
+
+    private static List<String> optionalArguments(Object optional, Class<?> optionalClass)
+            throws ReflectiveOperationException {
+        Object value = optionalValue(optional, optionalClass);
+        if (!(value instanceof String[])) {
+            return listOf();
+        }
+        String[] arguments = (String[]) value;
+        ArrayList<String> copied = new ArrayList<String>(arguments.length);
+        Collections.addAll(copied, arguments);
+        return copyOf(copied);
+    }
+
+    public static final class ProcessInfo {
+        private final long pid;
+        private final String command;
+        private final String commandLine;
+        private final List<String> arguments;
+
+        private ProcessInfo(long pid, String command, String commandLine, List<String> arguments) {
+            this.pid = pid;
+            this.command = command;
+            this.commandLine = commandLine;
+            this.arguments = copyOf(arguments);
+        }
+
+        public long pid() {
+            return pid;
+        }
+
+        public String command() {
+            return command;
+        }
+
+        public String commandLine() {
+            return commandLine;
+        }
+
+        public List<String> arguments() {
+            return arguments;
         }
     }
 
