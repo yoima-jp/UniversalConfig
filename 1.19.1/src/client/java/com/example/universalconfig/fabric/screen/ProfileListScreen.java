@@ -389,6 +389,12 @@ public final class ProfileListScreen extends Screen {
             }
         } else {
             moreMenuOpen = false;
+            if (profiles.isEmpty()) {
+                addDrawableChild(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.backups"),
+                                button -> openBackups())
+                        .dimensions(contentLeft(), footerButtonY() - buttonHeight() - 4, contentWidth(), buttonHeight())
+                        .build());
+            }
         }
 
         addDrawableChild(ScreenUtil.buttonBuilder(Text.translatable("screen.universal_config.save_current"),
