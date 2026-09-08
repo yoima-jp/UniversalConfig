@@ -69,13 +69,22 @@ public final class BackupListScreen extends Screen {
     }
 
     private void restore(Path backupPath) {
+        Text restoreStatus;
         try {
             ScreenUtil.service().restore(ScreenUtil.instancePath(), backupPath);
             ScreenUtil.reloadMinecraftOptionsFromDisk();
-            status = Text.translatable("screen.universal_config.backup_restored", backupPath.getFileName());
+            restoreStatus = Text.translatable("screen.universal_config.backup_restored", backupPath.getFileName());
         } catch (UniversalConfigException ex) {
-            status = ScreenUtil.errorText(ex);
+            restoreStatus = ScreenUtil.errorText(ex);
         }
+        client.setScreen(this);
+        status = restoreStatus;
+        rebuildButtons();
+    }
+
+    @Override
+    public void close() {
+        client.setScreen(parent);
     }
 
     @Override
@@ -92,7 +101,9 @@ public final class BackupListScreen extends Screen {
                 break;
             }
             if (backup == null || backup.path() == null) continue;
-            String created = backup.manifest() == null || backup.manifest().createdAt == null ? "unknown" : backup.manifest().createdAt;
+            String created = backup.manifest() == null || backup.manifest().createdAt == null
+                    ? Text.translatable("screen.universal_config.date_unknown").getString()
+                    : backup.manifest().createdAt;
             context.drawTextWithShadow(textRenderer, created + "  " + backup.path().getFileName(), 12, y, 0xFFFFFF);
             if (backup.manifest() != null) {
                 context.drawTextWithShadow(textRenderer, Text.translatable("screen.universal_config.backup_details",
