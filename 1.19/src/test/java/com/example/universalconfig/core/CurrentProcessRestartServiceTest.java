@@ -19,6 +19,11 @@ class CurrentProcessRestartServiceTest {
     Path temporaryDirectory;
 
     @Test
+    void restartHelperWaitsForLauncherSettleAfterParentExit() {
+        assertEquals(2_000L, RestartHelper.PARENT_EXIT_SETTLE_MILLIS);
+    }
+
+    @Test
     void helperCommandDoesNotRequireAPlanPathOrOperatingSystemShell() {
         Path helperClasspath = Path.of("/path with spaces/universal-config.jar");
         List<String> command = CurrentProcessRestartService.buildHelperCommand(

@@ -146,4 +146,6 @@
   "screen.universal_config.backup_details": "Includes: Minecraft %s / %s; files: %s",
   "screen.universal_config.confirm_restore_title": "Restore backup?",
   "screen.universal_config.confirm_restore_message": "This will overwrite the current settings. Continue?"
+,
+  "screen.universal_config.reorder_failed": "Failed to reorder profiles."
 }

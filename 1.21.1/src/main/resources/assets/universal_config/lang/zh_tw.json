@@ -146,4 +146,6 @@
   "screen.universal_config.backup_details": "包含：Minecraft %s / %s；檔案：%s",
   "screen.universal_config.confirm_restore_title": "要還原備份嗎？",
   "screen.universal_config.confirm_restore_message": "這會覆寫目前設定。要繼續嗎？"
+,
+  "screen.universal_config.reorder_failed": "設定檔重新排序失敗。"
 }
