@@ -6,6 +6,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -52,11 +53,16 @@ public final class CurrentProcessRestartService {
                 .orElseThrow(() -> new UniversalConfigException("Could not determine the current Java executable."));
         Path normalizedWorkingDirectory = normalizeWorkingDirectory(workingDirectory);
         List<ProcessCommand> ancestors = ancestorCommands(current);
+        List<String> currentProcessArguments = processInfo.arguments()
+                .map(Arrays::asList)
+                .orElseGet(List::of);
+        List<String> restartArguments = currentJavaArguments(currentProcessArguments, loaderResolvedArguments)
+                .orElseGet(List::of);
         // Modrinth's documented launch URL requires a database-only internal ID that is not inherited by the game.
         // Guessing it from the folder name could launch the wrong profile, so only self-identifying launchers are used.
         LaunchCommand replacement = prismFamilyLauncherCommand(System.getenv(), normalizedWorkingDirectory, ancestors)
                 .or(() -> atLauncherCommand(normalizedWorkingDirectory, ancestors))
-                .orElseGet(() -> unsupportedLauncherCommand(executable, loaderResolvedArguments)
+                .orElseGet(() -> unsupportedLauncherCommand(executable, restartArguments)
                         .orElse(null));
         if (replacement == null) {
             throw new UniversalConfigException("Could not determine how to restart this launcher instance.");
@@ -79,6 +85,21 @@ public final class CurrentProcessRestartService {
         }
         return validJavaLaunchArguments(loaderResolvedArguments)
                 .map(arguments -> new LaunchCommand(currentExecutable, arguments));
+    }
+
+    static Optional<List<String>> currentJavaArguments(
+            List<String> processArguments,
+            List<String> loaderResolvedArguments
+    ) {
+        try {
+            Optional<List<String>> resolved = validJavaLaunchArguments(loaderResolvedArguments);
+            if (resolved.isPresent()) {
+                return resolved;
+            }
+            return validJavaLaunchArguments(processArguments);
+        } catch (RuntimeException ex) {
+            return Optional.empty();
+        }
     }
 
     private static Optional<List<String>> validJavaLaunchArguments(List<String> arguments) {

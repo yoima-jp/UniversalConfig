@@ -50,6 +50,26 @@ public final class Java8Compat {
         catch (NumberFormatException ex) { return -1L; }
     }
 
+    /** Returns current process arguments when running on Java 9+, while keeping Java 8 linkage safe. */
+    public static List<String> currentProcessArguments() {
+        try {
+            Class<?> handleClass = Class.forName("java.lang.ProcessHandle");
+            Object current = handleClass.getMethod("current").invoke(null);
+            Object info = handleClass.getMethod("info").invoke(current);
+            Object optional = info.getClass().getMethod("arguments").invoke(info);
+            if (!Boolean.TRUE.equals(optional.getClass().getMethod("isPresent").invoke(optional))) {
+                return listOf();
+            }
+            Object value = optional.getClass().getMethod("get").invoke(optional);
+            String[] arguments = (String[]) value;
+            ArrayList<String> copied = new ArrayList<String>(arguments.length);
+            Collections.addAll(copied, arguments);
+            return copyOf(copied);
+        } catch (ReflectiveOperationException | RuntimeException ex) {
+            return listOf();
+        }
+    }
+
     public static boolean isProcessAlive(long pid) {
         if (pid <= 0) return false;
         try {
