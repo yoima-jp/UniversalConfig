@@ -138,5 +138,12 @@
   "screen.universal_config.include_toggle": "%s: %s",
   "screen.universal_config.include_enabled": "Include",
   "screen.universal_config.include_disabled": "Exclude",
-  "message.universal_config.reload_options_failed": "Failed to reload Minecraft settings. They may revert before you restart."
+  "message.universal_config.reload_options_failed": "Failed to reload Minecraft settings. They may revert before you restart.",
+  "screen.universal_config.backups": "Backups",
+  "screen.universal_config.backup_title": "Restore backup",
+  "screen.universal_config.backup_empty": "No backups yet. A backup is created automatically before applying a profile.",
+  "screen.universal_config.backup_restored": "Restored: %s",
+  "screen.universal_config.backup_details": "Includes: Minecraft %s / %s; files: %s",
+  "screen.universal_config.confirm_restore_title": "Restore backup?",
+  "screen.universal_config.confirm_restore_message": "This will overwrite the current settings. Continue?"
 }

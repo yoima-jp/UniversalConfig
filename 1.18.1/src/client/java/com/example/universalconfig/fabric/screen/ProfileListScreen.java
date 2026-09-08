@@ -58,7 +58,7 @@ public final class ProfileListScreen extends Screen {
     private static final int MORE_BUTTON_WIDTH = 34;
     private static final int MENU_WIDTH = 132;
     private static final int MENU_ITEM_GAP = 2;
-    private static final int MENU_ITEM_COUNT = 5;
+    private static final int MENU_ITEM_COUNT = 6;
     private static final int MENU_HEIGHT = MENU_ITEM_COUNT * BUTTON_HEIGHT + (MENU_ITEM_COUNT - 1) * MENU_ITEM_GAP + 8;
     private static final int CLOSE_BUTTON_SIZE = 20;
     private static final String SAFE_DATE_PATTERN = "yyyy/MM/dd HH:mm";
@@ -391,6 +391,12 @@ public final class ProfileListScreen extends Screen {
             }
         } else {
             moreMenuOpen = false;
+            if (profiles.isEmpty()) {
+                addDrawableChild(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.backups"),
+                                button -> openBackups())
+                        .dimensions(contentLeft(), footerButtonY() - buttonHeight() - 4, contentWidth(), buttonHeight())
+                        .build());
+            }
         }
 
         addDrawableChild(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.save_current"),
@@ -431,8 +437,14 @@ public final class ProfileListScreen extends Screen {
                 .dimensions(x, y + (buttonHeight() + MENU_ITEM_GAP) * 2, width, buttonHeight()).build());
         addMoreMenuButton(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.duplicate"), button -> duplicate(path))
                 .dimensions(x, y + (buttonHeight() + MENU_ITEM_GAP) * 3, width, buttonHeight()).build());
-        addMoreMenuButton(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
+        addMoreMenuButton(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.backups"), button -> openBackups())
                 .dimensions(x, y + (buttonHeight() + MENU_ITEM_GAP) * 4, width, buttonHeight()).build());
+        addMoreMenuButton(ScreenUtil.buttonBuilder(ScreenUtil.translatable("screen.universal_config.delete"), button -> confirmDelete(path))
+                .dimensions(x, y + (buttonHeight() + MENU_ITEM_GAP) * 5, width, buttonHeight()).build());
+    }
+
+    private void openBackups() {
+        client.setScreen(new BackupListScreen(this));
     }
 
     private void addMoreMenuButton(ButtonWidget button) {

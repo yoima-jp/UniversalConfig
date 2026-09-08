@@ -138,5 +138,12 @@
   "screen.universal_config.include_toggle": "%s: %s",
   "screen.universal_config.include_enabled": "含める",
   "screen.universal_config.include_disabled": "含めない",
-  "message.universal_config.reload_options_failed": "Minecraftの設定再読み込みに失敗しました。再起動前に設定が戻る可能性があります。"
+  "message.universal_config.reload_options_failed": "Minecraftの設定再読み込みに失敗しました。再起動前に設定が戻る可能性があります。",
+  "screen.universal_config.backups": "バックアップ",
+  "screen.universal_config.backup_title": "バックアップを復元",
+  "screen.universal_config.backup_empty": "バックアップはまだありません。プロファイル適用前に自動作成されます。",
+  "screen.universal_config.backup_restored": "復元しました: %s",
+  "screen.universal_config.backup_details": "対象: Minecraft %s / %s、ファイル数: %s",
+  "screen.universal_config.confirm_restore_title": "バックアップを復元しますか？",
+  "screen.universal_config.confirm_restore_message": "現在の設定を上書きします。続行しますか？"
 }
