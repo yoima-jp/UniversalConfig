@@ -47,7 +47,12 @@ public final class CurrentProcessRestartService {
     ) throws UniversalConfigException {
         String executable = currentJavaExecutable();
         Path normalizedWorkingDirectory = normalizeWorkingDirectory(workingDirectory);
-        List<ProcessCommand> ancestors = Java8Compat.copyOf(new ArrayList<ProcessCommand>());
+        List<ProcessCommand> ancestors = new ArrayList<ProcessCommand>();
+        for (Java8Compat.ProcessInfo ancestor : Java8Compat.currentProcessAncestors()) {
+            if (ancestor.command() != null && !ancestor.command().trim().isEmpty()) {
+                ancestors.add(new ProcessCommand(ancestor.command(), ancestor.arguments()));
+            }
+        }
         List<String> currentProcessArguments = Java8Compat.currentProcessArguments();
         List<String> restartArguments = currentJavaArguments(currentProcessArguments, loaderResolvedArguments)
                 .orElseGet(() -> Java8Compat.listOf());

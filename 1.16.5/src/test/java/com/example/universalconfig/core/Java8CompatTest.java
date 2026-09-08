@@ -1,6 +1,7 @@
 package com.example.universalconfig.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,6 +22,18 @@ final class Java8CompatTest {
         assertTrue(Modifier.isPublic(infoClass.getModifiers()));
         assertEquals(infoClass, argumentsMethod.getDeclaringClass());
         assertNotNull(Java8Compat.currentProcessArguments());
+    }
+
+    @Test
+    void readsAncestorChainThroughPublicProcessHandleInterfaces() {
+        List<Java8Compat.ProcessInfo> ancestors = Java8Compat.currentProcessAncestors();
+
+        assertNotNull(ancestors);
+        assertFalse(ancestors.isEmpty());
+        for (Java8Compat.ProcessInfo ancestor : ancestors) {
+            assertTrue(ancestor.pid() > 0);
+            assertNotNull(ancestor.arguments());
+        }
     }
 
     @Test
