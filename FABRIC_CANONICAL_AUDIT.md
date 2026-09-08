@@ -12,7 +12,7 @@ Apply系の表示。復元は確認必須、Noは復元せず一覧へ戻る。Y
 
 |Version|Java args fallback|launcher wait|settle wait|Apply wording|Restore confirm|Yes後return|zero-profile Backups|unknown i18n|Esc/onClose|manifest null guard|5 lang|
 |---|---|---|---|---|---|---|---|---|---|---|---|
-|1.16.5|要修正|OK|OK|OK|OK|要修正|要修正|要修正|要修正|OK|147 keys / 集合一致|
+|1.16.5|OK（Java8Compat反射fallback）|OK|OK|OK|OK|OK|OK|OK|OK|OK|147 keys / 集合一致|
 |1.18.2|要修正|OK|OK|OK|OK|要修正|要修正|要修正|要修正|OK|147 keys / 集合一致|
 |1.19.2|要修正|OK|OK|OK|OK|要修正|要修正|要修正|要修正|OK|147 keys / 集合一致|
 |1.20.1|OK|OK|OK|要修正|OK|要修正|要修正|要修正|要修正|OK|142 keys / 集合一致|
@@ -72,12 +72,12 @@ Apply系の表示。復元は確認必須、Noは復元せず一覧へ戻る。Y
 
 ## 最終確認
 
-1.18.1というローカルbranch名はあるが、現在のorigin/fabricおよびfeature対象の版別ディレクトリには存在しないため、この27ディレクトリ監査の対象外。ルートsrcはversion directoryではない旧テンプレートで今回の版別修正対象外。1.16.5のみJava8CompatによりProcessHandleのprocess-arguments fallbackを導入せず、loader-resolved arguments経路を維持した。
+1.18.1というローカルbranch名はあるが、現在のorigin/fabricおよびfeature対象の版別ディレクトリには存在しないため、この27ディレクトリ監査の対象外。ルートsrcはversion directoryではない旧テンプレートで今回の版別修正対象外。1.16.5はJava 8でもリンク可能なJava8Compat反射経路でProcessHandleの引数を取得するfallbackを追加した。
 
 ### 同期後の判定
 
 上表の変更前「要修正」は、今回の版別修正後に全て解消した。27対象ディレクトリで、Apply表現、Restore確認後の一覧復帰とstatus保持、空ProfileからのBackups到達、unknown日時の翻訳、Esc戻り、manifest null guard、5言語147キー集合一致を再確認した。ProcessHandle対応版は有効なloader引数を優先し、無効時はprocess引数へfallbackする実装に統一した。
 
-Java 21必須版は環境のJDK25と利用可能なGradle 9.5.1で検証した。1.20.5/1.20.6は固定wrapperのGradle 8.13がJDK25の実行に対応しないため、wrapperを変更せずGradle 9.5.1を明示して検証した。
+Java 21必須版は環境のJDK25と利用可能なGradle 9.5.1で検証した。1.20.5/1.20.6は固定wrapperのGradle 8.13がJDK25の実行に対応しないため、wrapperを変更せずGradle 9.5.1を明示して検証した。1.16.5のfallbackはJava 8でもリンク可能な反射実装である。
 
 表のmanifest列はBackupListのnull guardを表す。アーカイブの検証は別途core比較とテストで評価する。launcher waitはCanonicalと同じparent exit後のsettle待機を表す。
