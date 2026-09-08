@@ -1,0 +1,55 @@
+name: Notify Discord about GitHub events
+
+on:
+  issues:
+    types: [opened, closed, reopened]
+  pull_request:
+    types: [opened, closed, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ github.event_name == 'issues' && secrets.DISCORD_ISSUE_WEBHOOK || secrets.DISCORD_PR_WEBHOOK }}
+          EVENT_KIND: ${{ github.event_name == 'issues' && 'Issue' || 'PR' }}
+          ACTION: ${{ github.event.action }}
+          TITLE: ${{ github.event.issue.title || github.event.pull_request.title }}
+          URL: ${{ github.event.issue.html_url || github.event.pull_request.html_url }}
+          AUTHOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DISCORD_WEBHOOK}" ]; then
+            echo "Discord webhook secret is not configured; skipping notification."
+            exit 0
+          fi
+
+          payload=$(jq -n \
+            --arg kind "${EVENT_KIND}" \
+            --arg action "${ACTION}" \
+            --arg title "${TITLE}" \
+            --arg url "${URL}" \
+            --arg author "${AUTHOR}" \
+            --arg repository "${REPOSITORY}" \
+            '{
+              "embeds": [{
+                "title": ("GitHub " + $kind + " " + $action),
+                "description": ("[" + $title + "](" + $url + ")"),
+                "color": 5814783,
+                "fields": [
+                  {"name": "リポジトリ", "value": $repository, "inline": true},
+                  {"name": "作成者", "value": $author, "inline": true}
+                ]
+              }]
+            }')
+
+          curl --fail-with-body --silent --show-error \
+            --header "Content-Type: application/json" \
+            --data "${payload}" \
+            "${DISCORD_WEBHOOK}"
