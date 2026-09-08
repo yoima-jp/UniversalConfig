@@ -3,6 +3,7 @@ package com.example.universalconfig.core;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
@@ -56,11 +57,33 @@ public final class Java8Compat {
             Class<?> handleClass = Class.forName("java.lang.ProcessHandle");
             Object current = handleClass.getMethod("current").invoke(null);
             Object info = handleClass.getMethod("info").invoke(current);
-            Object optional = info.getClass().getMethod("arguments").invoke(info);
-            if (!Boolean.TRUE.equals(optional.getClass().getMethod("isPresent").invoke(optional))) {
+            Class<?> infoClass = Class.forName("java.lang.ProcessHandle$Info");
+            return extractProcessArguments(info, infoClass);
+        } catch (ReflectiveOperationException | RuntimeException ex) {
+            return listOf();
+        }
+    }
+
+    /**
+     * Extracts arguments through the public ProcessHandle.Info contract rather than its private implementation.
+     * The class and object are parameters so the boundary-preserving reflection can be tested without requiring
+     * Java 9 APIs in the test source itself.
+     */
+    static List<String> extractProcessArguments(Object info, Class<?> infoClass) {
+        try {
+            if (info == null || infoClass == null) {
                 return listOf();
             }
-            Object value = optional.getClass().getMethod("get").invoke(optional);
+            Method argumentsMethod = infoClass.getMethod("arguments");
+            Object optional = argumentsMethod.invoke(info);
+            Class<?> optionalClass = Class.forName("java.util.Optional");
+            if (!Boolean.TRUE.equals(optionalClass.getMethod("isPresent").invoke(optional))) {
+                return listOf();
+            }
+            Object value = optionalClass.getMethod("get").invoke(optional);
+            if (!(value instanceof String[])) {
+                return listOf();
+            }
             String[] arguments = (String[]) value;
             ArrayList<String> copied = new ArrayList<String>(arguments.length);
             Collections.addAll(copied, arguments);
