@@ -1,0 +1,120 @@
+package com.example.universalconfig.fabric.screen;
+
+import com.example.universalconfig.core.BackupSummary;
+import com.example.universalconfig.core.UniversalConfigException;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.screen.ConfirmScreen;
+import net.minecraft.text.Text;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public final class BackupListScreen extends Screen {
+    private final Screen parent;
+    private List<BackupSummary> backups = new ArrayList<>();
+    private Text status = Text.empty();
+
+    public BackupListScreen(Screen parent) {
+        super(Text.translatable("screen.universal_config.backup_title"));
+        this.parent = parent;
+    }
+
+    @Override
+    protected void init() {
+        reload();
+        rebuildButtons();
+    }
+
+    private void reload() {
+        try {
+            backups = ScreenUtil.service().listBackups();
+            status = Text.empty();
+        } catch (UniversalConfigException ex) {
+            backups = List.of();
+            status = ScreenUtil.errorText(ex);
+        }
+    }
+
+    private void rebuildButtons() {
+        clearChildren();
+        addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.refresh"), button -> {
+            reload();
+            rebuildButtons();
+        }).dimensions(width - 118, 8, 52, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.back"), button -> client.setScreen(parent))
+                .dimensions(width - 60, 8, 52, 20).build());
+
+        int y = 42;
+        for (BackupSummary backup : backups) {
+            if (y > height - 28) {
+                break;
+            }
+            if (backup == null || backup.path() == null) continue;
+            Path backupPath = backup.path();
+            addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.restore"), button -> confirmRestore(backupPath))
+                    .dimensions(width - 80, y, 60, 20).build());
+            y += 36;
+        }
+    }
+
+    private void confirmRestore(Path backupPath) {
+        client.setScreen(new ConfirmScreen(confirmed -> {
+            if (confirmed) {
+                restore(backupPath);
+            } else {
+                client.setScreen(this);
+            }
+        }, Text.translatable("screen.universal_config.confirm_restore_title"),
+                Text.translatable("screen.universal_config.confirm_restore_message")));
+    }
+
+    private void restore(Path backupPath) {
+        Text restoreStatus;
+        try {
+            ScreenUtil.service().restore(ScreenUtil.instancePath(), backupPath);
+            ScreenUtil.reloadMinecraftOptionsFromDisk();
+            restoreStatus = Text.translatable("screen.universal_config.backup_restored", backupPath.getFileName());
+        } catch (UniversalConfigException ex) {
+            restoreStatus = ScreenUtil.errorText(ex);
+        }
+        client.setScreen(this);
+        status = restoreStatus;
+        rebuildButtons();
+    }
+
+    @Override
+    public void close() {
+        client.setScreen(parent);
+    }
+
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        ScreenUtil.renderBackground(this, context, mouseX, mouseY, delta);
+        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 14, 0xFFFFFF);
+        context.drawTextWithShadow(textRenderer, status, 12, 28, 0xFFCC66);
+        int y = 44;
+        if (backups.isEmpty()) {
+            context.drawTextWithShadow(textRenderer, Text.translatable("screen.universal_config.backup_empty"), 12, y, 0xDDDDDD);
+        }
+        for (BackupSummary backup : backups) {
+            if (y > height - 28) {
+                break;
+            }
+            if (backup == null || backup.path() == null) continue;
+            String created = backup.manifest() == null || backup.manifest().createdAt == null
+                    ? Text.translatable("screen.universal_config.date_unknown").getString()
+                    : backup.manifest().createdAt;
+            context.drawTextWithShadow(textRenderer, created + "  " + backup.path().getFileName(), 12, y, 0xFFFFFF);
+            if (backup.manifest() != null) {
+                context.drawTextWithShadow(textRenderer, Text.translatable("screen.universal_config.backup_details",
+                        backup.manifest().minecraftVersion, backup.manifest().loader,
+                        backup.manifest().files == null ? 0 : backup.manifest().files.size()), 12, y + 12, 0xBBBBBB);
+            }
+            y += 36;
+        }
+        ScreenUtil.renderWidgets(this, context, mouseX, mouseY, delta);
+    }
+}
