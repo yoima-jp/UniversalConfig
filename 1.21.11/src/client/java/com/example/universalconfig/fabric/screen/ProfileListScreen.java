@@ -320,6 +320,12 @@ public final class ProfileListScreen extends Screen {
             }
         } else {
             moreMenuOpen = false;
+            if (profiles.isEmpty()) {
+                addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.backups"),
+                                button -> openBackups())
+                        .dimensions(contentLeft(), footerButtonY() - BUTTON_HEIGHT - 4, contentWidth(), BUTTON_HEIGHT)
+                        .build());
+            }
         }
 
         addDrawableChild(ButtonWidget.builder(Text.translatable("screen.universal_config.save_current"),
@@ -367,6 +373,10 @@ public final class ProfileListScreen extends Screen {
     private void addMoreMenuButton(ButtonWidget button) {
         moreMenuButtons.add(button);
         addDrawableChild(button);
+    }
+
+    private void openBackups() {
+        client.setScreen(new BackupListScreen(this));
     }
 
     private void addReorderButtons(int profileIndex, int cardY) {
