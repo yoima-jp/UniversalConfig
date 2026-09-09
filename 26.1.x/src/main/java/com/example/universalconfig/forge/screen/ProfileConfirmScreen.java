@@ -190,6 +190,7 @@ public final class ProfileConfirmScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenUtil.renderOpaqueBackground(context);
         context.centeredText(font, title, width / 2, 12, 0xFFFFFFFF);
         drawPanel(context);
         super.extractRenderState(context, mouseX, mouseY, delta);

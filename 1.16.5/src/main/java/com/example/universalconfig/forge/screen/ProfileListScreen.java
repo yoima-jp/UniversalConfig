@@ -322,6 +322,10 @@ public final class ProfileListScreen extends Screen {
             }
         } else {
             moreMenuOpen = false;
+            if (profiles.isEmpty()) {
+                addButton(Button.builder(new TranslationTextComponent("screen.universal_config.backups"), button -> openBackups())
+                        .bounds(contentLeft(), footerButtonY() - BUTTON_HEIGHT - 4, contentWidth(), BUTTON_HEIGHT).build());
+            }
         }
 
         addButton(Button.builder(new TranslationTextComponent("screen.universal_config.save_current"),

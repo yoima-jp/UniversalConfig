@@ -9,7 +9,6 @@ import java.nio.file.StandardCopyOption;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -19,8 +18,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class GenericAdapter implements ProfileAdapter {
     @Override
@@ -113,7 +110,7 @@ public final class GenericAdapter implements ProfileAdapter {
         if (reader.exists(UniversalConfigFormat.PROFILE_KEYBINDS_ENTRY)) {
             KeybindsDocument keybinds = JsonDocuments.read(reader, UniversalConfigFormat.PROFILE_KEYBINDS_ENTRY, KeybindsDocument.class);
             Map<String, String> current = currentKeybindValues(optionsPath(instancePath));
-            boolean modernOptions = usesModernKeybindValues(current, optionsPath(instancePath));
+            boolean modernOptions = usesModernKeybindValues(current);
             for (KeybindsDocument.KeyBindingEntry binding : keybinds.bindings) {
                 String value = binding.valueForCurrentOptions(modernOptions);
                 if (value == null) {
@@ -193,8 +190,8 @@ public final class GenericAdapter implements ProfileAdapter {
                 }
                 Path config = configPath(instancePath);
                 if (Files.isDirectory(config)) {
-                    try (Stream<Path> stream = Files.walk(config)) {
-                        for (Path source : stream.filter(Files::isRegularFile).collect(Collectors.toList())) {
+                    try (var stream = Files.walk(config)) {
+                        for (Path source : stream.filter(Files::isRegularFile).toList()) {
                             String relative = config.relativize(source).toString().replace('\\', '/');
                             if (isUniversalConfigInternalPath(relative)) {
                                 FileOperationLogger.info("SKIP_INTERNAL_CONFIG_BACKUP", source, relative);
@@ -301,7 +298,7 @@ public final class GenericAdapter implements ProfileAdapter {
             }
 
             Map<String, String> current = currentKeybindValues(optionsPath);
-            boolean modernOptions = usesModernKeybindValues(current, optionsPath);
+            boolean modernOptions = usesModernKeybindValues(current);
             Set<String> applied = new HashSet<>();
             for (int i = 0; i < lines.size(); i++) {
                 String line = lines.get(i);
@@ -433,26 +430,15 @@ public final class GenericAdapter implements ProfileAdapter {
         }
     }
 
-    private boolean usesModernKeybindValues(Map<String, String> values, Path optionsPath)
-            throws UniversalConfigException {
-        if (values.values().stream().anyMatch(value -> value.startsWith("key."))) {
-            return true;
-        }
-        if (values.values().stream().anyMatch(value -> parseInteger(value) != null)) {
-            return false;
-        }
-        // During Forge's first-start pre-initialization, options.txt already contains the modern DataVersion-style
-        // version field but Minecraft may not have written its default key lines yet. Treating an empty key map as
-        // legacy makes dual-format profiles write values such as "2", which 1.13+ rejects and can make the automatic
-        // restart look unsuccessful. Legacy options files do not contain this numeric version field.
-        return currentOptionValues(optionsPath, false).containsKey("version");
+    private boolean usesModernKeybindValues(Map<String, String> values) {
+        return values.values().stream().anyMatch(value -> value.startsWith("key.") || value.startsWith("key.keyboard."));
     }
 
     private List<String> selectConfigFiles(Path instancePath, ProfileCreateOptions options) throws UniversalConfigException {
         Path configRoot = configPath(instancePath);
         if (!Files.isDirectory(configRoot)) {
             FileOperationLogger.info("LIST_CONFIG", configRoot, "missing");
-            return Collections.emptyList();
+            return List.of();
         }
         if (!options.configRelativePaths.isEmpty()) {
             List<String> selected = new ArrayList<>();
@@ -468,14 +454,14 @@ public final class GenericAdapter implements ProfileAdapter {
             }
             return selected;
         }
-        try (Stream<Path> stream = Files.walk(configRoot)) {
+        try (var stream = Files.walk(configRoot)) {
             FileOperationLogger.info("LIST_CONFIG", configRoot, "walk");
             return stream.filter(Files::isRegularFile)
                     .map(configRoot::relativize)
                     .map(path -> path.toString().replace('\\', '/'))
                     .filter(this::allowedConfigPath)
                     .filter(path -> !isUniversalConfigInternalPath(path))
-                    .collect(Collectors.toList());
+                    .toList();
         } catch (IOException ex) {
             FileOperationLogger.failure("LIST_CONFIG", configRoot, "walk", ex);
             throw new UniversalConfigException("Failed to list config files.", ex);
@@ -525,7 +511,8 @@ public final class GenericAdapter implements ProfileAdapter {
         ChecksumDocument checksums = JsonDocuments.read(reader, UniversalConfigFormat.CHECKSUMS_ENTRY, ChecksumDocument.class);
         for (Map.Entry<String, String> expected : checksums.files.entrySet()) {
             try (InputStream input = reader.open(expected.getKey())) {
-                String actual = Checksums.sha256(input);
+                byte[] bytes = input.readAllBytes();
+                String actual = Checksums.sha256(bytes);
                 if (!actual.equalsIgnoreCase(expected.getValue())) {
                     diff.checksumWarnings.add(expected.getKey() + " checksum mismatch.");
                 }

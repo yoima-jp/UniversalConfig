@@ -3,16 +3,13 @@ package com.example.universalconfig.core;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -25,7 +22,7 @@ public final class FileOperationLogger {
             "(?<![A-Za-z0-9_/:>])/(?:[^\\s\\t,;:/]+/)*[^\\s\\t,;:/]+"
     );
     private static final String LAUNCH_ID = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")
-            .format(java.time.LocalDateTime.now()) + "-pid" + currentProcessId();
+            .format(java.time.LocalDateTime.now()) + "-pid" + Java8Compat.currentPid();
     private static Path configuredRoot;
     private static Path instanceRoot;
     private static Path userHomeRoot;
@@ -51,9 +48,9 @@ public final class FileOperationLogger {
         }
         configuredRoot = root;
         instanceRoot = instance;
-        userHomeRoot = normalizeOrNull(Paths.get(System.getProperty("user.home", ".")));
+        userHomeRoot = normalizeOrNull(java.nio.file.Paths.get(System.getProperty("user.home", ".")));
         String appData = System.getenv("APPDATA");
-        appDataRoot = appData == null || appData.trim().isEmpty() ? null : normalizeOrNull(Paths.get(appData));
+        appDataRoot = appData == null || appData.trim().isEmpty() ? null : normalizeOrNull(java.nio.file.Paths.get(appData));
         Path logsRoot = root.resolve(UniversalConfigFormat.LOGS_DIRECTORY_NAME);
         launchLogFile = logsRoot.resolve(UniversalConfigFormat.LAUNCH_LOGS_DIRECTORY_NAME)
                 .resolve(UniversalConfigFormat.LAUNCH_LOG_FILE_PREFIX + LAUNCH_ID + ".log");
@@ -61,7 +58,7 @@ public final class FileOperationLogger {
         try {
             Files.createDirectories(launchLogFile.getParent());
             Files.createDirectories(latestLogFile.getParent());
-            Files.write(latestLogFile, new byte[0],
+            com.example.universalconfig.core.Java8Compat.writeString(latestLogFile, "", StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ignored) {
             // The later write path also tolerates logging failures.
@@ -105,10 +102,9 @@ public final class FileOperationLogger {
                 line.append('\t').append(sanitizeText(writer.toString()));
             }
             line.append(System.lineSeparator());
-            byte[] encoded = line.toString().getBytes(StandardCharsets.UTF_8);
-            Files.write(launchLogFile, encoded,
+            com.example.universalconfig.core.Java8Compat.writeString(launchLogFile, line.toString(), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            Files.write(latestLogFile, encoded,
+            com.example.universalconfig.core.Java8Compat.writeString(latestLogFile, line.toString(), StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException ignored) {
             // Logging must never break profile application or backup recovery.
@@ -123,26 +119,16 @@ public final class FileOperationLogger {
         if (normalized == null) {
             return "<path>";
         }
-        List<PathLabel> labels = new ArrayList<PathLabel>();
-        labels.add(new PathLabel(instanceRoot, "<minecraft-instance>"));
-        labels.add(new PathLabel(configuredRoot, "<universal-config>"));
-        labels.add(new PathLabel(appDataRoot, "<app-data>"));
-        labels.add(new PathLabel(userHomeRoot, "<user-home>"));
-        List<PathLabel> filtered = new ArrayList<PathLabel>();
+        List<PathLabel> labels = com.example.universalconfig.core.Java8Compat.listOf(
+                new PathLabel(instanceRoot, "<minecraft-instance>"),
+                new PathLabel(configuredRoot, "<universal-config>"),
+                new PathLabel(appDataRoot, "<app-data>"),
+                new PathLabel(userHomeRoot, "<user-home>")
+        ).stream()
+                .filter(label -> label.root() != null)
+                .sorted(Comparator.comparingInt((PathLabel label) -> label.root().getNameCount()).reversed())
+                .collect(java.util.stream.Collectors.toList());
         for (PathLabel label : labels) {
-            if (label.root() != null) {
-                filtered.add(label);
-            }
-        }
-        // 深いパスほど先に一致させる。ファイル名キーは相対パス全体を含むため、
-        // ルートが他のルートの接頭辞になる場合でもより具体的なラベルが優先される。
-        Collections.sort(filtered, new Comparator<PathLabel>() {
-            @Override
-            public int compare(PathLabel left, PathLabel right) {
-                return Integer.compare(right.root().getNameCount(), left.root().getNameCount());
-            }
-        });
-        for (PathLabel label : filtered) {
             if (normalized.startsWith(label.root())) {
                 Path relative = label.root().relativize(normalized);
                 return relative.getNameCount() == 0
@@ -159,26 +145,16 @@ public final class FileOperationLogger {
             return value == null ? "" : value;
         }
         String sanitized = value.replace('\n', ' ').replace('\r', ' ');
-        List<PathLabel> labels = new ArrayList<PathLabel>();
+        List<PathLabel> labels = new ArrayList<>();
         labels.add(new PathLabel(instanceRoot, "<minecraft-instance>"));
         labels.add(new PathLabel(configuredRoot, "<universal-config>"));
         labels.add(new PathLabel(appDataRoot, "<app-data>"));
         labels.add(new PathLabel(userHomeRoot, "<user-home>"));
-        List<PathLabel> filtered = new ArrayList<PathLabel>();
+        labels = labels.stream()
+                .filter(label -> label.root() != null)
+                .sorted(Comparator.comparingInt((PathLabel label) -> label.root().toString().length()).reversed())
+                .collect(java.util.stream.Collectors.toList());
         for (PathLabel label : labels) {
-            if (label.root() != null) {
-                filtered.add(label);
-            }
-        }
-        // 長いルート文字列ほど先に置換する。短いルートが先だと、共通接頭辞を持つ深いパスの
-        // 一部だけが置換され、残った相対部分が絶対パス正規表現に誤判定される可能性がある。
-        Collections.sort(filtered, new Comparator<PathLabel>() {
-            @Override
-            public int compare(PathLabel left, PathLabel right) {
-                return Integer.compare(right.root().toString().length(), left.root().toString().length());
-            }
-        });
-        for (PathLabel label : filtered) {
             String nativeRoot = label.root().toString();
             sanitized = sanitized.replace(nativeRoot, label.label())
                     .replace(nativeRoot.replace('\\', '/'), label.label());
@@ -203,31 +179,16 @@ public final class FileOperationLogger {
         return left == null ? right == null : left.equals(right);
     }
 
-    static final class PathLabel {
+    private static final class PathLabel {
         private final Path root;
         private final String label;
 
-        PathLabel(Path root, String label) {
+        private PathLabel(Path root, String label) {
             this.root = root;
             this.label = label;
         }
 
-        Path root() {
-            return root;
-        }
-
-        String label() {
-            return label;
-        }
-    }
-
-    private static long currentProcessId() {
-        String runtimeName = ManagementFactory.getRuntimeMXBean().getName();
-        int separator = runtimeName.indexOf('@');
-        try {
-            return Long.parseLong(separator < 0 ? runtimeName : runtimeName.substring(0, separator));
-        } catch (NumberFormatException ignored) {
-            return -1L;
-        }
+        private Path root() { return root; }
+        private String label() { return label; }
     }
 }

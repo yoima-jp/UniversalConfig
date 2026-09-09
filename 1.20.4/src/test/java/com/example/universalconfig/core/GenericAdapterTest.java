@@ -102,7 +102,7 @@ class GenericAdapterTest {
     }
 
     @Test
-    void usesModernKeyValueWhenFirstStartOptionsHaveNoKeyLines() throws Exception {
+    void usesFabricLegacyFallbackWhenOptionsHaveNoKeyLines() throws Exception {
         Path options = tempDir.resolve(UniversalConfigFormat.OPTIONS_FILE_NAME);
         Files.writeString(options, String.join("\n",
                 "version:2975",
@@ -128,8 +128,8 @@ class GenericAdapterTest {
         }
 
         List<String> lines = Files.readAllLines(options, StandardCharsets.UTF_8);
-        assertTrue(lines.contains("key_key.hotbar.2:key.keyboard.2"));
-        assertFalse(lines.contains("key_key.hotbar.2:3"));
+        assertFalse(lines.contains("key_key.hotbar.2:key.keyboard.2"));
+        assertTrue(lines.contains("key_key.hotbar.2:3"));
     }
 
     private OptionsFragmentsDocument.OptionEntry option(String key, String value) {

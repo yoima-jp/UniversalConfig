@@ -144,5 +144,13 @@
   "screen.universal_config.profile_rename_title": "프로필 이름 변경",
   "screen.universal_config.profile_rename_label": "새 프로필 이름",
   "screen.universal_config.profile_name_required": "프로필 이름을 입력하세요.",
-  "screen.universal_config.rename_failed": "이 프로필의 이름을 변경하지 못했습니다."
+  "screen.universal_config.rename_failed": "이 프로필의 이름을 변경하지 못했습니다.",
+  "message.universal_config.reload_options_failed": "Minecraft 설정을 다시 불러오지 못했습니다. 재시작 전에 설정이 되돌아갈 수 있습니다.",
+  "screen.universal_config.backup_title": "백업 복원",
+  "screen.universal_config.backup_empty": "아직 백업이 없습니다. 프로필 적용 전에 자동으로 백업됩니다.",
+  "screen.universal_config.backup_restored": "복원됨: %s",
+  "screen.universal_config.backup_details": "포함: Minecraft %s / %s; 파일: %s",
+  "screen.universal_config.confirm_restore_title": "백업을 복원할까요?",
+  "screen.universal_config.confirm_restore_message": "현재 설정을 덮어씁니다. 계속할까요?",
+  "screen.universal_config.reorder_failed": "프로필 순서를 변경하지 못했습니다."
 }

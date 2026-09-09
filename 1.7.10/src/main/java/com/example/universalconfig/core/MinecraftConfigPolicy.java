@@ -1,8 +1,5 @@
 package com.example.universalconfig.core;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -11,13 +8,13 @@ import java.util.Set;
  * Keep Minecraft-version-specific additions in this class instead of adapter logic.
  */
 public final class MinecraftConfigPolicy {
-    private static final Set<String> DENIED_CONFIG_TOP_LEVEL_DIRECTORIES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+    private static final Set<String> DENIED_CONFIG_TOP_LEVEL_DIRECTORIES = com.example.universalconfig.core.Java8Compat.setOf(
             "mods", "saves", "logs", "crash-reports", "resourcepacks", "shaderpacks", "screenshots"
-    )));
+    );
 
-    private static final Set<String> CONFIG_FILE_EXTENSIONS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+    private static final Set<String> CONFIG_FILE_EXTENSIONS = com.example.universalconfig.core.Java8Compat.setOf(
             ".cfg", ".json", ".toml", ".yaml", ".yml", ".properties", ".conf", ".txt"
-    )));
+    );
 
     private MinecraftConfigPolicy() {
     }

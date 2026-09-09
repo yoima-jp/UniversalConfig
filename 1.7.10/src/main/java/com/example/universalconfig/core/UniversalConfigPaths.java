@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.List;
 
@@ -23,10 +22,10 @@ public final class UniversalConfigPaths {
     public static Path defaultRootDirectory() {
         String appData = System.getenv("APPDATA");
         if (appData != null && !appData.trim().isEmpty()) {
-            return Paths.get(appData, UniversalConfigFormat.ROOT_DIRECTORY_NAME);
+            return java.nio.file.Paths.get(appData, UniversalConfigFormat.ROOT_DIRECTORY_NAME);
         }
         String userHome = System.getProperty("user.home", ".");
-        return Paths.get(userHome, UniversalConfigFormat.ROOT_DIRECTORY_NAME);
+        return java.nio.file.Paths.get(userHome, UniversalConfigFormat.ROOT_DIRECTORY_NAME);
     }
 
     public static UniversalConfigSettings loadOrCreateSettings(Path minecraftRunDirectory) throws UniversalConfigException {
@@ -38,7 +37,7 @@ public final class UniversalConfigPaths {
                     dto = GSON.fromJson(reader, SettingsDto.class);
                 }
                 if (dto != null && dto.rootDirectory != null && !dto.rootDirectory.trim().isEmpty()) {
-                    UniversalConfigSettings settings = new UniversalConfigSettings(Paths.get(dto.rootDirectory));
+                    UniversalConfigSettings settings = new UniversalConfigSettings(java.nio.file.Paths.get(dto.rootDirectory));
                     boolean invalidDefaultProfilePath = hasInvalidDefaultProfilePath(dto.defaultProfilePath);
                     settings.setDefaultProfilePath(parseDefaultProfilePath(dto.defaultProfilePath));
                     settings.setProfileOrder(dto.profileOrder);
@@ -200,7 +199,7 @@ public final class UniversalConfigPaths {
             return null;
         }
         try {
-            return Paths.get(value);
+            return java.nio.file.Paths.get(value);
         } catch (InvalidPathException ex) {
             return null;
         }
@@ -211,7 +210,7 @@ public final class UniversalConfigPaths {
             return false;
         }
         try {
-            Paths.get(value);
+            java.nio.file.Paths.get(value);
             return false;
         } catch (InvalidPathException ex) {
             return true;

@@ -1,6 +1,7 @@
 package com.example.universalconfig.core;
 
 public enum ModLoader {
+    NEOFORGE("neoforge"),
     FABRIC("fabric"),
     FORGE("forge"),
     QUILT("quilt"),

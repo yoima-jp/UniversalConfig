@@ -15,21 +15,10 @@ public final class MinecraftEnvironment {
         this.loaderVersion = loaderVersion;
     }
 
-    public Path instancePath() {
-        return instancePath;
-    }
-
-    public String minecraftVersion() {
-        return minecraftVersion;
-    }
-
-    public ModLoader loader() {
-        return loader;
-    }
-
-    public String loaderVersion() {
-        return loaderVersion;
-    }
+    public Path instancePath() { return instancePath; }
+    public String minecraftVersion() { return minecraftVersion; }
+    public ModLoader loader() { return loader; }
+    public String loaderVersion() { return loaderVersion; }
 
     public String loaderId() {
         return loader == null ? ModLoader.UNKNOWN.id() : loader.id();

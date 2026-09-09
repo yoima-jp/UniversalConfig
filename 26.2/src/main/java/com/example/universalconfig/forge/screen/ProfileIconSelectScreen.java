@@ -60,6 +60,7 @@ final class ProfileIconSelectScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenUtil.renderOpaqueBackground(context);
         context.centeredText(font, title, width / 2, 20, 0xFFFFFFFF);
         super.extractRenderState(context, mouseX, mouseY, delta);
         int gridWidth = COLUMNS * BUTTON_SIZE + (COLUMNS - 1) * BUTTON_GAP;

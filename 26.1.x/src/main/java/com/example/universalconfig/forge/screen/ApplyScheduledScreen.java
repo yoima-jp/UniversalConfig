@@ -152,6 +152,7 @@ public final class ApplyScheduledScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenUtil.renderOpaqueBackground(context);
 
         int panelLeft = panelLeft();
         int panelTop = panelTop();

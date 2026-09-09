@@ -86,7 +86,12 @@ public final class LegacyScreens {
         }
 
         protected void fail(String key, Exception ex) {
-            status = tr(key);
+            if (ex instanceof UniversalConfigException && ((UniversalConfigException) ex).translationKey() != null) {
+                UniversalConfigException error = (UniversalConfigException) ex;
+                status = tr(error.translationKey(), error.translationArgs() == null ? new Object[0] : error.translationArgs());
+            } else {
+                status = tr(key);
+            }
             // UI failures must remain actionable on-screen while retaining diagnostics for launcher-based reports.
             try {
                 FileOperationLogger.failure("LEGACY_UI", LegacyPlatform.gameDirectory(), key, ex);
@@ -102,6 +107,11 @@ public final class LegacyScreens {
 
         protected void back() {
             mc.displayGuiScreen(parent);
+        }
+
+        @Override
+        protected void keyTyped(char typedChar, int keyCode) {
+            if (keyCode == Keyboard.KEY_ESCAPE) back();
         }
 
         protected void drawStatus() {
@@ -171,6 +181,10 @@ public final class LegacyScreens {
                     tr("screen.universal_config.backups")));
             buttonList.add(createButton(35, moreMenuLeft(), moreMenuButtonY(5), moreMenuWidth(), BUTTON_HEIGHT,
                     tr("screen.universal_config.delete")));
+            if (profiles.isEmpty()) {
+                buttonList.add(createButton(36, left, height - 52, contentWidth(), BUTTON_HEIGHT,
+                        tr("screen.universal_config.backups")));
+            }
             buttonList.add(createButton(0, width - 28, 6, 20, BUTTON_HEIGHT, "×"));
             // 並べ替えボタン（↑/↓）は表示行ごとに追加する。scroll 後の位置を再計算できるように
             // initGui の末尾で構築し、cardWidth の右端に配置する（PR #43）。
@@ -344,7 +358,7 @@ public final class LegacyScreens {
                 initGui();
                 selectProfile(path);
             } catch (Exception ex) {
-                fail("screen.universal_config.action_failed", ex);
+                fail("screen.universal_config.reorder_failed", ex);
             }
         }
 
@@ -395,6 +409,7 @@ public final class LegacyScreens {
             try {
                 switch (button.id) {
                     case 0: back(); break;
+                    case 36: mc.displayGuiScreen(new Backups(this)); break;
                     case 1: mc.displayGuiScreen(new ProfileCreate(this)); break;
                     case 2: if (path != null) mc.displayGuiScreen(new ConfirmApply(this, path)); break;
                     case 4:
@@ -1100,7 +1115,8 @@ public final class LegacyScreens {
         }
     }
 
-    private static final class Backups extends Base {
+    private static final class Backups extends Base implements GuiYesNoCallback {
+        private Path restorePath;
         private List<BackupSummary> backups = Collections.emptyList();
         private int selected = -1;
         private int scroll;
@@ -1112,6 +1128,7 @@ public final class LegacyScreens {
         @Override
         public void initGui() {
             buttonList.clear();
+            status = "";
             try {
                 backups = service().listBackups();
                 if (!backups.isEmpty()) selected = Math.min(Math.max(0, selected), backups.size() - 1);
@@ -1127,13 +1144,24 @@ public final class LegacyScreens {
         protected void actionPerformed(GuiButton button) {
             if (button.id == 0) back();
             if (button.id == 1 && selected >= 0) {
-                try {
-                    service().restore(LegacyPlatform.gameDirectory(), backups.get(selected).path());
-                    LegacyPlatform.reloadOptions();
-                    status = tr("screen.universal_config.restore_complete");
-                } catch (Exception ex) {
-                    fail("screen.universal_config.restore_failed", ex);
-                }
+                restorePath = backups.get(selected).path();
+                mc.displayGuiScreen(new GuiYesNo(this, tr("screen.universal_config.confirm_restore_title"),
+                        tr("screen.universal_config.confirm_restore_message"), 1));
+            }
+        }
+
+        @Override
+        public void confirmClicked(boolean confirmed, int id) {
+            Path backupPath = restorePath;
+            restorePath = null;
+            mc.displayGuiScreen(this);
+            if (!confirmed || backupPath == null) return;
+            try {
+                service().restore(LegacyPlatform.gameDirectory(), backupPath);
+                LegacyPlatform.reloadOptions();
+                status = tr("screen.universal_config.backup_restored", backupPath.getFileName());
+            } catch (Exception ex) {
+                fail("screen.universal_config.restore_failed", ex);
             }
         }
 

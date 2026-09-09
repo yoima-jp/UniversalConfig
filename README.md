@@ -29,16 +29,18 @@ Most distribution jars declare the exact Minecraft release they were compiled ag
 
 ## Features
 
-- Create, inspect, duplicate, delete, and select shared `.ucp` profiles.
+The behavior baseline is `origin/fabric` at `12588fe`. The `26.2/` implementation is the reference for current development; Java 8 versions use the equivalent Fabric 1.16.5 core. Loader entry points, Minecraft API bindings, and Forge restart classpath resolution remain specific to Forge. Do not introduce separate Forge feature policies or data limits.
+
+- Create, inspect, rename, reorder, duplicate, delete, and select shared `.ucp` profiles.
 - Save keybindings separately from the remaining `options.txt` values and merge by key on apply.
 - Save selected files under `config/` while rejecting unsafe or internal paths.
 - Set or clear a default profile and apply it exactly once on the first launch of an instance.
 - Show compatibility warnings and planned file/key changes before scheduling an apply.
 - Apply scheduled profiles early during startup and always create a `.ucbackup` first.
-- List and restore backups.
+- Open backups even when there are no profiles; confirm before restoring and return to the list with the result.
 - Reload Minecraft options after startup apply or restore so shutdown does not overwrite imported values.
 - Restart Prism Launcher/MultiMC, ATLauncher, and GDLauncher Carbon instances when their process metadata identifies the instance; otherwise reuse the current Java launch when safely discoverable.
-- Reject absolute paths, parent traversal, oversized JSON, invalid checksums, and writes outside the intended directories.
+- Use the same ZIP size limits, checksum handling, option merging, and profile rules as Fabric.
 
 Each Minecraft version directory is a fully standalone Gradle project. It contains its own profile implementation, loader integration, UI, resources, tests where supported by that generation's toolchain, license, Gradle Wrapper, and distribution Jar. No version reads source code or build inputs from another version or from a shared source directory.
 
@@ -66,7 +68,7 @@ The root wrapper verifies that every listed version is a complete, independent p
 
 Distribution jars are written to `<version>/build/libs/`, except the 1.7.10 jar, which is written to `1.7.10/build/distributions/`. Do not distribute `*-sources.jar`.
 
-The CI matrix builds and tests the added `1.19.4`, `1.20.4`, `1.20.6`, and `1.21.4` projects independently
+The CI matrix builds and tests all 14 version projects independently
 and uploads one artifact per Minecraft version. The root check only verifies project structure; it does not compile each version.
 
 For a client smoke test, run the target project's wrapper with `runClient`. Check the title-screen entry,

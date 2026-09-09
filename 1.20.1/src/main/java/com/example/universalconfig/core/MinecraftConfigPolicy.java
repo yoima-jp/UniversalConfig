@@ -1,8 +1,5 @@
 package com.example.universalconfig.core;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -11,19 +8,19 @@ import java.util.Set;
  * Keep Minecraft-version-specific additions in this class instead of adapter logic.
  */
 public final class MinecraftConfigPolicy {
-    private static final Set<String> DENIED_CONFIG_TOP_LEVEL_DIRECTORIES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+    private static final Set<String> DENIED_CONFIG_TOP_LEVEL_DIRECTORIES = Set.of(
             "mods", "saves", "logs", "crash-reports", "resourcepacks", "shaderpacks", "screenshots"
-    )));
+    );
 
-    private static final Set<String> CONFIG_FILE_EXTENSIONS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+    private static final Set<String> CONFIG_FILE_EXTENSIONS = Set.of(
             ".cfg", ".json", ".toml", ".yaml", ".yml", ".properties", ".conf", ".txt"
-    )));
+    );
 
     private MinecraftConfigPolicy() {
     }
 
     public static boolean isValidClientOption(String key, String value) {
-        if (key == null || key.trim().isEmpty() || value == null) {
+        if (key == null || key.isBlank() || value == null) {
             return false;
         }
         // Key bindings have a separate compatibility representation. Accepting key_ here would
@@ -35,7 +32,7 @@ public final class MinecraftConfigPolicy {
     }
 
     public static boolean isAllowedConfigFile(String relativePath) {
-        if (relativePath == null || relativePath.trim().isEmpty()) {
+        if (relativePath == null || relativePath.isBlank()) {
             return false;
         }
         String lower = relativePath.toLowerCase(Locale.ROOT);

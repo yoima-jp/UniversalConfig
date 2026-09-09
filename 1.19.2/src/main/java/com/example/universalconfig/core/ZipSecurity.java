@@ -1,7 +1,6 @@
 package com.example.universalconfig.core;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 public final class ZipSecurity {
     /** Maximum uncompressed size accepted for one profile or backup entry. */
@@ -17,7 +16,7 @@ public final class ZipSecurity {
     }
 
     public static void validateRelativeEntryName(String entryName) throws UniversalConfigException {
-        if (entryName == null || entryName.trim().isEmpty()) {
+        if (entryName == null || entryName.isBlank()) {
             throw new UniversalConfigException("ZIP entry name is empty.");
         }
         String normalizedSlashes = entryName.replace('\\', '/');
@@ -27,7 +26,7 @@ public final class ZipSecurity {
                 || normalizedSlashes.equals("..")) {
             throw new UniversalConfigException("Unsafe ZIP entry path rejected: " + entryName);
         }
-        Path path = Paths.get(normalizedSlashes);
+        Path path = Path.of(normalizedSlashes);
         if (path.isAbsolute()) {
             throw new UniversalConfigException("Absolute ZIP entry path rejected: " + entryName);
         }

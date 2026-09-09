@@ -11,11 +11,6 @@ public final class ProfileSummary {
         this.manifest = manifest;
     }
 
-    public Path path() {
-        return path;
-    }
-
-    public ProfileManifest manifest() {
-        return manifest;
-    }
+    public Path path() { return path; }
+    public ProfileManifest manifest() { return manifest; }
 }

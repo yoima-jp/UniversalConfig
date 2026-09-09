@@ -14,15 +14,7 @@ public final class BackupSummary {
         this.entries = entries;
     }
 
-    public Path path() {
-        return path;
-    }
-
-    public BackupManifest manifest() {
-        return manifest;
-    }
-
-    public List<String> entries() {
-        return entries;
-    }
+    public Path path() { return path; }
+    public BackupManifest manifest() { return manifest; }
+    public List<String> entries() { return entries; }
 }

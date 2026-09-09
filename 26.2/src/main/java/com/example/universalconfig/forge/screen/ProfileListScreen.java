@@ -320,6 +320,10 @@ public final class ProfileListScreen extends Screen {
             }
         } else {
             moreMenuOpen = false;
+            if (profiles.isEmpty()) {
+                addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.backups"), button -> openBackups())
+                        .bounds(contentLeft(), footerButtonY() - BUTTON_HEIGHT - 4, contentWidth(), BUTTON_HEIGHT).build());
+            }
         }
 
         addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.save_current"),
@@ -738,6 +742,7 @@ public final class ProfileListScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenUtil.renderOpaqueBackground(context);
         // Screen.extractRenderStateWithTooltipAndSubtitles already extracts the background before this callback.
         // Calling it again reaches blurBeforeThisStratum twice and crashes Minecraft 26.1.2+.
         drawHeader(context);

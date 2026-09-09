@@ -1,8 +1,5 @@
 package com.example.universalconfig.core;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -19,9 +16,9 @@ public final class ProfileIcon {
     public static final String FURNACE = "furnace";
     public static final String DIAMOND_BLOCK = "diamond_block";
 
-    private static final Set<String> KNOWN_IDS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+    private static final Set<String> KNOWN_IDS = Set.of(
             GRASS_BLOCK, CRAFTING_TABLE, BOOKSHELF, COBBLESTONE,
-            TNT, CHEST, FURNACE, DIAMOND_BLOCK)));
+            TNT, CHEST, FURNACE, DIAMOND_BLOCK);
 
     private ProfileIcon() {
     }
@@ -31,18 +28,12 @@ public final class ProfileIcon {
             return iconId;
         }
         // 初期版の抽象アイコンIDも読み込めるよう、意味の近いブロックへ移行する。
-        String legacyId = iconId == null ? "" : iconId;
-        if ("laptop".equals(legacyId)) {
-            return CRAFTING_TABLE;
-        }
-            // Amethyst was briefly offered by the 1.20 client, but the stable icon contract must also render on
-            // pre-1.17 ports. Keep accepting its persisted ID and migrate it to a block available since early Java.
-        if ("camera".equals(legacyId) || "amethyst_block".equals(legacyId)) {
-            return COBBLESTONE;
-        }
-        if ("book".equals(legacyId)) {
-            return BOOKSHELF;
-        }
-        return GRASS_BLOCK;
+        return switch (iconId == null ? "" : iconId) {
+            case "laptop" -> CRAFTING_TABLE;
+            // Keep accepting persisted IDs and migrate them to a block available across supported clients.
+            case "camera", "amethyst_block" -> COBBLESTONE;
+            case "book" -> BOOKSHELF;
+            default -> GRASS_BLOCK;
+        };
     }
 }

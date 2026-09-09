@@ -71,7 +71,8 @@ final class LegacyPlatform {
         } catch (RuntimeException ex) {
             FileOperationLogger.failure("RELOAD_CLIENT_OPTIONS", UniversalConfigPaths.optionsFile(gameDirectory()),
                     "failed", ex);
-            throw new UniversalConfigException("Minecraft options could not be reloaded.", ex);
+            throw new UniversalConfigException("Failed to reload Minecraft options; settings may revert before restart.",
+                    "message.universal_config.reload_options_failed", ex);
         }
     }
 

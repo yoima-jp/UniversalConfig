@@ -61,11 +61,12 @@ public final class ProfileRenameScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenUtil.renderOpaqueBackground(context);
         int left = (width - FORM_WIDTH) / 2;
-        context.centeredText(font, title, width / 2, 18, 0xFFFFFF);
+        context.centeredText(font, title, width / 2, 18, 0xFFFFFFFF);
         context.text(font, Component.translatable("screen.universal_config.profile_rename_label"),
-                left, 44, 0xDDDDDD);
-        context.text(font, status, left, height - 52, 0xFF7777);
+                left, 44, 0xFFDDDDDD);
+        context.text(font, status, left, height - 52, 0xFFFF7777);
         super.extractRenderState(context, mouseX, mouseY, delta);
     }
 }

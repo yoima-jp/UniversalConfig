@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -84,7 +85,7 @@ public final class ZipArchiveWriter {
                 output.write(buffer, 0, read);
                 digest.update(buffer, 0, read);
             }
-            return Checksums.toHex(digest.digest());
+            return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException ex) {
             throw new UniversalConfigException("SHA-256 is not available.", ex);
         }

@@ -93,6 +93,8 @@ public final class CurrentProcessRestartService {
         }
         Path normalizedWorkingDirectory = normalizeWorkingDirectory(workingDirectory);
         List<ProcessCommand> ancestors = ancestorCommands(current);
+        List<String> restartArguments = currentJavaArguments(current.arguments(), loaderResolvedArguments)
+                .orElseGet(() -> java.util.Collections.emptyList());
         // Modrinth's documented launch URL requires a database-only internal ID that is not inherited by the game.
         // Guessing it from the folder name could launch the wrong profile, so only self-identifying launchers are used.
         Optional<LaunchCommand> replacementCandidate = prismFamilyLauncherCommand(
@@ -102,7 +104,7 @@ public final class CurrentProcessRestartService {
         }
         LaunchCommand replacement = replacementCandidate.isPresent()
                 ? replacementCandidate.get()
-                : unsupportedLauncherCommand(executable, loaderResolvedArguments).orElse(null);
+                : unsupportedLauncherCommand(executable, restartArguments).orElse(null);
         if (replacement == null) {
             throw new UniversalConfigException("Could not determine how to restart this launcher instance.");
         }
@@ -155,6 +157,11 @@ public final class CurrentProcessRestartService {
                         return new LaunchCommand(currentExecutable, arguments);
                     }
                 });
+    }
+
+    static Optional<List<String>> currentJavaArguments(List<String> processArguments, List<String> loaderResolvedArguments) {
+        Optional<List<String>> resolved = validJavaLaunchArguments(loaderResolvedArguments);
+        return resolved.isPresent() ? resolved : validJavaLaunchArguments(processArguments);
     }
 
     private static Optional<List<String>> validJavaLaunchArguments(List<String> arguments) {

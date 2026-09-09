@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -19,9 +18,7 @@ public final class ZipArchiveReader implements ProfileArchiveReader {
         try {
             FileOperationLogger.info("OPEN_ZIP", archivePath, "read");
             long totalUncompressedSize = 0;
-            Enumeration<? extends ZipEntry> entries = zipFile.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
+            for (ZipEntry entry : zipFile.stream().toList()) {
                 ZipSecurity.validateRelativeEntryName(entry.getName());
                 if (!entry.isDirectory()) {
                     totalUncompressedSize = ZipSecurity.validateEntrySizes(
@@ -57,14 +54,8 @@ public final class ZipArchiveReader implements ProfileArchiveReader {
 
     @Override
     public List<String> entries() {
-        List<String> names = new ArrayList<String>();
-        Enumeration<? extends ZipEntry> entries = zipFile.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
-            if (!entry.isDirectory()) {
-                names.add(entry.getName());
-            }
-        }
+        List<String> names = new ArrayList<>();
+        zipFile.stream().filter(entry -> !entry.isDirectory()).forEach(entry -> names.add(entry.getName()));
         return names;
     }
 

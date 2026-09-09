@@ -108,17 +108,18 @@ public final class ProfileCreateScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenUtil.renderOpaqueBackground(context);
         int formLeft = width / 2 - FORM_LEFT_OFFSET;
-        context.centeredText(font, title, width / 2, 18, 0xFFFFFF);
+        context.centeredText(font, title, width / 2, 18, 0xFFFFFFFF);
         context.text(font, Component.translatable("screen.universal_config.profile_name_label"),
-                formLeft, 40, 0xDDDDDD);
+                formLeft, 40, 0xFFDDDDDD);
         context.text(font, Component.translatable("screen.universal_config.profile_description_label"),
-                formLeft, 80, 0xDDDDDD);
+                formLeft, 80, 0xFFDDDDDD);
         context.text(font, Component.translatable("screen.universal_config.profile_save_contents"),
-                formLeft, SAVE_CONTENTS_LABEL_Y, 0xDDDDDD);
+                formLeft, SAVE_CONTENTS_LABEL_Y, 0xFFDDDDDD);
         // 高さ240pxのGUIでも、エラー文と下部ボタンの間に読みやすい余白を確保する。
         int statusY = Math.min(STATUS_PREFERRED_Y, height - 32 - STATUS_FOOTER_GAP);
-        context.text(font, status, formLeft, statusY, 0xFF7777);
+        context.text(font, status, formLeft, statusY, 0xFFFF7777);
         super.extractRenderState(context, mouseX, mouseY, delta);
         ScreenUtil.drawProfileIcon(context, formLeft + 2, NAME_FIELD_Y + 2, 16, selectedIconId);
     }

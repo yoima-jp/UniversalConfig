@@ -1,7 +1,6 @@
 package com.example.universalconfig.core;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -11,11 +10,9 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.stream.Stream;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
@@ -185,12 +182,12 @@ public final class GeneratedFileCleaner {
 
         try (ZipFile zip = new ZipFile(normalized.toFile())) {
             // Validate every entry name through ZipSecurity to reject unsafe archives early.
-            Enumeration<? extends ZipEntry> entries = zip.entries();
+            var entries = zip.entries();
             while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
+                var entry = entries.nextElement();
                 ZipSecurity.validateRelativeEntryName(entry.getName());
             }
-            ZipEntry manifestEntry = zip.getEntry(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY);
+            var manifestEntry = zip.getEntry(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY);
             if (manifestEntry == null || manifestEntry.isDirectory()) {
                 FileOperationLogger.failure("CLEANUP_BACKUP", backup, "manifest missing", null);
                 return null;
@@ -202,7 +199,7 @@ public final class GeneratedFileCleaner {
             }
             BackupManifest manifest;
             try (InputStream input = zip.getInputStream(manifestEntry)) {
-                byte[] encoded = readUpTo(input, MAX_MANIFEST_BYTES + 1);
+                byte[] encoded = input.readNBytes(MAX_MANIFEST_BYTES + 1);
                 if (encoded.length > MAX_MANIFEST_BYTES) {
                     FileOperationLogger.failure("CLEANUP_BACKUP", backup, "manifest exceeds size limit", null);
                     return null;
@@ -215,7 +212,7 @@ public final class GeneratedFileCleaner {
                 FileOperationLogger.failure("CLEANUP_BACKUP", backup, "manifest format is invalid", null);
                 return null;
             }
-            if (manifest.createdAt == null || manifest.createdAt.trim().isEmpty()) {
+            if (manifest.createdAt == null || manifest.createdAt.isBlank()) {
                 FileOperationLogger.failure("CLEANUP_BACKUP", backup, "manifest has no createdAt", null);
                 return null;
             }
@@ -255,7 +252,7 @@ public final class GeneratedFileCleaner {
         // readAllBytes is intentionally avoided because .ucbackup is untrusted external input.
         // ZipInputStream verifies each entry's CRC when it reaches EOF; ZipFile entry streams do not.
         byte[] buffer = new byte[8192];
-        ZipEntry entry = zip.getNextEntry();
+        var entry = zip.getNextEntry();
         while (entry != null) {
             ZipSecurity.validateRelativeEntryName(entry.getName());
             if (!entry.isDirectory()) {
@@ -266,20 +263,6 @@ public final class GeneratedFileCleaner {
             zip.closeEntry();
             entry = zip.getNextEntry();
         }
-    }
-
-    private static byte[] readUpTo(InputStream input, int maximumBytes) throws IOException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maximumBytes, 8192));
-        byte[] buffer = new byte[8192];
-        while (output.size() < maximumBytes) {
-            int remaining = maximumBytes - output.size();
-            int read = input.read(buffer, 0, Math.min(buffer.length, remaining));
-            if (read < 0) {
-                break;
-            }
-            output.write(buffer, 0, read);
-        }
-        return output.toByteArray();
     }
 
     private boolean deleteSafe(Path path, String operation) {

@@ -10,28 +10,23 @@ import java.nio.channels.FileLock;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class ProfileService {
     private static final ReentrantLock PROFILE_OPERATION_PROCESS_LOCK = new ReentrantLock();
-    private static final int MAX_MANIFEST_BYTES = 1_048_576;
     private final UniversalConfigSettings settings;
     private final AdapterRegistry adapterRegistry = new AdapterRegistry();
 
@@ -148,7 +143,7 @@ public final class ProfileService {
     private void writeDefaultProfileAppliedMarker(Path marker) throws UniversalConfigException {
         try {
             Files.createDirectories(marker.getParent());
-            Files.write(marker, new byte[0],
+            Files.writeString(marker, "", StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ex) {
             throw new UniversalConfigException("Default profile was applied, but its marker could not be saved.", ex);
@@ -160,11 +155,11 @@ public final class ProfileService {
         FileOperationLogger.info("LIST_PROFILES", profiles, "start");
         if (!Files.isDirectory(profiles)) {
             FileOperationLogger.info("LIST_PROFILES", profiles, "directory missing");
-            return Collections.emptyList();
+            return List.of();
         }
-        try (Stream<Path> stream = Files.list(profiles)) {
+        try (var stream = Files.list(profiles)) {
             List<ProfileSummary> summaries = new ArrayList<>();
-            for (Path profile : stream.filter(path -> path.getFileName().toString().endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION)).collect(Collectors.toList())) {
+            for (Path profile : stream.filter(path -> path.getFileName().toString().endsWith(UniversalConfigFormat.PROFILE_FILE_EXTENSION)).toList()) {
                 try (ZipArchiveReader reader = new ZipArchiveReader(profile)) {
                     if (reader.exists(UniversalConfigFormat.MANIFEST_ENTRY)) {
                         summaries.add(new ProfileSummary(profile, JsonDocuments.read(reader, UniversalConfigFormat.MANIFEST_ENTRY, ProfileManifest.class)));
@@ -186,7 +181,7 @@ public final class ProfileService {
     public void renameProfile(Path profilePath, String name) throws UniversalConfigException {
         Path normalized = validateProfilePath(profilePath);
         String requestedName = name == null ? "" : name.trim();
-        if (requestedName.trim().isEmpty()) {
+        if (requestedName.isBlank()) {
             throw new UniversalConfigException("Profile name is required.");
         }
         if (requestedName.length() > 128) {
@@ -220,7 +215,7 @@ public final class ProfileService {
                 return;
             }
 
-            List<String> order = new ArrayList<String>();
+            List<String> order = new ArrayList<>();
             for (ProfileSummary summary : summaries) {
                 String key = profileOrderKey(summary);
                 if (key != null) {
@@ -242,7 +237,7 @@ public final class ProfileService {
             return summaries;
         }
 
-        Map<String, ProfileSummary> byKey = new HashMap<String, ProfileSummary>();
+        Map<String, ProfileSummary> byKey = new HashMap<>();
         for (ProfileSummary summary : summaries) {
             String key = profileOrderKey(summary);
             if (key != null) {
@@ -251,7 +246,7 @@ public final class ProfileService {
         }
 
         // 過去バージョンで id ベースのキーを保存済みの設定との互換性のため、id も補助インデックスとして残す。
-        Map<String, ProfileSummary> byLegacyIdKey = new HashMap<String, ProfileSummary>();
+        Map<String, ProfileSummary> byLegacyIdKey = new HashMap<>();
         for (ProfileSummary summary : summaries) {
             String legacyIdKey = legacyProfileOrderKey(summary);
             if (legacyIdKey != null) {
@@ -259,8 +254,8 @@ public final class ProfileService {
             }
         }
 
-        List<ProfileSummary> ordered = new ArrayList<ProfileSummary>(summaries.size());
-        Set<String> included = new HashSet<String>();
+        List<ProfileSummary> ordered = new ArrayList<>(summaries.size());
+        Set<String> included = new HashSet<>();
         for (String key : configuredOrder) {
             // ファイル名キーを優先し、無ければ旧 id キーで解決する。
             ProfileSummary summary = byKey.get(key);
@@ -310,7 +305,7 @@ public final class ProfileService {
             return null;
         }
         String id = summary.manifest().id;
-        return id == null || id.trim().isEmpty() ? null : "id:" + id;
+        return id == null || id.isBlank() ? null : "id:" + id;
     }
 
     public List<BackupSummary> listBackups() throws UniversalConfigException {
@@ -318,11 +313,11 @@ public final class ProfileService {
         FileOperationLogger.info("LIST_BACKUPS", backups, "start");
         if (!Files.isDirectory(backups)) {
             FileOperationLogger.info("LIST_BACKUPS", backups, "directory missing");
-            return Collections.emptyList();
+            return List.of();
         }
-        try (Stream<Path> stream = Files.list(backups)) {
+        try (var stream = Files.list(backups)) {
             List<BackupSummary> summaries = new ArrayList<>();
-            for (Path backup : stream.filter(path -> path.getFileName().toString().endsWith(UniversalConfigFormat.BACKUP_FILE_EXTENSION)).collect(Collectors.toList())) {
+            for (Path backup : stream.filter(path -> path.getFileName().toString().endsWith(UniversalConfigFormat.BACKUP_FILE_EXTENSION)).toList()) {
                 try (ZipArchiveReader reader = new ZipArchiveReader(backup)) {
                     BackupManifest manifest = reader.exists(UniversalConfigFormat.BACKUP_MANIFEST_ENTRY)
                             ? JsonDocuments.read(reader, UniversalConfigFormat.BACKUP_MANIFEST_ENTRY, BackupManifest.class)
@@ -444,7 +439,7 @@ public final class ProfileService {
                 || !UniversalConfigFormat.PENDING_IMPORT_FORMAT.equals(pending.format)
                 || pending.formatVersion != UniversalConfigFormat.FORMAT_VERSION
                 || pending.profilePath == null
-                || pending.profilePath.trim().isEmpty()) {
+                || pending.profilePath.isBlank()) {
             throw new UniversalConfigException("Invalid pending import file: " + pendingPath);
         }
         return pending;
@@ -456,7 +451,7 @@ public final class ProfileService {
         if (pending == null) {
             return null;
         }
-        Path profilePath = Paths.get(pending.profilePath);
+        Path profilePath = Path.of(pending.profilePath);
         FileOperationLogger.info("APPLY_PENDING_IMPORT", pendingPath, "profile=" + profilePath.toAbsolutePath().normalize());
         ApplyResult result = apply(instancePath, profilePath, environment);
         try {
@@ -675,7 +670,7 @@ public final class ProfileService {
     }
 
     private String uniqueProfileName(String name, Path excludedProfilePath) throws UniversalConfigException {
-        if (name == null || name.trim().isEmpty()) {
+        if (name == null || name.isBlank()) {
             return name;
         }
 
@@ -689,7 +684,7 @@ public final class ProfileService {
                 continue;
             }
             ProfileManifest existing = summary.manifest();
-            if (existing != null && existing.name != null && !existing.name.trim().isEmpty()) {
+            if (existing != null && existing.name != null && !existing.name.isBlank()) {
                 usedNames.add(existing.name);
             }
         }
@@ -750,8 +745,7 @@ public final class ProfileService {
             try {
                 try (ZipArchiveReader reader = new ZipArchiveReader(profilePath);
                      InputStream input = reader.open(UniversalConfigFormat.MANIFEST_ENTRY)) {
-                    byte[] originalManifest = IoStreams.readLimited(
-                            input, MAX_MANIFEST_BYTES, "Profile manifest");
+                    byte[] originalManifest = input.readAllBytes();
                     JsonObject manifest = JsonDocuments.GSON.fromJson(
                             new String(originalManifest, StandardCharsets.UTF_8), JsonObject.class);
                     if (manifest == null) {
@@ -842,7 +836,7 @@ public final class ProfileService {
         if (options == null) {
             throw new UniversalConfigException("Profile options are required.");
         }
-        if (options.name == null || options.name.trim().isEmpty()) {
+        if (options.name == null || options.name.isBlank()) {
             throw new UniversalConfigException("Profile name is required.");
         }
         if (!options.includeKeybinds && !options.includeClientOptions && !options.includeModConfigs) {
@@ -858,22 +852,7 @@ public final class ProfileService {
         return manifest == null || manifest.createdAt == null ? "" : manifest.createdAt;
     }
 
-    public static final class ApplyResult {
-        private final Path backupPath;
-        private final ProfileDiff diff;
-
-        public ApplyResult(Path backupPath, ProfileDiff diff) {
-            this.backupPath = backupPath;
-            this.diff = diff;
-        }
-
-        public Path backupPath() {
-            return backupPath;
-        }
-
-        public ProfileDiff diff() {
-            return diff;
-        }
+    public record ApplyResult(Path backupPath, ProfileDiff diff) {
     }
 
     /**
