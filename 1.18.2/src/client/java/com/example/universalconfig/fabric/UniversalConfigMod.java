@@ -27,6 +27,8 @@ public final class UniversalConfigMod implements ClientModInitializer {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
+    private static final int TITLE_SCREEN_OPTIONS_BUTTON_WIDTH = 98;
+    private static final int TITLE_SCREEN_OPTIONS_BUTTON_HEIGHT = 20;
     // title_screen_button.png はボタン専用の15x15画像を使用する。drawTexture には
     // テクスチャ全体のピクセル幅・高さを渡す必要があるため、画像差し替え時はここも一致させる。
     // 1.19.2のDrawableHelper#drawTexture は (u,v)-(uRegion,vRegion) をテクスチャ全体で正規化するため、
@@ -78,7 +80,8 @@ public final class UniversalConfigMod implements ClientModInitializer {
         ClickableWidget result = null;
         for (ClickableWidget candidate : Screens.getButtons(screen)) {
             if (!(candidate instanceof ButtonWidget)
-                    || candidate.getWidth() <= TITLE_SCREEN_BUTTON_SIZE
+                    || candidate.getWidth() != TITLE_SCREEN_OPTIONS_BUTTON_WIDTH
+                    || candidate.getHeight() != TITLE_SCREEN_OPTIONS_BUTTON_HEIGHT
                     || !hasMatchingRowButton(screen, candidate)) {
                 continue;
             }
