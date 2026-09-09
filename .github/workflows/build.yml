@@ -35,6 +35,6 @@ jobs:
 
       - name: Check and build Fabric 26.2
         run: |
-          ./gradlew check
-          ./gradlew build
+          bash ./gradlew check
+          bash ./gradlew build
         working-directory: 26.2
