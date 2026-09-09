@@ -27,8 +27,6 @@ public final class UniversalConfigMod implements ClientModInitializer {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    private static final int TITLE_SCREEN_OPTIONS_BUTTON_WIDTH = 98;
-    private static final int TITLE_SCREEN_OPTIONS_BUTTON_HEIGHT = 20;
     // title_screen_button.png はボタン専用の15x15画像を使用する。drawTexture には
     // テクスチャ全体のピクセル幅・高さを渡す必要があるため、画像差し替え時はここも一致させる。
     // 1.19.2のDrawableHelper#drawTexture は (u,v)-(uRegion,vRegion) をテクスチャ全体で正規化するため、
@@ -48,61 +46,18 @@ public final class UniversalConfigMod implements ClientModInitializer {
             if (screen instanceof TitleScreen) {
                 logPendingImportStateOnce(client);
                 Text buttonLabel = new net.minecraft.text.TranslatableText("button.universal_config.open");
-                // Options行の実widget geometryを基準に、全解像度で同じ位置へ配置する。
+                // Vanillaのwidget構成に依存せず、画面端から共通marginで配置する。
                 // 文字ボタンではなくModアイコンだけを表示し、タイトル画面への視覚的な干渉を抑える。
                 Screens.getButtons(screen).removeIf(button -> button instanceof IconButtonWidget);
-                ClickableWidget optionsAnchor = optionsButton(screen);
-                if (optionsAnchor == null) {
-                    return;
-                }
                 IconButtonWidget openButton = new IconButtonWidget(
-                        titleScreenButtonX(optionsAnchor),
-                        titleScreenButtonY(optionsAnchor),
+                        TITLE_SCREEN_BUTTON_MARGIN,
+                        screen.height - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN,
                         button -> client.setScreen(new ProfileListScreen(screen)),
                         buttonLabel
                 );
                 Screens.getButtons(screen).add(openButton);
             }
         });
-    }
-
-    private static int titleScreenButtonX(ClickableWidget optionsAnchor) {
-        return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
-                optionsAnchor.x - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
-    }
-
-    private static int titleScreenButtonY(ClickableWidget optionsAnchor) {
-        return optionsAnchor.y
-                + Math.max(0, (optionsAnchor.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
-    }
-
-    private static ClickableWidget optionsButton(Screen screen) {
-        ClickableWidget result = null;
-        for (ClickableWidget candidate : Screens.getButtons(screen)) {
-            if (!(candidate instanceof ButtonWidget)
-                    || candidate.getWidth() != TITLE_SCREEN_OPTIONS_BUTTON_WIDTH
-                    || candidate.getHeight() != TITLE_SCREEN_OPTIONS_BUTTON_HEIGHT
-                    || !hasMatchingRowButton(screen, candidate)) {
-                continue;
-            }
-            if (result == null || candidate.x < result.x) {
-                result = candidate;
-            }
-        }
-        return result;
-    }
-
-    private static boolean hasMatchingRowButton(Screen screen, ClickableWidget candidate) {
-        for (ClickableWidget peer : Screens.getButtons(screen)) {
-            if (peer != candidate
-                    && peer.x > candidate.x
-                    && peer.y == candidate.y
-                    && peer.getWidth() == candidate.getWidth()
-                    && peer.getHeight() == candidate.getHeight()) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public static MinecraftClient client() {
