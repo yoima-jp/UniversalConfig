@@ -19,7 +19,6 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
-import net.minecraft.text.TranslatableTextContent;
 import net.minecraft.util.Identifier;
 
 public final class UniversalConfigMod implements ClientModInitializer {
@@ -28,8 +27,6 @@ public final class UniversalConfigMod implements ClientModInitializer {
     private static final int TITLE_SCREEN_BUTTON_SIZE = 20;
     private static final int TITLE_SCREEN_ICON_PADDING = 3;
     private static final int TITLE_SCREEN_BUTTON_MARGIN = 4;
-    private static final int TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET = 10;
-    private static final int TITLE_SCREEN_SYSTEM_TEXT_GAP = 4;
     // title_screen_button.png はボタン専用の15x15画像を使用する。drawTexture には
     // テクスチャ全体のピクセル幅・高さを渡す必要があるため、画像差し替え時はここも一致させる。
     // 1.19.1のDrawableHelper#drawTexture は (u,v)-(uRegion,vRegion) をテクスチャ全体で正規化するため、
@@ -49,12 +46,16 @@ public final class UniversalConfigMod implements ClientModInitializer {
             if (screen instanceof TitleScreen) {
                 logPendingImportStateOnce(client);
                 Text buttonLabel = Text.translatable("button.universal_config.open");
-                // バニラの左下システム文字列の描画位置を基準に、最小限の間隔を確保する。
+                // Options行の実widget geometryを基準に、全解像度で同じ位置へ配置する。
                 // 文字ボタンではなくModアイコンだけを表示し、タイトル画面への視覚的な干渉を抑える。
                 Screens.getButtons(screen).removeIf(button -> button instanceof IconButtonWidget);
+                ClickableWidget optionsAnchor = optionsButton(screen);
+                if (optionsAnchor == null) {
+                    return;
+                }
                 IconButtonWidget openButton = new IconButtonWidget(
-                        titleScreenButtonX(screen),
-                        titleScreenButtonY(client, screen),
+                        titleScreenButtonX(screen, optionsAnchor),
+                        titleScreenButtonY(optionsAnchor),
                         button -> client.setScreen(new ProfileListScreen(screen)),
                         buttonLabel
                 );
@@ -63,14 +64,11 @@ public final class UniversalConfigMod implements ClientModInitializer {
         });
     }
 
-    private static int titleScreenButtonX(Screen screen) {
-        ClickableWidget optionsButton = optionsButton(screen);
-        if (optionsButton == null) {
-            return TITLE_SCREEN_BUTTON_MARGIN;
-        }
-        int leftmostRowButton = optionsButton.x;
+
+    private static int titleScreenButtonX(Screen screen, ClickableWidget optionsAnchor) {
+        int leftmostRowButton = optionsAnchor.x;
         for (ClickableWidget button : Screens.getButtons(screen)) {
-            if (overlapsRow(button, optionsButton)) {
+            if (overlapsRow(button, optionsAnchor)) {
                 leftmostRowButton = Math.min(leftmostRowButton, button.x);
             }
         }
@@ -78,34 +76,37 @@ public final class UniversalConfigMod implements ClientModInitializer {
                 leftmostRowButton - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
     }
 
-    private static int titleScreenButtonY(MinecraftClient client, Screen screen) {
-        ClickableWidget optionsButton = optionsButton(screen);
-        if (optionsButton != null) {
-            return optionsButton.y + Math.max(0, (optionsButton.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
-        }
-        int screenHeight = screen.height;
-        int systemTextY = screenHeight - TITLE_SCREEN_SYSTEM_TEXT_BOTTOM_OFFSET;
-        int reservedTextHeight = client.textRenderer.fontHeight + TITLE_SCREEN_SYSTEM_TEXT_GAP;
-        return Math.max(
-                TITLE_SCREEN_BUTTON_MARGIN,
-                systemTextY - reservedTextHeight - TITLE_SCREEN_BUTTON_SIZE
-        );
+    private static int titleScreenButtonY(ClickableWidget optionsAnchor) {
+        return optionsAnchor.y
+                + Math.max(0, (optionsAnchor.getHeight() - TITLE_SCREEN_BUTTON_SIZE) / 2);
     }
-
-    private static boolean isOptionsButton(ClickableWidget button) {
-        return button.getMessage().getContent() instanceof TranslatableTextContent content
-                && content.getKey().equals("menu.options");
-    }
-
     private static ClickableWidget optionsButton(Screen screen) {
-        for (ClickableWidget button : Screens.getButtons(screen)) {
-            if (isOptionsButton(button)) {
-                return button;
+        ClickableWidget result = null;
+        for (ClickableWidget candidate : Screens.getButtons(screen)) {
+            if (!(candidate instanceof ButtonWidget)
+                    || candidate.getWidth() <= TITLE_SCREEN_BUTTON_SIZE
+                    || !hasMatchingRowButton(screen, candidate)) {
+                continue;
+            }
+            if (result == null || candidate.x < result.x) {
+                result = candidate;
             }
         }
-        return null;
+        return result;
     }
 
+    private static boolean hasMatchingRowButton(Screen screen, ClickableWidget candidate) {
+        for (ClickableWidget peer : Screens.getButtons(screen)) {
+            if (peer != candidate
+                    && peer.x > candidate.x
+                    && peer.y == candidate.y
+                    && peer.getWidth() == candidate.getWidth()
+                    && peer.getHeight() == candidate.getHeight()) {
+                return true;
+            }
+        }
+        return false;
+    }
     private static boolean overlapsRow(ClickableWidget button, ClickableWidget rowAnchor) {
         return button.y < rowAnchor.y + rowAnchor.getHeight()
                 && button.y + button.getHeight() > rowAnchor.y;
