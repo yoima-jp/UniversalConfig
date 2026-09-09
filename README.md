@@ -8,7 +8,8 @@ Project pages:
 
 ## Current Scope
 
-- Minecraft target for this build: Fabric 1.20.1
+- Fabric branch canonical Minecraft target: `26.2/`
+- Version-specific projects remain under their own directories, including `26.2/`.
 - Internal mod id: `universal_config`
 - Profile extension: `.ucp` as ZIP
 - Backup extension: `.ucbackup` as ZIP
@@ -38,27 +39,29 @@ The core profile logic is separated from Fabric UI code under `com.example.unive
 
 ## Build
 
-Java 17 or newer is required. Use the committed Gradle Wrapper so every developer and CI use the project-defined Gradle version.
+For the Fabric branch's latest supported version, use the `26.2/` project. Minecraft 26.2 requires Java 25. Each Minecraft version keeps its own Gradle Wrapper and build configuration.
 
 ```powershell
+cd 26.2
 .\gradlew.bat build
 ```
 
 On Linux or macOS:
 
 ```bash
+cd 26.2
 ./gradlew build
 ```
 
 The remapped mod jar is generated under:
 
 ```txt
-build/libs/
+26.2/build/libs/
 ```
 
 ## Usage
 
-1. Install the generated jar in a Fabric 1.20.1 client instance.
+1. Install the generated jar in a Fabric 26.2 client instance.
 2. Open Minecraft and use the `Universal Config` button on the title menu, or its configuration button in Mod Menu.
 3. Use the profile list screen to create, inspect, schedule, duplicate, delete, or export profiles.
 4. Review warnings, then choose the next-start import reservation button.
@@ -100,12 +103,14 @@ When changing option validation or a shared file name, update the corresponding 
 ## Verification
 
 ```powershell
+cd 26.2
 .\gradlew.bat check
 ```
 
 To launch the development client on Windows:
 
 ```powershell
+cd 26.2
 .\gradlew.bat runClient
 ```
 
