@@ -1,5 +1,13 @@
 # Universal Config プロジェクト実行ガイド
 
+## Fabricブランチのcanonical構成
+
+- Fabricブランチの最新参照実装は、対応する最新Minecraft版のディレクトリ（現在は `26.2/`）とする。
+- Fabricの開発、仕様確認、CIの基本参照先は `26.2/` とし、リポジトリrootには独立したFabric実装やGradleプロジェクトを置かない。
+- Minecraft version別ディレクトリと、そのディレクトリ内のGradle設定・Wrapperは維持する。共通実装をrootへコピーして再作成しない。
+- 新しいMinecraft versionを追加した場合は、README、CI、JDK要件、canonical参照先を同時に更新する。
+- 古いroot `src/` やroot専用のGradle設定・Wrapperを復活させない。
+
 ## 共有作業環境
 
 - このリポジトリは複数人で共同開発する。個人環境だけで成立する設定、ユーザー名を含む絶対パス、IDE固有の必須設定を追加しない。
