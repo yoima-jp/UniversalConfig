@@ -54,7 +54,7 @@ public final class UniversalConfigMod implements ClientModInitializer {
                     return;
                 }
                 IconButton openButton = new IconButton(
-                        titleScreenButtonX(screen, optionsAnchor),
+                        titleScreenButtonX(optionsAnchor),
                         titleScreenButtonY(optionsAnchor),
                         button -> scheduleScreen(client, new ProfileListScreen(screen)),
                         buttonLabel
@@ -74,15 +74,9 @@ public final class UniversalConfigMod implements ClientModInitializer {
         client.schedule(() -> client.setScreenAndShow(screen));
     }
 
-    private static int titleScreenButtonX(Screen screen, AbstractWidget optionsAnchor) {
-        int leftmostRowButton = optionsAnchor.getX();
-        for (AbstractWidget button : Screens.getWidgets(screen)) {
-            if (overlapsRow(button, optionsAnchor)) {
-                leftmostRowButton = Math.min(leftmostRowButton, button.getX());
-            }
-        }
+    private static int titleScreenButtonX(AbstractWidget optionsAnchor) {
         return Math.max(TITLE_SCREEN_BUTTON_MARGIN,
-                leftmostRowButton - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
+                optionsAnchor.getX() - TITLE_SCREEN_BUTTON_SIZE - TITLE_SCREEN_BUTTON_MARGIN);
     }
 
     private static int titleScreenButtonY(AbstractWidget optionsAnchor) {
@@ -116,11 +110,6 @@ public final class UniversalConfigMod implements ClientModInitializer {
             }
         }
         return false;
-    }
-
-    private static boolean overlapsRow(AbstractWidget button, AbstractWidget rowAnchor) {
-        return button.getY() < rowAnchor.getY() + rowAnchor.getHeight()
-                && button.getY() + button.getHeight() > rowAnchor.getY();
     }
 
     public static Minecraft client() {
