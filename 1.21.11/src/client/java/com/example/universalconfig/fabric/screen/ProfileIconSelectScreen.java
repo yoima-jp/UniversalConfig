@@ -79,6 +79,8 @@ final class ProfileIconSelectScreen extends Screen {
             int y = top + selectedIndex / COLUMNS * (BUTTON_SIZE + BUTTON_GAP);
             context.fill(x, y, x + BUTTON_SIZE, y + 1, 0xFFFFFFFF);
             context.fill(x, y + BUTTON_SIZE - 1, x + BUTTON_SIZE, y + BUTTON_SIZE, 0xFFFFFFFF);
+            context.fill(x, y, x + 1, y + BUTTON_SIZE, 0xFFFFFFFF);
+            context.fill(x + BUTTON_SIZE - 1, y, x + BUTTON_SIZE, y + BUTTON_SIZE, 0xFFFFFFFF);
         }
     }
 

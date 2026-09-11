@@ -79,6 +79,8 @@ final class ProfileIconSelectScreen extends Screen {
             int y = top + selectedIndex / COLUMNS * (BUTTON_SIZE + BUTTON_GAP);
             ScreenUtil.fill(context, x, y, x + BUTTON_SIZE, y + 1, 0xFFFFFFFF);
             ScreenUtil.fill(context, x, y + BUTTON_SIZE - 1, x + BUTTON_SIZE, y + BUTTON_SIZE, 0xFFFFFFFF);
+            ScreenUtil.fill(context, x, y, x + 1, y + BUTTON_SIZE, 0xFFFFFFFF);
+            ScreenUtil.fill(context, x + BUTTON_SIZE - 1, y, x + BUTTON_SIZE, y + BUTTON_SIZE, 0xFFFFFFFF);
         }
     }
 
@@ -101,10 +103,26 @@ final class ProfileIconSelectScreen extends Screen {
 
     private static final class IconButton extends ButtonWidget {
         private final Text narrationLabel;
+        private final int tileX;
+        private final int tileY;
+        private final int tileWidth;
+        private final int tileHeight;
 
         private IconButton(int x, int y, int width, int height, Text narrationLabel, PressAction onPress) {
             super(x, y, width, height, Text.empty(), onPress, DEFAULT_NARRATION_SUPPLIER);
             this.narrationLabel = narrationLabel;
+            this.tileX = x;
+            this.tileY = y;
+            this.tileWidth = width;
+            this.tileHeight = height;
+        }
+
+        @Override
+        public void renderButton(MatrixStack context, int mouseX, int mouseY, float delta) {
+            int borderColor = !active ? 0xFF505050 : (isHovered() ? 0xFFB0B0B0 : 0xFF707070);
+            int backgroundColor = !active ? 0xFF202020 : (isHovered() ? 0xFF505050 : 0xFF303030);
+            ScreenUtil.fill(context, tileX, tileY, tileX + tileWidth, tileY + tileHeight, borderColor);
+            ScreenUtil.fill(context, tileX + 1, tileY + 1, tileX + tileWidth - 1, tileY + tileHeight - 1, backgroundColor);
         }
 
         @Override

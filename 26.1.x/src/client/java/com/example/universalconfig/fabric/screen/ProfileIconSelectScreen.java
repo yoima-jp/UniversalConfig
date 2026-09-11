@@ -77,6 +77,8 @@ final class ProfileIconSelectScreen extends Screen {
             int y = top + selectedIndex / COLUMNS * (BUTTON_SIZE + BUTTON_GAP);
             context.fill(x, y, x + BUTTON_SIZE, y + 1, 0xFFFFFFFF);
             context.fill(x, y + BUTTON_SIZE - 1, x + BUTTON_SIZE, y + BUTTON_SIZE, 0xFFFFFFFF);
+            context.fill(x, y, x + 1, y + BUTTON_SIZE, 0xFFFFFFFF);
+            context.fill(x + BUTTON_SIZE - 1, y, x + BUTTON_SIZE, y + BUTTON_SIZE, 0xFFFFFFFF);
         }
     }
 
@@ -86,10 +88,18 @@ final class ProfileIconSelectScreen extends Screen {
 
     private static final class IconButton extends Button {
         private final Component narrationLabel;
+        private final int tileX;
+        private final int tileY;
+        private final int tileWidth;
+        private final int tileHeight;
 
         private IconButton(int x, int y, int width, int height, Component narrationLabel, OnPress onPress) {
             super(x, y, width, height, Component.empty(), onPress, DEFAULT_NARRATION);
             this.narrationLabel = narrationLabel;
+            this.tileX = x;
+            this.tileY = y;
+            this.tileWidth = width;
+            this.tileHeight = height;
         }
 
         @Override
@@ -100,7 +110,10 @@ final class ProfileIconSelectScreen extends Screen {
         @Override
         protected void extractContents(net.minecraft.client.gui.GuiGraphicsExtractor context,
                                        int mouseX, int mouseY, float delta) {
-            extractDefaultSprite(context);
+            int borderColor = !active ? 0xFF505050 : (isHovered() ? 0xFFB0B0B0 : 0xFF707070);
+            int backgroundColor = !active ? 0xFF202020 : (isHovered() ? 0xFF505050 : 0xFF303030);
+            context.fill(tileX, tileY, tileX + tileWidth, tileY + tileHeight, borderColor);
+            context.fill(tileX + 1, tileY + 1, tileX + tileWidth - 1, tileY + tileHeight - 1, backgroundColor);
         }
     }
 }
