@@ -16,7 +16,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PrismLauncherSupportTest {
     @Test
     void preservesPrismCommandWhenPathsContainSpacesAndJapanese() {
-        Path minecraftDirectory = Paths.get("C:\\Prism Launcher\\instances\\日本語 pack 26.2\\minecraft");
+        Path minecraftDirectory = Paths.get(
+                "prism-fixture",
+                "Prism Launcher",
+                "instances",
+                "日本語 pack 26.2",
+                "minecraft");
         Map<String, String> environment = new HashMap<>();
         environment.put("INST_ID", "日本語 pack 26.2");
         environment.put("INST_DIR", minecraftDirectory.getParent().toString());
@@ -37,7 +42,12 @@ class PrismLauncherSupportTest {
 
     @Test
     void missingPrismAncestorDoesNotProduceAFalseLauncherCommand() {
-        Path minecraftDirectory = Paths.get("C:\\Prism Launcher\\instances\\pack\\minecraft");
+        Path minecraftDirectory = Paths.get(
+                "prism-fixture",
+                "Prism Launcher",
+                "instances",
+                "pack",
+                "minecraft");
         Map<String, String> environment = new HashMap<>();
         environment.put("INST_ID", "pack");
         environment.put("INST_DIR", minecraftDirectory.getParent().toString());
