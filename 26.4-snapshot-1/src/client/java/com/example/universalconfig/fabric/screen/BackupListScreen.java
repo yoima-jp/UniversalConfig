@@ -1,0 +1,141 @@
+package com.example.universalconfig.fabric.screen;
+
+import com.example.universalconfig.core.BackupSummary;
+import com.example.universalconfig.core.UniversalConfigException;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+public final class BackupListScreen extends Screen {
+    private final Screen parent;
+    private List<BackupSummary> backups = new ArrayList<>();
+    private Component status = Component.empty();
+    private final RestoreStatusState restoreStatusState = new RestoreStatusState();
+
+    public BackupListScreen(Screen parent) {
+        super(Component.translatable("screen.universal_config.backup_title"));
+        this.parent = parent;
+    }
+
+    @Override
+    public void onClose() {
+        ScreenUtil.setScreen(minecraft, parent);
+    }
+
+    @Override
+    protected void init() {
+        reload();
+        status = restoreStatusState.consume(status);
+        rebuildButtons();
+    }
+
+    private void reload() {
+        try {
+            backups = ScreenUtil.service().listBackups();
+            status = Component.empty();
+        } catch (UniversalConfigException ex) {
+            backups = List.of();
+            status = ScreenUtil.errorText(ex);
+        }
+    }
+
+    private void rebuildButtons() {
+        clearWidgets();
+        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.refresh"), button -> {
+            reload();
+            rebuildButtons();
+        }).bounds(width - 118, 8, 52, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.back"), button -> ScreenUtil.setScreen(minecraft, parent))
+                .bounds(width - 60, 8, 52, 20).build());
+
+        int y = 42;
+        for (BackupSummary backup : backups) {
+            if (y > height - 28) {
+                break;
+            }
+            if (backup == null || backup.path() == null) continue;
+            Path backupPath = backup.path();
+            addRenderableWidget(Button.builder(Component.translatable("screen.universal_config.restore"), button -> confirmRestore(backupPath))
+                    .bounds(width - 80, y, 60, 20).build());
+            y += 36;
+        }
+    }
+
+    private void confirmRestore(Path backupPath) {
+        ScreenUtil.setScreen(minecraft, new ConfirmScreen(confirmed -> {
+            if (confirmed) {
+                restore(backupPath);
+            } else {
+                ScreenUtil.setScreen(minecraft, this);
+            }
+        }, Component.translatable("screen.universal_config.confirm_restore_title"),
+                Component.translatable("screen.universal_config.confirm_restore_message")));
+    }
+
+    private void restore(Path backupPath) {
+        Component restoreStatus;
+        try {
+            ScreenUtil.service().restore(ScreenUtil.instancePath(), backupPath);
+            ScreenUtil.reloadMinecraftOptionsFromDisk();
+            restoreStatus = Component.translatable("screen.universal_config.backup_restored", backupPath.getFileName());
+        } catch (UniversalConfigException ex) {
+            restoreStatus = ScreenUtil.errorText(ex);
+        }
+        status = restoreStatus;
+        // setScreen reinitializes this screen and reload() normally clears status; carry this result across init.
+        restoreStatusState.retain(restoreStatus);
+        ScreenUtil.setScreen(minecraft, this);
+        rebuildButtons();
+    }
+
+    @Override
+    public void extractRenderState(GuiGraphicsExtractor context, int mouseX, int mouseY, float delta) {
+        ScreenUtil.renderOpaqueBackground(context);
+        context.centeredText(font, title, width / 2, 14, 0xFFFFFFFF);
+        context.text(font, status, 12, 28, 0xFFFFCC66);
+        int y = 44;
+        if (backups.isEmpty()) {
+            context.text(font, Component.translatable("screen.universal_config.backup_empty"), 12, y, 0xFFDDDDDD);
+        }
+        for (BackupSummary backup : backups) {
+            if (y > height - 28) {
+                break;
+            }
+            if (backup == null || backup.path() == null) continue;
+            String created = backup.manifest() == null || backup.manifest().createdAt == null
+                    ? Component.translatable("screen.universal_config.date_unknown").getString()
+                    : backup.manifest().createdAt;
+            context.text(font, created + "  " + backup.path().getFileName(), 12, y, 0xFFFFFFFF);
+            if (backup.manifest() != null) {
+                context.text(font, Component.translatable("screen.universal_config.backup_details",
+                        backup.manifest().minecraftVersion, backup.manifest().loader,
+                        backup.manifest().files == null ? 0 : backup.manifest().files.size()), 12, y + 12, 0xFFBBBBBB);
+            }
+            y += 36;
+        }
+        super.extractRenderState(context, mouseX, mouseY, delta);
+    }
+
+    static final class RestoreStatusState {
+        private Component pending;
+
+        void retain(Component value) {
+            pending = value;
+        }
+
+        Component consume(Component reloadedStatus) {
+            if (pending == null) {
+                return reloadedStatus;
+            }
+            Component result = pending;
+            pending = null;
+            return result;
+        }
+    }
+}
