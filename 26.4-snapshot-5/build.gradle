@@ -1,0 +1,95 @@
+plugins {
+    id "net.fabricmc.fabric-loom" version "${loom_version}"
+    id "maven-publish"
+}
+
+// mcバージョンを自動挿入: gradle.propertiesの mod_version + minecraft_version
+version = "${project.mod_version}-mc${project.minecraft_version}"
+group = project.maven_group
+def resourceVersion = version.toString()
+
+repositories {
+    maven {
+        name = "Terraformers"
+        url = "https://maven.terraformersmc.com/releases/"
+    }
+}
+
+base {
+    archivesName = project.archives_base_name
+}
+
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        universal_config {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    implementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+    implementation "com.google.code.gson:gson:${project.gson_version}"
+    include "com.google.code.gson:gson:${project.gson_version}"
+    testImplementation "org.junit.jupiter:junit-jupiter:${project.junit_jupiter_version}"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:${project.junit_platform_version}"
+}
+
+processResources {
+    inputs.property "version", resourceVersion
+
+    from("NOTICE") {
+        into("META-INF")
+    }
+    from("licenses") {
+        into("META-INF/licenses")
+    }
+
+    filesMatching("fabric.mod.json") {
+        expand "version": resourceVersion
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 25
+    it.options.encoding = "UTF-8"
+}
+
+test {
+    useJUnitPlatform()
+    // Unit tests use Gradle's testRuntimeClasspath; Loom's Fabric classpath
+    // grouping is for game launch tasks and cannot resolve test output here.
+    doFirst {
+        systemProperties.remove("fabric.classPathGroups")
+    }
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.named("sourcesJar") {
+    from("NOTICE") {
+        into("META-INF")
+    }
+    from("licenses") {
+        into("META-INF/licenses")
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+}
